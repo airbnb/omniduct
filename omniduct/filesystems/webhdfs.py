@@ -91,7 +91,7 @@ class WebHdfsClient(FileSystemClient):
             'group',
             'length',
             'replication',
-            ]].sort_values(['type', 'pathSuffix']).reset_index(drop=True)
+        ]].sort_values(['type', 'pathSuffix']).reset_index(drop=True)
 
     # File opening
 

@@ -60,7 +60,6 @@ class FileSystemClient(Duct, MagicsProvider):
     def _showdir(self, path):
         raise NotImplementedError
 
-
     # Directory handling
 
     def mkdir(self, path, parents=True):

@@ -86,6 +86,7 @@ class PrestoClient(DatabaseClient):
                                                                                                min(linenumber + 2, len(splt)))]))
 
                 class ErrContext(object):
+
                     def __repr__(self):
                         return context
 
@@ -130,6 +131,7 @@ class PrestoClient(DatabaseClient):
     @property
     def schemas(self):
         from werkzeug import LocalProxy
+
         def get_schemas():
             if not getattr(self, '_schemas', None):
                 self.connect()

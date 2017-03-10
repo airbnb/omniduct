@@ -35,9 +35,9 @@ class PortForwardingRegister(object):
         return self._register.get('{}:{}'.format(remote_host, remote_port))
 
     def lookup_port(self, remote_host, remote_port):
-        l = self.lookup(remote_host, remote_port)
-        if l is not None:
-            return l[0]
+        entry = self.lookup(remote_host, remote_port)
+        if entry is not None:
+            return entry[0]
 
     def reverse_lookup(self, local_port):
         for key, (port, connection) in self._register.items():
