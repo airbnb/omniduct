@@ -290,4 +290,5 @@ class Configuration(ConfigurationRegistry):
                 else:
                     self.reset(*keys, **config)
 
+
 config = Configuration()

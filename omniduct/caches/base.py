@@ -30,7 +30,7 @@ def cached_method(id_str,
         _id_str = id_str(self, kwargs)
         _renew = renew(self, kwargs)
 
-        if _renew or not _cache.has_key(_id_duct, _id_str):
+        if _renew or not _cache.has_key(_id_duct, _id_str):  # noqa: has_key is not of a dictionary here
             value = method(self, **kwargs)
             _cache.set(
                 id_duct=_id_duct,

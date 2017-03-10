@@ -40,6 +40,7 @@ def get_columns(self, connection, table_name, schema=None, **kw):
         })
     return result
 
+
 PrestoDialect.get_columns = get_columns
 
 
@@ -55,6 +56,7 @@ class TableDesc(Table):
 
 # Define helpers to allow for table completion/etc
 class Schemas(object):
+
     def __init__(self, metadata):
         self._metadata = metadata
         self._schema_names = inspect(self._metadata.bind).get_schema_names()
@@ -85,6 +87,7 @@ class Schemas(object):
 
 
 class Schema(object):
+
     def __init__(self, metadata, schema):
         self._metadata = metadata
         self._schema = schema

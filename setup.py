@@ -25,6 +25,6 @@ setup(
     packages=find_packages(),
 
     # Dependencies
-    install_requires = version_info['__dependencies__'],
-    extras_require = version_info['__optional_dependencies__']
+    install_requires=version_info['__dependencies__'],
+    extras_require=version_info['__optional_dependencies__']
 )

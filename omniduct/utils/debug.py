@@ -141,8 +141,7 @@ class StatusLogger(object):
                 context = inspect.getmodule(caller.frame).__name__
             except:
                 context = 'omniduct'
-        l = logging.getLogger(context)
-        return l
+        return logging.getLogger(context)
 
     def __getattr__(self, name):
         '''
@@ -230,6 +229,8 @@ def logging_scope(name, *wargs, **wkwargs):
 # HACK: remove newline after progress bars by patching progressbar2 library
 def new_finish(self, *args, **kwargs):  # pragma: no cover
     progressbar.bar.ProgressBarMixinBase.finish(self, *args, **kwargs)
+
+
 progressbar.bar.DefaultFdMixin.finish = new_finish
 
 logger = StatusLogger()
