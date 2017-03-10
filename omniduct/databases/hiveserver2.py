@@ -34,6 +34,13 @@ class HiveServer2Client(DatabaseClient):
                                            database=self.schema,
                                            auth_mechanism='NOSASL')
 
+    def __hive_cursor(self):
+        # If the hive client connection has previously been cancelled, then it appears to shut down. To remedy this, we
+        # insist upon a reconnection every time a new cursor is requested.
+        self.__hive.close()
+        self.__hive.reconnect()
+        return self.__hive.cursor()
+
     def _is_connected(self):
         try:
             if self.remote and not self.remote.is_connected():
@@ -57,7 +64,7 @@ class HiveServer2Client(DatabaseClient):
         poll_interval : int, optional
             Default delay in polling for query status
         """
-        cursor = cursor or self.__hive.cursor()
+        cursor = cursor or self.__hive_cursor()
         cursor.execute_async(statement)
         if wait:
             while cursor.is_executing():
