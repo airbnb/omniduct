@@ -122,8 +122,8 @@ class FileSystemFile(object):
             self.__io_buffer = io.StringIO()
 
         if 'w' not in self.mode:
-            self.__io_buffer.write(self.fs._file_read(self.path))
-            if 'a' not in self.mode:
+            self.__io_buffer.write(self.fs._file_read(self.path, binary=self.binary_mode))
+            if not self.appending:
                 self.__io_buffer.seek(0)
 
     @property
@@ -132,10 +132,13 @@ class FileSystemFile(object):
 
     @mode.setter
     def mode(self, mode):
-        assert len(set(mode)) == len(mode)
-        assert sum(l in mode for l in ['r', 'w', 'a', '+', 't', 'b']) == len(mode)
-        assert sum(l in mode for l in ['r', 'w', 'a']) == 1
-        assert sum(l in mode for l in ['t', 'b']) < 2
+        try:
+            assert len(set(mode)) == len(mode)
+            assert sum(l in mode for l in ['r', 'w', 'a', '+', 't', 'b']) == len(mode)
+            assert sum(l in mode for l in ['r', 'w', 'a']) == 1
+            assert sum(l in mode for l in ['t', 'b']) < 2
+        except AssertionError:
+            raise ValueError("invalid mode: '{}'".format(mode))
         self.__mode = mode
 
     @property
@@ -167,27 +170,31 @@ class FileSystemFile(object):
     def flush(self):
         if not self.writeable or not self.__modified:
             return
-        # For the time being, just write out entire buffer. We can consider something cleverer later
-        offset = self.tell()
 
-        self.seek(0)
-        self.fs._file_write(self.path, self.read())
+        # For the time being, just write out entire buffer. We can consider something cleverer later.
+        offset = self.__io_buffer.tell()
+        self.__io_buffer.seek(0)
+        self.fs._file_write(self.path, self.__io_buffer.read())
+        self.__io_buffer.seek(offset)
 
-        self.seek(offset)
+        self.__modified = False
 
     def isatty(self):
         return self.__io_buffer.isatty()
 
     def read(self, size=-1):
-        assert self.readable
+        if not self.readable:
+            raise io.UnsupportedOperation("File not open for reading")
         return self.__io_buffer.read(size)
 
     def readline(self, size=-1):
-        assert self.readable
+        if not self.readable:
+            raise io.UnsupportedOperation("File not open for reading")
         return self.__io_buffer.readline(size)
 
     def readlines(self, hint=-1):
-        assert self.readable
+        if not self.readable:
+            raise io.UnsupportedOperation("File not open for reading")
         return self.__io_buffer.readlines(hint)
 
     def seek(self, pos, whence=0):
@@ -197,6 +204,7 @@ class FileSystemFile(object):
         return self.__io_buffer.tell()
 
     def write(self, s):
-        assert self.writeable
+        if not self.readable:
+            raise io.UnsupportedOperation("File not open for writing")
         self.__io_buffer.write(s)
         self.__modified = True
