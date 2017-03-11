@@ -190,10 +190,6 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
                 raise DuctServerUnreachable(
                     "Cannot connect to '{}:{}' on your current connection. Please check your connection before trying again.".format(
                         self.host, self.port))
-            else:
-                raise DuctConnectionError("Some odd error occurred while trying to port forward '{}:{}' locally. Please report this!".format(
-                    self.host, self.port
-                ))
 
     # Connection
     @logging_scope("Connecting")

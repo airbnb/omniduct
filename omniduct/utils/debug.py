@@ -179,12 +179,14 @@ class LoggingHandler(logging.Handler):
                             truncate=False)
         else:
             prefix = ""
-            if len(logger.current_scopes) > 0:
-                prefix = ": ".join(logger.current_scopes) + ": "
-                logger.current_scope_props['has_logged'] = True
             important = (record.levelno >= logging.WARNING or
                          logger._progress_bar is not None or
                          len(logger.current_scopes) == 0)
+
+            if len(logger.current_scopes) > 0:
+                prefix = ": ".join(logger.current_scopes) + ": "
+                logger.current_scope_props['has_logged'] = True
+
             self._overwrite(prefix + self.format_simple(record),
                             overwritable=not important,
                             truncate=not important
