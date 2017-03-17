@@ -34,7 +34,7 @@ class StatusLogger(object):
     include it in the log messages.
     '''
 
-    def __init__(self):
+    def __init__(self, auto_scoping=False):
         self.__scopes = []
 
         ch = LoggingHandler()
@@ -158,6 +158,24 @@ class StatusLogger(object):
         '''
         self.__get_logger_instance(context).setLevel(level)
 
+def check_scope():
+    #print(inspect.getouterframes(inspect.currentframe()))
+    scopes = []
+    # current_frame = inspect.currentframe()
+    # cur_ref = None
+    # while current_frame is not None:
+    #     print(inspect.getframeinfo(current_frame).function)
+    #     if inspect.getframeinfo(current_frame).function == 'logging_scope':
+    #         return 'scoped'
+    #     argvalues = inspect.getargvalues(current_frame)
+    #     if 'self' in argvalues.args and getattr(argvalues.locals['self'].__class__, 'AUTO_LOGGING_SCOPE', False):
+    #         if cur_ref != argvalues.locals['self']:
+    #             cur_ref = argvalues.locals['self']
+    #             scopes.append("{}:{}".format(cur_ref.__class__.__name__, cur_ref.name))
+    #         #return argvalues.locals['self'].__class__.__name__
+    #     current_frame = current_frame.f_back
+    return scopes
+
 
 class LoggingHandler(logging.Handler):
     '''
@@ -172,6 +190,9 @@ class LoggingHandler(logging.Handler):
         return "{}: {}".format(record.levelname, record.getMessage())
 
     def handle(self, record):
+        # t = time.time()
+        # print(check_scope())
+        # print(time.time() - t)
         if config.logging_level < logging.INFO:  # Print everything verbosely
             prefix = '\t' * len(logger.current_scopes)
             self._overwrite(prefix + self.format(record),

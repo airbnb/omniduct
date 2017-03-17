@@ -7,10 +7,12 @@ from omniduct.utils.debug import logger
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
+    from subprocess32 import TimeoutExpired
 else:
     import subprocess
+    from subprocess import TimeoutExpired
 
-__all__ = ['run_in_subprocess']
+__all__ = ['run_in_subprocess', 'TimeoutExpired', 'Timeout', 'TimeoutError']
 
 DEFAULT_SUBPROCESS_CONFIG = {
     'shell': True,
@@ -66,3 +68,24 @@ def run_in_subprocess(cmd, check_output=False, ** kwargs):
         output, unused_err = process.communicate()
         raise subprocess.TimeoutExpired(process.args, timeout, output=output)
     return SubprocessResults(returncode=process.returncode, stdout=stdout or '', stderr=stderr or '')
+
+
+class TimeoutError(Exception):
+    pass
+
+
+class Timeout(object):
+
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)

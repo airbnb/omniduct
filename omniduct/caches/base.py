@@ -1,7 +1,9 @@
 import inspect
 import pickle
+import sys
 from abc import abstractmethod
 
+import six
 from decorator import decorator
 
 from omniduct.duct import Duct
@@ -18,7 +20,11 @@ def cached_method(id_str,
                   decoder=pickle.loads):
     @decorator
     def wrapped(method, self, *args, **kwargs):
-        kwargs.update(dict(zip(list(inspect.signature(method).parameters.keys())[1:], args)))
+        if six.PY3 and not hasattr(sys, 'pypy_version_info'):
+            arguments = inspect.signature(method).parameters.keys()
+        else:
+            arguments = inspect.getargspec(method).args
+        kwargs.update(dict(zip(list(arguments)[1:], args)))
 
         _cache = cache(self)
         _use_cache = use_cache(self, kwargs)

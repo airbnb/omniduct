@@ -11,7 +11,7 @@ from jinja2 import Template
 
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
-from omniduct.utils.processes import run_in_subprocess
+from omniduct.utils.processes import run_in_subprocess, Timeout
 
 from .base import DatabaseClient
 
@@ -28,26 +28,23 @@ class HiveServer2Client(DatabaseClient):
 
     def _connect(self):
         import impala.dbapi  # Imported here due to slow import performance in Python 3
-        logger.info('Connecting to Hive coordinator...')
         self.__hive = impala.dbapi.connect(host=self.host,
                                            port=self.port,
+                                           timeout=None,
                                            database=self.schema,
                                            auth_mechanism='NOSASL')
 
     def __hive_cursor(self):
-        # If the hive client connection has previously been cancelled, then it appears to shut down. To remedy this, we
-        # insist upon a reconnection every time a new cursor is requested.
-        self.__hive.close()
         self.__hive.reconnect()
-        return self.__hive.cursor()
+        try:
+            with Timeout(1):
+                return self.__hive.cursor()
+        except:
+            self._connect()
+            return self.__hive.cursor()
 
     def _is_connected(self):
-        try:
-            if self.remote and not self.remote.is_connected():
-                return False
-            return self.__hive is not None
-        except:
-            return False
+        return self.__hive is not None
 
     def _disconnect(self):
         logger.info('Disconnecting from Hive coordinator...')

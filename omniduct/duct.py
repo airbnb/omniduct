@@ -45,6 +45,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         DATABASE = 'databases'
         CACHE = 'caches'
 
+    AUTO_LOGGING_SCOPE = True
     DUCT_TYPE = None
     PROTOCOLS = None
 
