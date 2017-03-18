@@ -21,27 +21,40 @@ class HiveServer2Client(DatabaseClient):
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
 
-    def _init(self, schema=None):
+    def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL', **connection_options):
         self.schema = schema
+        self.driver = driver
+        self.auth_mechanism = auth_mechanism
+        self.connection_options = connection_options
         self.__hive = None
         self.connection_fields += ('schema',)
 
+        assert self.driver in ('pyhive', 'impyla'), "Supported drivers are pyhive and impyla."
+
     def _connect(self):
-        import impala.dbapi  # Imported here due to slow import performance in Python 3
-        self.__hive = impala.dbapi.connect(host=self.host,
-                                           port=self.port,
-                                           timeout=None,
-                                           database=self.schema,
-                                           auth_mechanism='NOSASL')
+        if self.driver == 'pyhive':
+            import pyhive.hive
+            self.__hive = pyhive.hive.connect(host=self.host,
+                                              port=self.port,
+                                              auth=self.auth_mechanism,
+                                              database=self.schema,
+                                              **self.connection_options)
+        elif self.driver == 'impyla':
+            import impala.dbapi
+            self.__hive = impala.dbapi.connect(host=self.host,
+                                               port=self.port,
+                                               auth_mechanism=self.auth_mechanism,
+                                               database=self.schema,
+                                               **self.connection_options)
 
     def __hive_cursor(self):
-        self.__hive.reconnect()
-        try:
-            with Timeout(1):
-                return self.__hive.cursor()
-        except:
-            self._connect()
-            return self.__hive.cursor()
+        if self.driver == 'impyla':  # Impyla seems to have all manner of connection issues, attempt to restore connection
+            try:
+                with Timeout(1):
+                    return self.__hive.cursor()
+            except:
+                self._connect()
+        return self.__hive.cursor()
 
     def _is_connected(self):
         return self.__hive is not None
@@ -62,25 +75,50 @@ class HiveServer2Client(DatabaseClient):
             Default delay in polling for query status
         """
         cursor = cursor or self.__hive_cursor()
-        cursor.execute_async(statement)
-        if wait:
-            while cursor.is_executing():
-                self._log_status(cursor)
-                time.sleep(poll_interval)
+        log_offset = 0
+
+        if self.driver == 'pyhive':
+            from TCLIService.ttypes import TOperationState
+            cursor.execute(statement, async=True)
+
+            if wait:
+                status = cursor.poll().operationState
+                while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
+                    log_offset = self._log_status(cursor, log_offset)
+                    time.sleep(poll_interval)
+                    status = cursor.poll().operationState
+
+        elif self.driver == 'impyla':
+            cursor.execute_async(statement)
+            if wait:
+                while cursor.is_executing():
+                    log_offset = self._log_status(cursor, log_offset)
+                    time.sleep(poll_interval)
+
         return cursor
 
     def _cursor_empty(self, cursor):
-        return not cursor.has_result_set
+        if self.driver == 'impyla':
+            return not cursor.has_result_set
+        return False
 
-    def _log_status(self, cursor):
-        log = cursor.get_log().split('\n')
-        for line in log:
-            if config.logging_level >= logging.INFO:
-                m = re.match('[0-9/]+ [0-9\:]+ INFO exec.Task: [0-9\-]+ [0-9\:\,]+ (.*)$', line)
-            else:
-                m = re.match('[0-9/]+ [0-9\:]+ (.*)$', line)
-            if m is not None:
-                logger.info("{}: {}".format(cursor.status(), m.groups()[0]))
+    def _log_status(self, cursor, log_offset=0):
+        matcher = re.compile('[0-9/]+ [0-9\:]+ (INFO )?')
+
+        if self.driver == 'pyhive':
+            log = cursor.fetch_logs()
+        else:
+            log = cursor.get_log().strip().split('\n')
+
+        for line in log[log_offset:]:
+            if not line:
+                continue
+            m = matcher.match(line)
+            if m:
+                line = line[len(m.group(0)):]
+            logger.info(line)
+
+        return len(log)
 
     def _push(self, df, table, partition_clause='', overwrite=False, schema='omniduct', sep='\t'):
         """

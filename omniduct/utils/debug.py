@@ -158,8 +158,9 @@ class StatusLogger(object):
         '''
         self.__get_logger_instance(context).setLevel(level)
 
+
 def check_scope():
-    #print(inspect.getouterframes(inspect.currentframe()))
+    # print(inspect.getouterframes(inspect.currentframe()))
     scopes = []
     # current_frame = inspect.currentframe()
     # cur_ref = None

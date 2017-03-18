@@ -32,6 +32,7 @@ if os.name == 'posix' and sys.version_info[0] < 3:
 __optional_dependencies__ = {
     # Databases
     'hiveserver2': [
+        'pyhive',  # Primary client
         'impyla>=0.14.0',  # Primary client
     ],
 
