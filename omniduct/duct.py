@@ -69,6 +69,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         atexit.register(self.disconnect)
         self.__prepared = False
         self.__getting = False
+        self.__disconnecting = False
 
     def __init_with_kwargs__(self, kwargs, **fallbacks):
         keys = inspect.getargspec(Duct.__init__).args[1:]
@@ -88,12 +89,16 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         try:
             if (not object.__getattribute__(self, '_Duct__prepared')
                     and not object.__getattribute__(self, '_Duct__getting')
+                    and not object.__getattribute__(self, '_Duct__disconnecting')
                     and key in object.__getattribute__(self, 'connection_fields')):
                 object.__setattr__(self, '_Duct__getting', True)
                 object.__getattribute__(self, 'prepare')()
                 object.__setattr__(self, '_Duct__getting', False)
         except AttributeError:
             pass
+        except Exception as e:
+            object.__setattr__(self, '_Duct__getting', False)
+            raise_with_traceback(e)
         return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
@@ -104,7 +109,6 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
                     and self.is_connected()):
                 logger.warn('Disconnecting prior to changing field that connection is based on: {}.'.format(key))
                 self.disconnect()
-                print("SETTING FALSE")
                 self.__prepared = False
         except AttributeError:
             pass
@@ -147,11 +151,11 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @property
     def username(self):
-        if self._username == True:
+        if self._username is True:
             if 'username' not in self.__cached_auth:
                 self.__cached_auth['username'] = input("Enter username for '{}':".format(self.name))
             return self.__cached_auth['username']
-        elif self._username == False:
+        elif self._username is False:
             return None
         elif not self._username:
             try:
@@ -167,11 +171,11 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @property
     def password(self):
-        if self._password == True:
+        if self._password is True:
             if 'password' not in self.__cached_auth:
                 self.__cached_auth['password'] = getpass.getpass("Enter password for '{}':".format(self.name))
             return self.__cached_auth['password']
-        elif self._password == False:
+        elif self._password is False:
             return None
         return self._password
 
@@ -202,6 +206,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         NOTE: It is not normally necessary for a user to manually call this function,
         since when a connection is required, it is automatically made.
         """
+        self.__assert_server_reachable()
         if not self.is_connected():
             try:
                 self._connect()
@@ -215,21 +220,32 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         Return `True` if the filesystem client is connected to the data source, and
         `False` otherwise.
         """
-        self.__assert_server_reachable()
-        if self.remote and not is_port_bound(self.host, self.port):
+        if not self.__prepared:
+            return False
+
+        if self.remote and self.remote.has_port_forward(self._host, self._port) and not is_port_bound(self.host, self.port):
             self.disconnect()
             return False
+
         return self._is_connected()
 
     def disconnect(self):
         """
         Disconnects this client
         """
-        self._disconnect()
+        if not self.__prepared:
+            return
 
-        if self.remote:
-            logger.info('Freeing up local port {0}...'.format(self.port))
-            self.remote.port_forward_stop(local_port=self.port)
+        self.__disconnecting = True
+
+        try:
+            self._disconnect()
+
+            if self.remote and self.remote.has_port_forward(self._host, self._port):
+                logger.info('Freeing up local port {0}...'.format(self.port))
+                self.remote.port_forward_stop(local_port=self.port)
+        finally:
+            self.__disconnecting = False
 
     def reconnect(self):
         """

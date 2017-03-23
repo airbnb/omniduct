@@ -250,6 +250,17 @@ class RemoteClient(Duct):
 
         return local_port
 
+    def has_port_forward(self, remote_host=None, remote_port=None, local_port=None):
+        # Hostname and port extraction
+        remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
+
+        assert remote_host is not None and remote_port is not None or local_port is not None, "Either remote host and port must be specified, or the local port must be specified."
+
+        if remote_host is not None and remote_port is not None:
+            return self.__port_forwarding_register.lookup(remote_host, remote_port) is not None
+        else:
+            return self.__port_forwarding_register.reverse_lookup(local_port) is not None
+
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
         # Hostname and port extraction
         remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
