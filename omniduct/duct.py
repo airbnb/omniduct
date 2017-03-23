@@ -223,9 +223,12 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         if not self.__prepared:
             return False
 
-        if self.remote and self.remote.has_port_forward(self._host, self._port) and not is_port_bound(self.host, self.port):
-            self.disconnect()
-            return False
+        if self.remote:
+            if not self.remote.has_port_forward(self._host, self._port):
+                return False
+            elif not is_port_bound(self.host, self.port):
+                self.disconnect()
+                return False
 
         return self._is_connected()
 
