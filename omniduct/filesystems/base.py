@@ -94,15 +94,25 @@ class FileSystemClient(Duct, MagicsProvider):
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic
 
-        @register_cell_magic(base_name)
+        @register_line_magic("{}.listdir".format(base_name))
         @process_line_arguments
-        def test(cell, path):
-            return self._file_write(path, cell)
+        def listdir(path=''):
+            return self.listdir(path)
 
-        @register_line_magic(base_name)
+        @register_line_magic("{}.showdir".format(base_name))
         @process_line_arguments
-        def test(path):
+        def showdir(path=''):
+            return self.showdir(path)
+
+        @register_line_magic("{}.read".format(base_name))
+        @process_line_arguments
+        def read_file(path):
             return self._file_read(path)
+
+        @register_cell_magic("{}.write".format(base_name))
+        @process_line_arguments
+        def write_file(cell, path):
+            return self._file_write(path, cell)
 
 
 # TODO: properly implement file modes and raise correct errors (consistent with other file types)
