@@ -4,6 +4,8 @@ import pickle
 import shutil
 import sys
 
+import six
+
 from ..utils.storage import ensure_path_exists
 from .base import Cache
 
@@ -32,7 +34,7 @@ class LocalCache(Cache):
 
     def get_path(self, id_duct, id_str, create=False):
         hash = self.get_hash(id_str)
-        if isinstance(id_duct, str):
+        if isinstance(id_duct, six.string_types):
             id_duct = id_duct.split('.')
         path = os.path.join(os.path.join(self.dir, *id_duct), hash)
         if create:

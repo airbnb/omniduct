@@ -5,6 +5,7 @@ import re
 import sys
 
 import pandas.io.sql
+import six
 from future.utils import raise_with_traceback
 
 from omniduct.utils.debug import logger
@@ -76,7 +77,7 @@ class PrestoClient(DatabaseClient):
 
             try:
                 message = e.args[0]
-                if isinstance(message, str):
+                if isinstance(message, six.string_types):
                     message = ast.literal_eval(re.match("[^{]*({.*})[^}]*$", e.message).group(1))
 
                 linenumber = message['errorLocation']['lineNumber'] - 1

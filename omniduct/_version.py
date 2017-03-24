@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 __all__ = ['__author__', '__author_email__', '__version__']
 
 __author__ = "Matthew Wardrop, Dan Frank"

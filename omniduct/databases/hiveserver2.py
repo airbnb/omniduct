@@ -11,7 +11,7 @@ from jinja2 import Template
 
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
-from omniduct.utils.processes import run_in_subprocess, Timeout
+from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
 

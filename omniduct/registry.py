@@ -1,3 +1,4 @@
+import six
 import yaml
 
 from omniduct.duct import Duct
@@ -29,7 +30,7 @@ class DuctRegistry(object):
 
     # Duct creation/loading methods
     def new(self, names, protocol, register_magics=True, **options):
-        if isinstance(names, str):
+        if isinstance(names, six.string_types):
             names = names.split(',')
         duct = Duct.for_protocol(protocol)(name=names[0], registry=self, **options)
         for name in names:
@@ -50,11 +51,11 @@ class DuctRegistry(object):
         return self
 
     def _process_config(self, config):
-        if isinstance(config, str):
+        if isinstance(config, six.string_types):
             try:
                 config = yaml.load(config)
             except:
-                with open(str) as f:
+                with open(config) as f:
                     if config.endswith('.py'):
                         namespace = {}
                         exec(f.read(), namespace)

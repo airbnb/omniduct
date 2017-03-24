@@ -14,6 +14,7 @@ import re
 import types
 from abc import abstractmethod
 
+import six
 from future.standard_library import hooks
 from future.utils import raise_with_traceback
 
@@ -203,7 +204,7 @@ class RemoteClient(Duct):
     # Port forwarding code
 
     def __extract_host_and_ports(self, remote_host, remote_port, local_port):
-        assert remote_host is None or isinstance(remote_host, str), "Remote host, if specified, must be a string of form 'hostname(:port)'."
+        assert remote_host is None or isinstance(remote_host, six.string_types), "Remote host, if specified, must be a string of form 'hostname(:port)'."
         assert remote_port is None or isinstance(remote_port, int), "Remote port, if specified, must be an integer."
         assert local_port is None or isinstance(local_port, int), "Local port, if specified, must be an integer."
 

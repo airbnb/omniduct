@@ -4,11 +4,11 @@ import getpass
 import inspect
 import os
 import pwd
-import types
 from abc import ABCMeta, abstractmethod
 from builtins import input
 from enum import Enum
 
+import six
 from future.utils import raise_with_traceback, with_metaclass
 
 from omniduct.errors import DuctConnectionError, DuctServerUnreachable
@@ -120,9 +120,9 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             self.__prepared = True
 
     def _prepare(self):
-        if self.remote and isinstance(self.remote, str):
+        if self.remote and isinstance(self.remote, six.string_types):
             self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
-        if self.cache and isinstance(self.cache, str):
+        if self.cache and isinstance(self.cache, six.string_types):
             self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
         for field in self.prepared_fields:
             value = getattr(self, field)
@@ -206,6 +206,10 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         NOTE: It is not normally necessary for a user to manually call this function,
         since when a connection is required, it is automatically made.
         """
+        if self.remote:
+            logger.info("Connecting to {}:{} on {}.".format(self._host, self._port, self.remote.host))
+        else:
+            logger.info("Connecting to {}:{}.".format(self.host, self.port))
         self.__assert_server_reachable()
         if not self.is_connected():
             try:
@@ -213,6 +217,10 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             except Exception as e:
                 self.reset()
                 raise_with_traceback(e)
+        if self.remote:
+            logger.info("Connected to {}:{} on {}.".format(self._host, self._port, self.remote.host))
+        else:
+            logger.info("Connected to {}:{}.".format(self.host, self.port))
         return self
 
     def is_connected(self):

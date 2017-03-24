@@ -102,13 +102,10 @@ class SSHClient(RemoteClient):
         assert self.is_connected(), 'Unexpected failure to establish a connection with the remote host with command: \n ' \
                                     '{}\n\n Please report this!'.format(cmd)
 
-        logger.info('Connected')
-
     def _is_connected(self):
         """
         Return whether SSHClient is connected by checking the control socket.
         """
-        logger.info('Checking control socket...')
         cmd = "ssh {login} -T -S {socket} -O check".format(login=self._login_info,
                                                            socket=self._socket_path)
         proc = run_in_subprocess(cmd)
@@ -119,7 +116,6 @@ class SSHClient(RemoteClient):
         Exit persistent connection to remote host.
         """
         # Send exit request to control socket.
-        logger.info('Disconnecting...')
         cmd = "ssh {login} -T -S {socket} -O exit".format(login=self._login_info,
                                                           socket=self._socket_path)
         proc = run_in_subprocess(cmd)
@@ -142,7 +138,6 @@ class SSHClient(RemoteClient):
         proc : Popen subprocess
             Subprocess used to run remote command.
         """
-        logger.info('Sending command...')
         template = 'ssh {login} -T -o ControlPath={socket} << EOF\n{cmd}\nEOF'
         config = dict(self._subprocess_config)
         config.update(kwargs)

@@ -1,9 +1,10 @@
 import logging
 
 import pandas as pd
-from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import (ARRAY, Boolean, Column, Float, Integer, MetaData,
                         String, Table, inspect, types)
+
+from pyhive.sqlalchemy_presto import PrestoDialect
 
 logger = logging.getLogger(__name__)
 

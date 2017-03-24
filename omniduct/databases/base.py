@@ -8,6 +8,7 @@ from abc import abstractmethod
 
 import pandas as pd
 import pandas.io.sql
+import six
 import sqlparse
 from decorator import decorator
 from jinja2 import Template
@@ -181,7 +182,7 @@ class DatabaseClient(Duct, MagicsProvider):
             sep = '","'
             pre = '"'
             post = '"\n'
-        if isinstance(file, str):
+        if isinstance(file, six.string_types):
             file = open(file, 'w')
         while record is not None:
             file.write(pre + sep.join([str(v).replace('"', '\"') for v in record]) + post)

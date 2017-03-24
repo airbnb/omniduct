@@ -7,6 +7,7 @@ import time
 import types
 
 import progressbar
+import six
 from decorator import decorate
 from future.utils import raise_with_traceback
 
@@ -50,7 +51,7 @@ class StatusLogger(object):
 
     def _scope_enter(self, name, timed=False, extra=None):
         if config.logging_level < logging.INFO:
-            print("\t" * len(self.__scopes) + "Entering scope: {}".format(name), file=sys.stderr)
+            print("\t" * len(self.__scopes) + "Entering manual scope: {}".format(name), file=sys.stderr)
         props = {'name': name}
         if timed:
             props['time'] = time.time()
@@ -64,17 +65,18 @@ class StatusLogger(object):
             self.progress(100, complete=True)
         props = self.__scopes[-1]
         if 'time' in props:
-            logger.info(
-                "{} {} on {}.".format('Completed in' if success else 'Failed after', self.__get_time(time.time() - props['time']), time.strftime('%Y-%m-%d')) +
-                (' CAVEATS: {}.'.format('; '.join(props['caveats'])) if props['caveats'] else '')
+            logger.warning(
+                "{} after {} on {}.".format(
+                    'Complete' if success else 'Failed',
+                    self.__get_time(time.time() - props['time']),
+                    time.strftime('%Y-%m-%d')
+                ) + (' CAVEATS: {}.'.format('; '.join(props['caveats'])) if props['caveats'] else '')
             )
         scope = self.__scopes.pop()
         if config.logging_level < logging.INFO:
-            print("\t" * len(self.__scopes) + "Exited scope: {}".format(scope['name']), file=sys.stderr)
+            print("\t" * len(self.__scopes) + "Exited manual scope: {}".format(scope['name']), file=sys.stderr)
         elif 'has_logged' in scope:
-            if len(self.current_scopes) == 0:
-                print("\n", file=sys.stderr)
-            else:
+            if len(self.__scopes) != 0:
                 self.current_scope_props['has_logged'] = self.current_scope_props.get('has_logged') or props['has_logged']
 
     def __get_time(self, seconds):
@@ -82,13 +84,16 @@ class StatusLogger(object):
         h, m = divmod(m, 60)
 
         if h > 0:
-            return "{:.0f} hours and {:.0f} minutes".format(h, m)
+            return "{:.0f} hrs, {:.0f} min".format(h, m)
         if m > 0:
-            return "{:.0f} minutes and {:.0f} seconds".format(m, s)
-        return "{:.2f} seconds".format(s)
+            return "{:.0f} min, {:.0f} sec".format(m, s)
+        return "{:.2f} sec".format(s)
 
     def caveat(self, caveat):
-        self.current_scope_props['caveats'].append(caveat)
+        if len(self.__scopes) == 0:
+            self.warning("CAVEAT: {}".format(caveat))
+        else:
+            self.current_scope_props['caveats'].append(caveat)
 
     @property
     def current_scopes(self):
@@ -96,13 +101,15 @@ class StatusLogger(object):
         The current logger scopes. This is not designed to work with multiple
         threads.
         '''
-        return [scope['name'] for scope in self.__scopes]
+        return detect_scopes()
 
     @property
     def current_scope_props(self):
         ''''
-        The properties for the most nested scope.
+        The properties for the most nested manual scope.
         '''
+        if len(self.__scopes) == 0:
+            return None
         return self.__scopes[-1]
 
     def __get_progress_bar(self):
@@ -159,23 +166,27 @@ class StatusLogger(object):
         self.__get_logger_instance(context).setLevel(level)
 
 
-def check_scope():
-    # print(inspect.getouterframes(inspect.currentframe()))
+def detect_scopes():
     scopes = []
-    # current_frame = inspect.currentframe()
-    # cur_ref = None
-    # while current_frame is not None:
-    #     print(inspect.getframeinfo(current_frame).function)
-    #     if inspect.getframeinfo(current_frame).function == 'logging_scope':
-    #         return 'scoped'
-    #     argvalues = inspect.getargvalues(current_frame)
-    #     if 'self' in argvalues.args and getattr(argvalues.locals['self'].__class__, 'AUTO_LOGGING_SCOPE', False):
-    #         if cur_ref != argvalues.locals['self']:
-    #             cur_ref = argvalues.locals['self']
-    #             scopes.append("{}:{}".format(cur_ref.__class__.__name__, cur_ref.name))
-    #         #return argvalues.locals['self'].__class__.__name__
-    #     current_frame = current_frame.f_back
-    return scopes
+    current_frame = inspect.currentframe()
+
+    while current_frame is not None:
+        if current_frame.f_code.co_name == 'logging_scope':
+            scopes.append(current_frame.f_locals['name'])
+        else:
+            argvalues = inspect.getargvalues(current_frame)
+            if 'self' in argvalues.args and getattr(argvalues.locals['self'].__class__, 'AUTO_LOGGING_SCOPE',
+                                                    False):
+                scopes.append(argvalues.locals['self'])
+        current_frame = current_frame.f_back
+
+    out_scopes = []
+    seen = set()
+    for scope in scopes[::-1]:
+        if scope not in seen:
+            out_scopes.append(scope if isinstance(scope, six.string_types) else (scope.name or scope.__class__.__name__))
+            seen.add(scope)
+    return out_scopes
 
 
 class LoggingHandler(logging.Handler):
@@ -188,14 +199,13 @@ class LoggingHandler(logging.Handler):
         self.setFormatter(logging.Formatter("%(levelname)s: %(name)s (%(funcName)s:%(lineno)s): %(message)s"))
 
     def format_simple(self, record):
-        return "{}: {}".format(record.levelname, record.getMessage())
+        return "{}".format(record.getMessage())
 
     def handle(self, record):
-        # t = time.time()
-        # print(check_scope())
-        # print(time.time() - t)
+        scopes = logger.current_scopes
+
         if config.logging_level < logging.INFO:  # Print everything verbosely
-            prefix = '\t' * len(logger.current_scopes)
+            prefix = '\t' * len(scopes)
             self._overwrite(prefix + self.format(record),
                             overwritable=False,
                             truncate=False)
@@ -203,11 +213,12 @@ class LoggingHandler(logging.Handler):
             prefix = ""
             important = (record.levelno >= logging.WARNING or
                          logger._progress_bar is not None or
-                         len(logger.current_scopes) == 0)
+                         len(scopes) == 0)
 
-            if len(logger.current_scopes) > 0:
-                prefix = ": ".join(logger.current_scopes) + ": "
-                logger.current_scope_props['has_logged'] = True
+            if len(scopes) > 0:
+                prefix = ": ".join(scopes) + ": "
+                if logger.current_scope_props is not None:
+                    logger.current_scope_props['has_logged'] = True
 
             self._overwrite(prefix + self.format_simple(record),
                             overwritable=not important,
@@ -236,7 +247,7 @@ def logging_scope(name, *wargs, **wkwargs):
     supported keyword arguments are "timed", in which case when the scope closes,
     the duration of the call is shown.
     '''
-    def track(func, *args, **kwargs):
+    def logging_scope(func, *args, **kwargs):
         logger._scope_enter(name, *wargs, **wkwargs)
         success = True
         try:
@@ -247,7 +258,7 @@ def logging_scope(name, *wargs, **wkwargs):
             raise_with_traceback(e)
         finally:
             logger._scope_exit(success)
-    return (lambda func: decorate(func, track))
+    return lambda func: decorate(func, logging_scope)
 
 
 # HACK: remove newline after progress bars by patching progressbar2 library
