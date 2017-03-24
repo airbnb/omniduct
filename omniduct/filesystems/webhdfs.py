@@ -102,11 +102,11 @@ class WebHdfsClient(FileSystemClient):
             read = read.decode()
         return read
 
-    def _file_append_(self, path, s):
+    def _file_append_(self, path, s, binary):
         path = self.__get_path(path)
         return self.__webhdfs.append_file(path, s)
 
-    def _file_write_(self, path, s):
+    def _file_write_(self, path, s, binary):
         path = self.__get_path(path)
         if not self.global_writes and not self.__in_home_directory(path):
             raise RuntimeError("Attempting to write outside of home directory without setting '{name}.global_writes' to True.".format(name=self.name))

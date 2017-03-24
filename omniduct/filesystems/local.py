@@ -3,9 +3,9 @@ import os
 from .base import FileSystemClient, FileSystemFile
 
 
-class SimpleFsClient(FileSystemClient):
+class LocalFsClient(FileSystemClient):
 
-    PROTOCOLS = ['simplefs']
+    PROTOCOLS = ['localfs']
     DEFAULT_PORT = 22
 
     def _init(self):
@@ -15,10 +15,7 @@ class SimpleFsClient(FileSystemClient):
         pass
 
     def _is_connected(self):
-        if self.remote:
-            return self.remote.is_connected()
-        else:
-            return True
+        return True
 
     def _disconnect(self):
         pass
@@ -26,17 +23,15 @@ class SimpleFsClient(FileSystemClient):
     # File enumeration
 
     def _exists(self, path):
-        raise NotImplementedError
+        return os.path.exists(path)
 
     def _isdir(self, path):
-        raise NotImplementedError
+        return os.path.isdir(path)
 
     def _isfile(self, path):
-        raise NotImplementedError
+        return os.path.isfile(path)
 
     def _listdir(self, path):
-        if self.remote:
-            return self.remote.execute('ls {}'.format(path)).stdout.decode().split('\n')
         return os.listdir(path)
 
     def _showdir(self, path):
@@ -54,8 +49,9 @@ class SimpleFsClient(FileSystemClient):
             with open(path, 'r{}'.format('b' if binary else '')) as f:
                 return f.read()
 
-    def _file_append_(self, path, s):
+    def _file_append_(self, path, s, binary):
         raise NotImplementedError
 
-    def _file_write_(self, path, s):
-        raise NotImplementedError
+    def _file_write_(self, path, s, binary):
+        with open(path, 'w' + ('b' if binary else '')) as f:
+            return f.write(s)

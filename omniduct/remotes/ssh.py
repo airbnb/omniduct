@@ -1,6 +1,10 @@
+import datetime
 import getpass
 import os
+import re
+import tempfile
 
+import pandas as pd
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
 from omniduct.utils.ports import is_local_port_free
@@ -147,50 +151,6 @@ class SSHClient(RemoteClient):
                                  check_output=True,
                                  **config)
 
-    def _copy_to_local(self, source, dest=None):
-        """
-        SCP remote file.
-
-        Parameters
-        ----------
-        origin_file : string
-            Path to local file to copy.
-        destination_file : string
-            Target location on remote host.
-        """
-        self.connect()
-        logger.info('Copying file to local...')
-        template = 'scp -o ControlPath={socket} {login}:{remote_file} {local_file}'
-        destination_file = dest or os.path.split(source)[1]
-        proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                 login=self._login_info,
-                                                 local_file=destination_file,
-                                                 remote_file=source),
-                                 check_output=True)
-        logger.info(proc.stderr or 'Success')
-
-    def _copy_from_local(self, source, dest=None):
-        """
-        SCP local file.
-
-        Parameters
-        ----------
-        origin_file : string
-            Path to remote file to copy.
-        destination_file : string
-            Target location on local machine.
-        """
-        self.connect()
-        logger.info('Copying file from local...')
-        template = 'scp -o ControlPath={socket} {local_file} {login}:{remote_file}'
-        destination_file = dest or os.path.split(source)[1]
-        proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                 login=self._login_info,
-                                                 local_file=source,
-                                                 remote_file=destination_file),
-                                 check_output=True)
-        logger.info(proc.stderr or 'Success')
-
     def _port_forward_start(self, local_port, remote_host, remote_port):
         self.connect()
         logger.info('Establishing port forward...')
@@ -220,7 +180,118 @@ class SSHClient(RemoteClient):
     def _is_port_bound(self, host, port):
         return self.execute('which nc; if [ $? -eq 0 ]; then  nc -z {} {}; fi'.format(host, port)).returncode == 0
 
-    # Help methods
+    # FileSystem methods
+
+    def _exists(self, path):
+        return self.execute('if [ ! -e {} ]; then exit 1; fi'.format(path)).returncode == 0
+
+    def _isdir(self, path):
+        return self.execute('if [ ! -d {} ]; then exit 1; fi'.format(path)).returncode == 0
+
+    def _isfile(self, path):
+        return self.execute('if [ ! -f {} ]; then exit 1; fi'.format(path)).returncode == 0
+
+    def _listdir(self, path):
+        path = os.path.join('~', path or '')
+        return sorted([f for f in self.execute('ls -a {}'.format(path)).stdout.decode().strip().split('\n') if f not in ['.', '..']])
+
+    def _showdir(self, path):
+        path = os.path.join('~', path or '')
+        dir = pd.DataFrame(sorted([re.split('\s+', f) for f in self.execute('ls -al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
+                           columns=['file_mode', 'link_count', 'owner', 'group', 'bytes', 'month', 'day', 'time', 'path'])
+
+        def convert_to_datetime(x):
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            year = datetime.datetime.now().year if ':' in x.time else x.time
+            time = x.time if ':' in x.time else None
+            return datetime.datetime(
+                year=int(year),
+                month=months.index(x.month) + 1,
+                day=int(x.day),
+                hour=int(time.split(':')[0]) if time is not None else 0,
+                minute=int(time.split(':')[1]) if time is not None else 0
+            )
+
+        return dir.assign(
+            last_modified=lambda x: x.apply(convert_to_datetime, axis=1),
+            type=lambda x: x.apply(lambda x: 'directory' if x.file_mode.startswith('d') else 'file', axis=1)
+        ).drop(
+            ['month', 'day', 'time'],
+            axis=1
+        ).sort_values(
+            ['type', 'path']
+        ).reset_index(drop=True)[['type', 'path', 'bytes', 'last_modified', 'file_mode', 'owner', 'group', 'link_count']]
+
+    # File handling
+
+    def _file_read_(self, path, size=-1, offset=0, binary=False):
+        read = self.execute('cat {}'.format(path)).stdout
+        if not binary:
+            read = read.decode()
+        return read
+
+    def _file_append_(self, path, s, binary):
+        raise NotImplementedError
+
+    def _file_write_(self, path, s, binary):
+        if binary:
+            fd, tmp_path = tempfile.mkstemp()
+        else:
+            fd, tmp_path = tempfile.mkstemp(text=True)
+        os.close(fd)
+
+        with open(tmp_path, 'w' + ('b' if binary else '')) as f:
+            f.write(s)
+
+        return self._copy_from_local(tmp_path, path, overwrite=True)
+
+    # File transfer
+
+    def _copy_to_local(self, source, dest, overwrite):
+        """
+        SCP remote file.
+
+        Parameters
+        ----------
+        origin_file : string
+            Path to local file to copy.
+        destination_file : string
+            Target location on remote host.
+        """
+        self.connect()
+        logger.info('Copying file to local...')
+        template = 'scp -o ControlPath={socket} {login}:{remote_file} {local_file}'
+        destination_file = dest or os.path.split(source)[1]
+        proc = run_in_subprocess(template.format(socket=self._socket_path,
+                                                 login=self._login_info,
+                                                 local_file=destination_file,
+                                                 remote_file=source),
+                                 check_output=True)
+        logger.info(proc.stderr or 'Success')
+
+    def _copy_from_local(self, source, dest, overwrite):
+        """
+        SCP local file.
+
+        Parameters
+        ----------
+        origin_file : string
+            Path to remote file to copy.
+        destination_file : string
+            Target location on local machine.
+        """
+        self.connect()
+        logger.info('Copying file from local...')
+        template = 'scp -o ControlPath={socket} {local_file} {login}:{remote_file}'
+        destination_file = dest or os.path.split(source)[1]
+        proc = run_in_subprocess(template.format(socket=self._socket_path,
+                                                 login=self._login_info,
+                                                 local_file=source,
+                                                 remote_file=destination_file),
+                                 check_output=True)
+        logger.info(proc.stderr or 'Success')
+
+    # Helper methods
 
     @property
     def _login_info(self):

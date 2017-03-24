@@ -64,6 +64,34 @@ class ParamikoSSHClient(RemoteClient):
     def _is_port_bound(self, host, port):
         return True
 
+    # FileSystem methods
+
+    def _exists(self, path):
+        raise NotImplementedError
+
+    def _isdir(self, path):
+        raise NotImplementedError
+
+    def _isfile(self, path):
+        raise NotImplementedError
+
+    def _listdir(self, path):
+        raise NotImplementedError
+
+    def _showdir(self, path):
+        raise NotImplementedError
+
+    # File handling
+
+    def _file_read_(self, path, size=-1, offset=0, binary=False):
+        raise NotImplementedError
+
+    def _file_append_(self, path, s, binary):
+        raise NotImplementedError
+
+    def _file_write_(self, path, s, binary):
+        raise NotImplementedError
+
 
 # Port Forwarding Utility Code
 # Largely based on code from: https://github.com/paramiko/paramiko/blob/master/demos/forward.py
