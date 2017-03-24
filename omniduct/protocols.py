@@ -2,7 +2,7 @@ from .caches.local import LocalCache
 from .databases.hiveserver2 import HiveServer2Client
 from .databases.presto import PrestoClient
 from .databases.sqlalchemy import SQLAlchemyClient
-from .filesystems.simple import SimpleFsClient
+from .filesystems.local import LocalFsClient
 from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
 

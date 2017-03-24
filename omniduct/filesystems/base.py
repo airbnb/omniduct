@@ -1,4 +1,5 @@
 import io
+import os
 from abc import abstractmethod
 
 from omniduct.duct import Duct
@@ -65,7 +66,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def mkdir(self, path, parents=True):
         pass
 
-    # File opening
+    # File handling
 
     def open(self, path, mode='rt'):
         return FileSystemFile(self, path, mode)
@@ -77,19 +78,63 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
-    def _file_write(self, path, s):
-        return self.connect()._file_write_(path, s)
+    def _file_write(self, path, s, binary=False):
+        return self.connect()._file_write_(path, s, binary)
 
     @abstractmethod
-    def _file_write_(self, path, s):
+    def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
-    def _file_append(self, path, s):
-        return self.connect()._file_append_(path, s)
+    def _file_append(self, path, s, binary=False):
+        return self.connect()._file_append_(path, s, binary)
 
     @abstractmethod
-    def _file_append_(self, path, s):
+    def _file_append_(self, path, s, binary):
         raise NotImplementedError
+
+    # File transfer
+
+    def copy_to_local(self, source, dest=None, overwrite=False):
+        '''
+        Copies a file from `source` on the remote host to `dest` on the local host.
+        If `overwrite` is `True`, overwrites file on the local host.
+        '''
+        if dest is None:
+            dest = os.path.basename(source)
+        if not overwrite and os.path.exists(dest):
+            raise RuntimeError("File already exists on filesystem.")
+        return self.connect()._copy_to_local(source, dest, overwrite)
+
+    def copy_from_local(self, source, dest=None, overwrite=False):
+        '''
+        Copies a file from `source` on the local host to `dest` on the remote host.
+        If `overwrite` is `True`, overwrites file on the remote host.
+        '''
+        if dest is None:
+            dest = os.path.basename(source)
+        if not overwrite and self.exists(dest):
+            raise RuntimeError("File already exists on filesystem.")
+        return self.connect()._copy_from_local(source, dest, overwrite)
+
+    def _copy_to_local(self, source, dest, overwrite):
+        """
+        A default implementation using other FileSystemClient methods.
+        """
+        if not self.isfile(source):
+            raise ValueError("Only individual file transfers are support at this time.")
+        with open(source, 'w') as f:
+            return f.write(self._file_read(source, binary=False))
+
+    def _copy_from_local(self, source, dest, overwrite):
+        """
+        A default implementation using other FileSystemClient methods.
+        """
+        if not os.path.isfile(source):
+            raise ValueError("Only individual file transfers are support at this time.")
+        with open(source) as f:
+            return self._file_write(dest, f.read())
+
+    # Magics
 
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic

@@ -8,6 +8,7 @@ ssh utilities (port forwarding) and execution of commands remotely.
 Also includes constants for remote clusters.
 """
 
+import datetime
 import getpass
 import os
 import re
@@ -17,9 +18,12 @@ from abc import abstractmethod
 import six
 from future.standard_library import hooks
 from future.utils import raise_with_traceback
+import pandas as pd
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctServerUnreachable
+from omniduct.filesystems.base import FileSystemClient
+from omniduct.utils.debug import logger
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 from omniduct.utils.processes import run_in_subprocess
 
@@ -56,7 +60,7 @@ class PortForwardingRegister(object):
         return self._register.pop('{}:{}'.format(remote_host, remote_port))
 
 
-class RemoteClient(Duct):
+class RemoteClient(FileSystemClient):
     '''
     SSHClient is an abstract class that can be subclassed into a fully-functional
     SSH client.
@@ -82,7 +86,7 @@ class RemoteClient(Duct):
         self : SSHClient
             An SSHClient object with the connection details specified.
         """
-        Duct.__init_with_kwargs__(self, kwargs, port=22)
+        FileSystemClient.__init_with_kwargs__(self, kwargs, port=22)
 
         self.smartcards = smartcards
         self.__port_forwarding_register = PortForwardingRegister()
@@ -175,30 +179,6 @@ class RemoteClient(Duct):
         Should return a tuple of:
         (<status code>, <data printed to stdout>, <data printed to stderr>)
         '''
-        raise NotImplementedError
-
-    # File transfer
-
-    def copy_to_local(self, source, dest, overwrite=False):
-        '''
-        Copies a file from `source` on the remote host to `dest` on the local host.
-        If `overwrite` is `True`, overwrites file on the local host.
-        '''
-        return self.connect()._copy_to_local(source, dest)
-
-    def copy_from_local(self, source, dest, overwrite=False):
-        '''
-        Copies a file from `source` on the remote host to `dest` on the remote host.
-        If `overwrite` is `True`, overwrites file on the remote host.
-        '''
-        return self.connect()._copy_from_local(source, dest)
-
-    @abstractmethod
-    def _copy_to_local(self, source, dest, overwrite=False):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _copy_from_local(self, source, dest, overwrite=False):
         raise NotImplementedError
 
     # Port forwarding code
