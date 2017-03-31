@@ -219,10 +219,8 @@ class HiveServer2Client(DatabaseClient):
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
-        elif self.__env__.allows_direct_querying():
-            proc = run_in_subprocess(sys_cmd, check_output=True)
         else:
-            raise Exception("No ssh connection and environment does not allow direct databases")
+            proc = run_in_subprocess(sys_cmd, check_output=True)
         return proc
 
 
