@@ -259,7 +259,7 @@ class FileSystemFile(object):
         return self.__io_buffer.tell()
 
     def write(self, s):
-        if not self.readable:
+        if not self.writeable:
             raise io.UnsupportedOperation("File not open for writing")
         self.__io_buffer.write(s)
         self.__modified = True
