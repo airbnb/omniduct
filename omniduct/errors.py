@@ -1,3 +1,7 @@
+class DuctAuthenticationError(RuntimeError):
+    pass
+
+
 class DuctConnectionError(RuntimeError):
     pass
 

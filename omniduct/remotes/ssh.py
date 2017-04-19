@@ -10,6 +10,8 @@ from omniduct.utils.debug import logger
 from omniduct.utils.ports import is_local_port_free
 from omniduct.utils.processes import run_in_subprocess
 
+from omniduct.errors import DuctAuthenticationError
+
 SSH_ASKPASS = '{omniduct_dir}/utils/ssh_askpass'.format(omniduct_dir=os.path.dirname(__file__))
 SESSION_SSH_USERNAME = None
 SESSION_REMOTE_HOST = None
@@ -60,44 +62,48 @@ class SSHClient(RemoteClient):
                "-o ServerAliveInterval=60 "
                "-o ServerAliveCountMax=2 "
                "'exit'".format(login=self._login_info, socket=self._socket_path))
-        expected = ["(?i)are you sure you want to continue connecting",    # 0
-                    "(?i)(?:password)|(?:passphrase for key)",             # 1
-                    "(?i)permission denied",                               # 2
-                    "(?i)terminal type",                                   # 3
-                    pexpect.TIMEOUT,                                       # 4
-                    "(?i)connection closed by remote host",                # 5
-                    pexpect.EOF]                                           # 6
+        
+        expected = ["WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
+                    "(?i)are you sure you want to continue connecting",    # 1
+                    "(?i)(?:(?:password)|(?:passphrase for key)):",       # 2
+                    "(?i)permission denied",                               # 3
+                    "(?i)terminal type",                                   # 4
+                    pexpect.TIMEOUT,                                       # 5
+                    "(?i)connection closed by remote host",                # 6
+                    pexpect.EOF]                                           # 7
 
         try:
             expect = pexpect.spawn(cmd)
             i = expect.expect(expected, timeout=10)
 
             # First phase
-            if i == 0:  # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
+            if i == 0:  # If host identification changed, arrest any further attempts to connect
+                raise RuntimeError('Host identification for {} has changed! If you are sure that the host identification SHOULD have changed, and are not experiencing a man-in-the-middle attack, please remove the line corresponding to this server in ~/.ssh/known_hosts; or call the `update_host_keys` method of this object.'.format(self._host))
+            if i == 1:  # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
                 expect.sendline("yes")
                 i = self.expect(expected)
-            if i == 1:  # Request for password/passphrase
+            if i == 2:  # Request for password/passphrase
                 expect.sendline(self.password or getpass.getpass('Password: '))
                 i = self.expect(expected)
-            if i == 3:  # Request for terminal type
+            if i == 4:  # Request for terminal type
                 expect.sendline('ascii')
                 i = self.expect(expected)
 
             # Second phase
-            if i == 0:  # Another request to authorize host certificate (i.e. host not in the 'known_hosts' file)
+            if i == 1:  # Another request to authorize host certificate (i.e. host not in the 'known_hosts' file)
                 raise RuntimeError('Received a second request to authorize host key. This should not have happened!')
-            elif i in (1, 2):  # Second request for password/passphrase or rejection of creditials. For now, give up.
-                raise RuntimeError('Invalid username and/or password, or private key is not unlocked.')
-            elif i == 3:  # Another request for terminal type.
+            elif i in (2, 3):  # Second request for password/passphrase or rejection of creditials. For now, give up.
+                raise DuctAuthenticationError('Invalid username and/or password, or private key is not unlocked.')
+            elif i == 4:  # Another request for terminal type.
                 raise RuntimeError('Received a second request for terminal type. This should not have happened!')
-            elif i == 4:  # Timeout
+            elif i == 5:  # Timeout
                 # In our instance, this means that we have not handled some or another aspect of the login procedure.
                 # Since we are expecting an EOF when we have successfully logged in, hanging means that the SSH login
                 # procedure is waiting for more information. Since we have no more to give, this means our login
                 # was unsuccessful.
                 raise RuntimeError('SSH client seems to be awaiting more information, but we have no more to give. The '
                                    'messages received so far are:\n{}'.format(expect.before))
-            elif i == 5:  # Connection closed by remote host
+            elif i == 6:  # Connection closed by remote host
                 raise RuntimeError("Remote closed SSH connection")
         finally:
             expect.close()
@@ -307,3 +313,8 @@ class SSHClient(RemoteClient):
     @property
     def _subprocess_config(self):
         return {}
+    
+    def update_host_keys(self):
+        assert not self.remote, "Updating host key only works for local connections."
+        cmd = "ssh-keygen -R {host} && ssh-keyscan {host} >> ~/.ssh/known_hosts".format(host=self.host)
+        return run_in_subprocess(cmd, False).returncode == 0

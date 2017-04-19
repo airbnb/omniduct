@@ -21,7 +21,7 @@ from future.utils import raise_with_traceback
 import pandas as pd
 
 from omniduct.duct import Duct
-from omniduct.errors import DuctServerUnreachable
+from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
 from omniduct.filesystems.base import FileSystemClient
 from omniduct.utils.debug import logger
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
@@ -104,7 +104,7 @@ class RemoteClient(FileSystemClient):
     # SSH commands
     def connect(self):
         """
-        If a connection to the filesystem does not already exist, calling
+        If a connection to the ssh server does not already exist, calling
         this method creates it. It first attempts to connect directly. If it fails, it attempts to initialise and keys
         in case they had not already been initialised. (It does not do this before creating the connection so as to
         minimise needless re-preparation of the keys.
@@ -116,7 +116,7 @@ class RemoteClient(FileSystemClient):
             Duct.connect(self)
         except DuctServerUnreachable as e:
             raise_with_traceback(e)
-        except Exception as e:
+        except DuctAuthenticationError as e:
             if self.smartcards and self.prepare_smartcards():
                 Duct.connect(self)
             else:
