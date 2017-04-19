@@ -62,7 +62,7 @@ class SSHClient(RemoteClient):
                "-o ServerAliveInterval=60 "
                "-o ServerAliveCountMax=2 "
                "'exit'".format(login=self._login_info, socket=self._socket_path))
-        
+
         expected = ["WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
                     "(?i)are you sure you want to continue connecting",    # 1
                     "(?i)(?:(?:password)|(?:passphrase for key)):",       # 2
@@ -313,7 +313,7 @@ class SSHClient(RemoteClient):
     @property
     def _subprocess_config(self):
         return {}
-    
+
     def update_host_keys(self):
         assert not self.remote, "Updating host key only works for local connections."
         cmd = "ssh-keygen -R {host} && ssh-keyscan {host} >> ~/.ssh/known_hosts".format(host=self.host)
