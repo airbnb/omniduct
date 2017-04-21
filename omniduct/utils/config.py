@@ -111,6 +111,9 @@ class Configuration(ConfigurationRegistry):
         self._config = {}
         self.__config_path = kwargs.pop('config_path', None)
 
+    def __dir__(self):
+        return sorted(self._register.keys())
+
     @property
     def _config_path(self):
         return self.__config_path
