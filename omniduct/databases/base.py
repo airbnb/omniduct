@@ -91,7 +91,7 @@ class DatabaseClient(Duct, MagicsProvider):
     @sanitize_sqlalchemy_statement
     @cached_method(
         id_str=lambda self, kwargs: self.statement_hash(kwargs['statement']),
-        use_cache=lambda self, kwargs: kwargs.pop('use_cache', True) and kwargs.get('query', False)
+        use_cache=lambda self, kwargs: kwargs.pop('use_cache', True) and kwargs.get('query', False) and kwargs.get('parse', True)
     )
     def execute(self, statement, query=False, parse=True, index_field=None, date_fields=None,
                 cleanup_statement=True, render_only=False, **kwargs):
