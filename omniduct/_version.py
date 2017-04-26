@@ -25,18 +25,19 @@ __dependencies__ = [
     "sqlparse",  # Neatening of SQL based queries (mainly to avoid missing the cache)
 ]
 
-if os.name == 'posix' and sys.version_info[0] < 3:
+PY2 = sys.version_info[0] == 2
+if os.name == 'posix' and PY2:
     __dependencies__.append('subprocess32')  # Python 3.2+ subprocess handling for Python 2
 
 __optional_dependencies__ = {
     # Databases
     'hiveserver2': [
-        'pyhive',  # Primary client
+        'pyhive' if PY2 else 'pyhive>=0.3.0',  # Primary client
         'impyla>=0.14.0',  # Primary client
     ],
 
     'presto': [
-        'pyhive',  # Primary client
+        'pyhive' if PY2 else 'pyhive>=0.3.0',  # Primary client
         'sqlalchemy',  # Schema traversal
         'werkzeug',  # Schema traversal
     ],
