@@ -32,6 +32,7 @@ class HiveServer2Client(DatabaseClient):
         assert self.driver in ('pyhive', 'impyla'), "Supported drivers are pyhive and impyla."
 
     def _connect(self):
+        from sqlalchemy import create_engine, MetaData
         if self.driver == 'pyhive':
             import pyhive.hive
             self.__hive = pyhive.hive.connect(host=self.host,
@@ -39,6 +40,8 @@ class HiveServer2Client(DatabaseClient):
                                               auth=self.auth_mechanism,
                                               database=self.schema,
                                               **self.connection_options)
+            self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
+            self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
         elif self.driver == 'impyla':
             import impala.dbapi
             self.__hive = impala.dbapi.connect(host=self.host,
@@ -46,6 +49,8 @@ class HiveServer2Client(DatabaseClient):
                                                auth_mechanism=self.auth_mechanism,
                                                database=self.schema,
                                                **self.connection_options)
+            self._sqlalchemy_engine = create_engine('impala://{}:{}/{}'.format(self.host, self.port, self.schema))
+            self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     def __hive_cursor(self):
         if self.driver == 'impyla':  # Impyla seems to have all manner of connection issues, attempt to restore connection
@@ -66,8 +71,10 @@ class HiveServer2Client(DatabaseClient):
         except:
             pass
         self.__hive = None
+        self._sqlalchemy_engine = None
+        self._sqlalchemy_metadata = None
 
-    def _execute(self, statement, query=True, cursor=None, poll_interval=1, wait=True):
+    def _execute(self, statement, cursor=None, poll_interval=1, async=False):
         """
         Execute command
 
@@ -81,7 +88,7 @@ class HiveServer2Client(DatabaseClient):
             from TCLIService.ttypes import TOperationState
             cursor.execute(statement, async=True)
 
-            if wait:
+            if not async:
                 status = cursor.poll().operationState
                 while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
                     log_offset = self._log_status(cursor, log_offset)
@@ -90,7 +97,7 @@ class HiveServer2Client(DatabaseClient):
 
         elif self.driver == 'impyla':
             cursor.execute_async(statement)
-            if wait:
+            if not async:
                 while cursor.is_executing():
                     log_offset = self._log_status(cursor, log_offset)
                     time.sleep(poll_interval)
@@ -101,6 +108,12 @@ class HiveServer2Client(DatabaseClient):
         if self.driver == 'impyla':
             return not cursor.has_result_set
         return False
+
+    def _cursor_wait(self, cursor, poll_interval=1):
+        status = cursor.poll().operationState
+        while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
+            time.sleep(poll_interval)
+            status = cursor.poll().operationState
 
     def _log_status(self, cursor, log_offset=0):
         matcher = re.compile('[0-9/]+ [0-9\:]+ (INFO )?')
@@ -120,65 +133,11 @@ class HiveServer2Client(DatabaseClient):
 
         return len(log)
 
-    def _push(self, df, table, partition_clause='', overwrite=False, schema='omniduct', sep='\t'):
-        """
-        Create a new table in hive from pandas DataFrame.
-
-        Parameters
-        ----------
-        df : pandas.DataFrame or Series
-            Data to be push into a hive table.
-        table : str
-            Table name for new hive table.
-        schema : str
-            Schema (or database) for new hive table.
-        partition_clause : str
-            The hive partition clause specifying which partitions to load data into.
-        overwrite : bool, optional
-            Whether to overwrite the table data if it exists. Default: False.
-        sep : str
-            Field delimiter for data.
-
-        See Also
-        --------
-        https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML
-        """
-        # Save dataframe to file.
-        _, tmp_path = tempfile.mkstemp(dir='.')
-        tmp_fname = os.path.basename(tmp_path)
-
-        logger.info('Saving dataframe to file... {}'.format(tmp_fname))
-        df.to_csv(tmp_fname, index=False, header=False, sep=sep, encoding='utf-8')
-
-        # Create table statement.
-        cts = _create_table_statement_from_df(df=df, table=table,
-                                              schema=schema, drop=overwrite and not partition_clause,
-                                              text=True, sep=sep)
-        # Load data statement.
-        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {schema}.{table} {partition_clause};'.format(
-            path=tmp_fname,
-            overwrite="OVERWRITE" if overwrite else "",
-            schema=schema,
-            table=table,
-            partition_clause=partition_clause)
-
-        # SCP data if SSHClient is set.
-        if self.remote:
-            logger.info('Uploading data to remote host...')
-            self.remote.copy_from_local(tmp_fname, tmp_fname)
-        # Run create table statement and load data statment.
-        logger.info('Creating hive table and loading data...')
-        proc = self._run_in_hivecli('\n'.join([cts, lds]))
-        if proc.returncode != 0:
-            logger.error(proc.stderr)
-
-        # Clean up files.
-        logger.info('Cleaning up files...')
-        rm_cmd = 'rm -rf {0}'.format(tmp_fname)
-        run_in_subprocess(rm_cmd)
-        if self.remote:
-            self.remote.execute(rm_cmd)
-        return proc
+    def _push(self, df, table, if_exists='fail', schema=None, **kwargs):
+        try:
+            return DatabaseClient._push(self, df, table, if_exists=if_exists, schema=schema or self.username, **kwargs)
+        except Exception as e:
+            raise RuntimeError("Push unsuccessful. Your version of Hive may be too old to support the `INSERT` keyword. Original exception was: {}".format(e.args[0]))
 
     def _table_list(self, schema=None, like='*', **kwargs):
         schema = schema or self.schema or 'default'

@@ -55,13 +55,13 @@ class PrestoClient(DatabaseClient):
         self._schemas = None
 
     # Querying
-    def _execute(self, statement, query=True, cursor=None, wait=False):
+    def _execute(self, statement, cursor=None, async=False):
         from pyhive.exc import DatabaseError  # Imported here due to slow import performance in Python 3
         try:
             cursor = cursor or self.__presto.cursor()
             cursor.execute(statement)
             status = cursor.poll()
-            if wait or query:
+            if not async:
                 logger.progress(0)
                 while status['stats']['state'] != "FINISHED":
                     if status['stats'].get('totalSplits', 0) > 0:
@@ -103,11 +103,11 @@ class PrestoClient(DatabaseClient):
 
             raise_with_traceback(exception, traceback)
 
+    def _push(self, df, table, if_exists='fail', schema=None, **kwargs):
+        return DatabaseClient._push(self, df, table, if_exists=if_exists, schema=schema or self.username, **kwargs)
+
     def _cursor_empty(self, cursor):
         return False
-
-    def _push(self, df, table, overwrite=True, **kwargs):
-        raise NotImplementedError("Support for pushing data tables using Presto is not currently implemented.")
 
     def _table_list(self, schema=None, like=None, **kwargs):
         cmd = "SHOW TABLES "
