@@ -202,7 +202,10 @@ class LoggingHandler(logging.Handler):
         return "{}".format(record.getMessage())
 
     def handle(self, record):
-        scopes = logger.current_scopes
+        try:
+            scopes = logger.current_scopes
+        except:
+            scopes = []
 
         if config.logging_level < logging.INFO:  # Print everything verbosely
             prefix = '\t' * len(scopes)

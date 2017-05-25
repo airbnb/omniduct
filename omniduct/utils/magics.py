@@ -14,6 +14,18 @@ def process_line_arguments(f):
     return wrapped
 
 
+def process_line_cell_arguments(f):
+    def wrapped(*args, **kwargs):
+        args = list(args)
+        new_args, new_kwargs = _process_line_arguments(args.pop(0))
+        if len(args) == 0:
+            args += [None]
+        args += new_args
+        kwargs.update(new_kwargs)
+        return f(*args, **kwargs)
+    return wrapped
+
+
 def _process_line_arguments(line_arguments):
     args = []
     kwargs = {}
@@ -28,7 +40,7 @@ def _process_line_arguments(line_arguments):
             kwargs[key] = value
         else:
             if reached_kwargs:
-                raise ValueError('Positional argument `{}` after keyword argment.'.format(arg))
+                raise ValueError('Positional argument `{}` after keyword argument.'.format(arg))
             args.append(arg)
     return args, kwargs
 
