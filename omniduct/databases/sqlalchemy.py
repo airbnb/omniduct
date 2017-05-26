@@ -53,7 +53,11 @@ class SQLAlchemyClient(DatabaseClient):
         self.engine = None
 
     def _execute(self, statement, query=True, cursor=None, **kwargs):
-        return self.connection.execute(statement)
+        if cursor:
+            cursor.execute(statement)
+        else:
+            cursor = self.connection.execute(statement).cursor
+        return cursor
 
     def _cursor_empty(self, cursor):
         return False

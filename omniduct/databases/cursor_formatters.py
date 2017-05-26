@@ -21,7 +21,7 @@ class CursorFormatter(object):
 
     def dump(self):
         try:
-            data = self.cursor.fetchall()
+            data = list(self.cursor.fetchall())
             out = self.format_dump(data)
         finally:
             self.cursor.close()
