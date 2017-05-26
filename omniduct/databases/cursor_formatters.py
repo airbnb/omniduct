@@ -94,10 +94,10 @@ class DictCursorFormatter(CursorFormatter):
 class TupleCursorFormatter(CursorFormatter):
 
     def format_dump(self, data):
-        return [self.format_row(row) for row in self.data]
+        return [self.format_row(row) for row in data]
 
     def format_row(self, row):
-        return row
+        return tuple(row)
 
 
 class CsvCursorFormatter(CursorFormatter):
