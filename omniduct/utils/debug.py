@@ -129,10 +129,11 @@ class StatusLogger(object):
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
         '''
+        complete = complete or (self.current_scope_props is None)  # Only leave progress bar open if within a scope
         if config.logging_level <= logging.INFO:
             self.__get_progress_bar().update(progress)
             if complete:
-                self.__get_progress_bar().finish()
+                self.__get_progress_bar().finish(end=None)
                 self._progress_bar = None
 
     # Logging emulation
@@ -263,12 +264,5 @@ def logging_scope(name, *wargs, **wkwargs):
             logger._scope_exit(success)
     return lambda func: decorate(func, logging_scope)
 
-
-# HACK: remove newline after progress bars by patching progressbar2 library
-def new_finish(self, *args, **kwargs):  # pragma: no cover
-    progressbar.bar.ProgressBarMixinBase.finish(self, *args, **kwargs)
-
-
-progressbar.bar.DefaultFdMixin.finish = new_finish
 
 logger = StatusLogger()

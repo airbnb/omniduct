@@ -17,7 +17,7 @@ __dependencies__ = [
 
     "pyyaml",  # YAML configuration parsing
     "decorator",  # Decorators used by caching routines
-    "progressbar2",  # Support for progressbars in logging routines
+    "progressbar2>=3.30.0",  # Support for progressbars in logging routines
 
     # Database querying libraries
     "jinja2",  # Templating support in databases
