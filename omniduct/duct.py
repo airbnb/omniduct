@@ -64,7 +64,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         self.cache = cache
 
         self.connection_fields = ('host', 'port', 'remote', 'cache', 'username', 'password')
-        self.prepared_fields = ('_host', '_port')
+        self.prepared_fields = ('_host', '_port', '_username', '_password')
 
         atexit.register(self.disconnect)
         self.__prepared = False
