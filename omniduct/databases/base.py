@@ -146,6 +146,12 @@ class DatabaseClient(Duct, MagicsProvider):
         '''
 
         cursor = self.execute(statement, async=False, **kwargs)
+
+        # Some DBAPI2 cursor implementations error if attempting to extract
+        # data from an empty cursor, and if so, we simply return None.
+        if self._cursor_empty(cursor):
+            return None
+
         formatter = self._get_formatter(format, cursor, **format_opts)
         return formatter.dump()
 

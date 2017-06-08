@@ -107,6 +107,8 @@ class HiveServer2Client(DatabaseClient):
     def _cursor_empty(self, cursor):
         if self.driver == 'impyla':
             return not cursor.has_result_set
+        elif self.driver == 'pyhive':
+            return cursor.description is None
         return False
 
     def _cursor_wait(self, cursor, poll_interval=1):
