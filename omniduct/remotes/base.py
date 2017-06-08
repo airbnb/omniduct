@@ -16,7 +16,6 @@ import types
 from abc import abstractmethod
 
 import six
-from future.standard_library import hooks
 from future.utils import raise_with_traceback
 import pandas as pd
 
@@ -27,8 +26,10 @@ from omniduct.utils.debug import logger
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 from omniduct.utils.processes import run_in_subprocess
 
-with hooks():
+try:  # Python 3
     from urllib.parse import urlparse, urlunparse
+except ImportError:  # Python 2
+    from urlparse import urlparse, urlunparse
 
 
 class PortForwardingRegister(object):
