@@ -123,6 +123,7 @@ class CsvCursorFormatter(CursorFormatter):
             return self.output.getvalue()
         finally:
             self.output.truncate(0)
+            self.output.seek(0)
 
     def format_row(self, row):
         try:
@@ -130,6 +131,7 @@ class CsvCursorFormatter(CursorFormatter):
             return self.output.getvalue()
         finally:
             self.output.truncate(0)
+            self.output.seek(0)
 
 
 class HiveCursorFormatter(CsvCursorFormatter):
