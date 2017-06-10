@@ -171,12 +171,11 @@ class DatabaseClient(Duct, MagicsProvider):
     def stream_to_file(self, statement, file, format='csv', **kwargs):
         close_later = False
         if isinstance(file, str):
-            file = open(str, 'w')
+            file = open(file, 'w')
             close_later = True
 
         try:
-            for row in self.stream(statement, format=format, **kwargs):
-                file.writeline(str(row))
+            file.writelines(self.stream(statement, format=format, **kwargs))
         finally:
             if close_later:
                 file.close()
