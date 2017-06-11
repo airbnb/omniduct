@@ -21,7 +21,7 @@ class CursorFormatter(object):
 
     def dump(self):
         try:
-            data = list(self.cursor.fetchall())
+            data = [self.prepare_row(row) for row in self.cursor.fetchall()]
             out = self.format_dump(data)
         finally:
             self.cursor.close()
@@ -34,15 +34,19 @@ class CursorFormatter(object):
 
             if batch is not None:
                 while True:
-                    b = self.cursor.fetchmany(batch)
+                    b = [self.prepare_row(row) for row in self.cursor.fetchmany(batch)]
                     if len(b) == 0:
                         return
                     yield self.format_dump(b)
             else:
                 for row in self.cursor:
+                    row = self.prepare_row(row)
                     yield self.format_row(row)
         finally:
             self.cursor.close()
+
+    def prepare_row(self, row):
+        return row
 
     def format_dump(self, data):
         raise NotImplementedError("{} does not support formatting dumped data.".format(self.__class__.__name__))
@@ -102,8 +106,6 @@ class TupleCursorFormatter(CursorFormatter):
 
 class CsvCursorFormatter(CursorFormatter):
 
-    # TODO: Add support for outputting headers
-
     FORMAT_PARAMS = {
         'delimiter': ',',
         'doublequote': False,
@@ -113,11 +115,14 @@ class CsvCursorFormatter(CursorFormatter):
         'quoting': csv.QUOTE_MINIMAL
     }
 
-    def init(self):
+    def init(self, include_header=True):
         self.output = io.StringIO()
+        self.include_header = include_header
         self.writer = csv.writer(self.output, **self.FORMAT_PARAMS)
 
     def format_dump(self, data):
+        if self.include_header:
+            self.writer.writerow(self.column_names)
         try:
             self.writer.writerows(data)
             return self.output.getvalue()
@@ -136,13 +141,18 @@ class CsvCursorFormatter(CursorFormatter):
 
 class HiveCursorFormatter(CsvCursorFormatter):
 
-    # TODO: Handle NULL -> \0
-
     FORMAT_PARAMS = {
         'delimiter': '\t',
         'doublequote': False,
-        'escapechar': None,
+        'escapechar': '',
         'lineterminator': '\n',
         'quotechar': '',
         'quoting': csv.QUOTE_NONE
     }
+
+    def init(self):
+        CsvCursorFormatter.init(self, include_header=False)
+
+    # Convert null values to '\N'.
+    def prepare_row(self, row):
+        return [r'\N' if v is None else str(v).replace('\t', r'\t') for v in row]
