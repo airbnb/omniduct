@@ -122,8 +122,8 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         if not self.isfile(source):
             raise ValueError("Only individual file transfers are support at this time.")
-        with open(source, 'w') as f:
-            return f.write(self._file_read(source, binary=False))
+        with open(source, 'wb') as f:
+            return f.write(self._file_read(source, binary=True))
 
     def _copy_from_local(self, source, dest, overwrite):
         """
@@ -131,8 +131,8 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         if not os.path.isfile(source):
             raise ValueError("Only individual file transfers are support at this time.")
-        with open(source) as f:
-            return self._file_write(dest, f.read())
+        with open(source, 'rb') as f:
+            return self._file_write(dest, f.read(), binary=True)
 
     # Magics
 
