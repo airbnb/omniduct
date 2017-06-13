@@ -348,7 +348,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
             # Line magic
             if statement is None:
-                return self.query_from_template(variable, context=template_context, by_name=True)
+                return self.query_from_template(variable, context=template_context)
 
             # Cell magic
             result = getattr(self, executor)(statement, template=template, template_context=template_context, **kwargs)
