@@ -56,7 +56,7 @@ class LocalCache(Cache):
         try:
             os.remove(self.get_path(id_duct, id_str))
         except:
-            raise KeyError('Key not found')
+            pass
 
     def clear_all(self, id_duct=None):
         cache_path = self.dir if id_duct is None else os.path.dirname(self.get_path(id_duct, 'None'))

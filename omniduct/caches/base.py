@@ -38,12 +38,20 @@ def cached_method(id_str,
 
         if _renew or not _cache.has_key(_id_duct, _id_str):  # noqa: has_key is not of a dictionary here
             value = method(self, **kwargs)
-            _cache.set(
-                id_duct=_id_duct,
-                id_str=_id_str,
-                value=value,
-                encoder=encoder
-            )
+            try:
+                _cache.set(
+                    id_duct=_id_duct,
+                    id_str=_id_str,
+                    value=value,
+                    encoder=encoder
+                )
+            except Exception:  # Remove any lingering (perhaps partial) cache files
+                _cache.clear(
+                    id_duct=_id_duct,
+                    id_str=_id_str
+                )
+                logger.warning("Failed to save results to cache. If needed, please save them manually.")
+                # TODO: reraise exception if a qualifying debug flag is set.
             return value
 
         logger.caveat('Loaded from cache')
