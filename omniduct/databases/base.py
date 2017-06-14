@@ -254,8 +254,10 @@ class DatabaseClient(Duct, MagicsProvider):
             The pandas dataframe to push into the data store.
         table : str
             The name of the table into which the dataframe should be pushed.
-        overwrite : bool
-            Whether the table should be replaced, if it already exists in the data store.
+        if_exists : {'fail', 'replace', 'append'}, default 'fail'
+            - fail: If table exists, do nothing.
+            - replace: If table exists, drop it, recreate it, and insert data.
+            - append: If table exists, insert data. Create if does not exist.
         kwargs : dict
             Additional arguments which are passed on to `QueryClient._push`.
         '''
@@ -339,7 +341,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic, register_line_cell_magic
 
-        def statement_executor_magic(executor, statement, variable=None, show='head', auto_transpose=True, template=True, template_context=None, **kwargs):
+        def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, template_context=None, **kwargs):
 
             ip = get_ipython()
 
@@ -367,13 +369,7 @@ class DatabaseClient(Duct, MagicsProvider):
             if show == 'head':
                 show = 10
             if isinstance(show, int):
-                if format == 'pandas':
-                    r = result.head(show)
-                    if show <= 10:
-                        r = r.T
-                    return r
-                else:
-                    return result[:show]
+                r = result.head(show) if format == 'pandas' else result[:show]
             elif show == 'all':
                 r = result
             elif show == 'none':
@@ -381,7 +377,7 @@ class DatabaseClient(Duct, MagicsProvider):
             else:
                 raise ValueError("Omniduct does not recognise the argument show='{0}' in cell magic.".format(show))
 
-            if format == 'pandas' and auto_transpose and len(r) <= 10:
+            if format == 'pandas' and transpose:
                 return r.T
             return r
 
