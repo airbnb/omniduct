@@ -51,13 +51,17 @@ class MagicsProvider(with_metaclass(ABCMeta, object)):
         base_name = base_name or self.name
         if base_name is None:
             raise RuntimeError("Cannot register magics without a base_name.")
+
         try:
             from IPython import get_ipython
             ip = get_ipython()
+            assert ip is not None
+            has_ipython = True
+        except Exception:
+            has_ipython = False
 
+        if has_ipython:
             self._register_magics(base_name)
-        except:
-            pass
 
     @abstractmethod
     def _register_magics(self, base_name):
