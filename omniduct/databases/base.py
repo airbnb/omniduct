@@ -89,8 +89,9 @@ class DatabaseClient(Duct, MagicsProvider):
         return statement
 
     @classmethod
-    def statement_hash(cls, statement):
-        statement = cls.statement_cleanup(statement)
+    def statement_hash(cls, statement, cleanup=True):
+        if cleanup:
+            statement = cls.statement_cleanup(statement)
         if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(statement, unicode):
             statement = statement.encode('utf8')
         return hashlib.sha256(statement).hexdigest()
@@ -137,7 +138,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope("Query", timed=True)
     @cached_method(
-        id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'])),
+        id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.get('cleanup', True))),
     )
     def query(self, statement, format='pandas', format_opts={}, **kwargs):
         '''
