@@ -2,6 +2,8 @@ import socket
 
 from omniduct.utils.debug import logger
 
+from .processes import run_in_subprocess
+
 
 def is_local_port_free(local_port):
     """
@@ -44,8 +46,10 @@ def get_free_local_port():
     return free_port
 
 
-def is_port_bound(hostname, port):
+def is_port_bound(hostname, port, timeout=None):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if timeout:
+        s.settimeout(timeout)
     try:
         s.connect((hostname, port))
     except:

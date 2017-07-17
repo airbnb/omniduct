@@ -65,7 +65,7 @@ class SSHClient(RemoteClient):
 
         expected = ["WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
                     "(?i)are you sure you want to continue connecting",    # 1
-                    "(?i)(?:(?:password)|(?:passphrase for key)):",       # 2
+                    "(?i)(?:(?:password)|(?:passphrase for key)):",        # 2
                     "(?i)permission denied",                               # 3
                     "(?i)terminal type",                                   # 4
                     pexpect.TIMEOUT,                                       # 5
@@ -92,7 +92,7 @@ class SSHClient(RemoteClient):
             # Second phase
             if i == 1:  # Another request to authorize host certificate (i.e. host not in the 'known_hosts' file)
                 raise RuntimeError('Received a second request to authorize host key. This should not have happened!')
-            elif i in (2, 3):  # Second request for password/passphrase or rejection of creditials. For now, give up.
+            elif i in (2, 3):  # Second request for password/passphrase or rejection of credentials. For now, give up.
                 raise DuctAuthenticationError('Invalid username and/or password, or private key is not unlocked.')
             elif i == 4:  # Another request for terminal type.
                 raise RuntimeError('Received a second request for terminal type. This should not have happened!')
@@ -184,7 +184,7 @@ class SSHClient(RemoteClient):
         logger.info('Success' if proc.returncode == 0 else 'Failure')
 
     def _is_port_bound(self, host, port):
-        return self.execute('which nc; if [ $? -eq 0 ]; then  nc -z {} {}; fi'.format(host, port)).returncode == 0
+        return self.execute('which nc; if [ $? -eq 0 ]; then nc -z -w2 {} {}; fi'.format(host, port)).returncode == 0
 
     # FileSystem methods
 

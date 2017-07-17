@@ -68,7 +68,7 @@ class PandasCursorFormatter(CursorFormatter):
 
         if self.date_fields is not None:
             try:
-                df = pandas.io.sql._parse_date_columns(df, self.date_fields)
+                df = pd.io.sql._parse_date_columns(df, self.date_fields)
             except Exception as e:
                 logger.warning('Unable to parse date columns. Perhaps your version of pandas is outdated.'
                                'Original error message was: {}: {}'.format(e.__class__.__name__, str(e)))
