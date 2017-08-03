@@ -32,12 +32,12 @@ if os.name == 'posix' and PY2:
 __optional_dependencies__ = {
     # Databases
     'hiveserver2': [
-        'pyhive>=0.3.0[Hive]',  # Primary client
+        'pyhive[hive]>=0.4',  # Primary client
         'impyla>=0.14.0',  # Primary client
     ],
 
     'presto': [
-        'pyhive>=0.3.0[Presto]',  # Primary client
+        'pyhive[presto]>=0.4',  # Primary client
         'sqlalchemy',  # Schema traversal
         'werkzeug',  # Schema traversal
     ],
