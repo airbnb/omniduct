@@ -122,7 +122,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         if not self.isfile(source):
             raise ValueError("Only individual file transfers are support at this time.")
-        with open(source, 'wb') as f:
+        with open(dest, 'wb') as f:
             return f.write(self._file_read(source, binary=True))
 
     def _copy_from_local(self, source, dest, overwrite):
