@@ -54,7 +54,7 @@ def cached_method(id_str,
                 # TODO: reraise exception if a qualifying debug flag is set.
             return value
 
-        logger.caveat('Loaded from cache')
+        logger.caveat('Loaded from cache {}'.format(_cache.get_path(_id_duct, _id_str)))
 
         return _cache.get(
             id_duct=_id_duct,
