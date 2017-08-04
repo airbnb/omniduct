@@ -119,7 +119,12 @@ class SSHClient(RemoteClient):
         cmd = "ssh {login} -T -S {socket} -O check".format(login=self._login_info,
                                                            socket=self._socket_path)
         proc = run_in_subprocess(cmd)
-        return proc.returncode == 0
+
+        if proc.returncode != 0:
+            if os.path.exists(self._socket_path):
+                os.remove(self._socket_path)
+            return False
+        return True
 
     def _disconnect(self):
         """
