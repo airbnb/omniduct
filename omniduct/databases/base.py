@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 
 import hashlib
+import inspect
 import logging
 import os
 import sys
@@ -183,7 +184,7 @@ class DatabaseClient(Duct, MagicsProvider):
             yield row
 
     def _get_formatter(self, formatter, cursor, **kwargs):
-        if not issubclass(formatter, cursor_formatters.CursorFormatter):
+        if not (inspect.isclass(formatter) and issubclass(formatter, cursor_formatters.CursorFormatter)):
             assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
             formatter = self.CURSOR_FORMATTERS[formatter]
         return formatter(cursor, **kwargs)
