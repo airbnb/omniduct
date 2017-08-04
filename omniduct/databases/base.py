@@ -24,14 +24,23 @@ logging.getLogger('requests').setLevel(logging.WARNING)
 
 
 @decorator
-def sanitize_sqlalchemy_statement(f, self, statement, *args, **kwargs):
+def render_statement(method, self, statement, *args, **kwargs):
+    # Check if statement is an SQLAlchemy executable expression, and if so, render it
     try:
         from sqlalchemy.sql.base import Executable
         if isinstance(statement, Executable):
             statement = str(statement.compile(compile_kwargs={"literal_binds": True}))
     except ImportError:
         pass
-    return f(self, statement, *args, **kwargs)
+
+    # If templating enabled, render template
+    template = kwargs.pop('template', False)
+    template_context = kwargs.pop('template_context', {})
+
+    if template:
+        statement = self.render_template(statement, template_context)
+
+    return method(self, statement, *args, **kwargs)
 
 
 class DatabaseClient(Duct, MagicsProvider):
@@ -96,15 +105,14 @@ class DatabaseClient(Duct, MagicsProvider):
             statement = statement.encode('utf8')
         return hashlib.sha256(statement).hexdigest()
 
-    @sanitize_sqlalchemy_statement
-    def execute(self, statement, cleanup=True, async=False, template=False,
-                template_context=None, cursor=None, **kwargs):
+    @render_statement
+    def execute(self, statement, cleanup=True, async=False, cursor=None, **kwargs):
         '''
         Execute a statement against the data source.
 
         Parameters
         ----------
-        statement : The statement to be executed by the query client.
+        statement : The statement to be executed by the query client (possibly templated).
         cleanup : Whether statement should be normalised (whitespace and comments removed).
                   This helps to avoid missing the cache for similar queries.
         async : Whether the cursor should be returned before the server-side query
@@ -123,9 +131,6 @@ class DatabaseClient(Duct, MagicsProvider):
 
         self.connect()
 
-        if template:
-            statement = self.render_template(statement, template_context, by_name=False)
-
         statements = self.statements_split(statement)
         statements = [self.statement_cleanup(stmt) if cleanup else stmt for stmt in statements]
         assert len(statements) > 0, "No non-empty statements were provided."
@@ -137,16 +142,29 @@ class DatabaseClient(Duct, MagicsProvider):
         return cursor
 
     @logging_scope("Query", timed=True)
+    @render_statement
     @cached_method(
         id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.get('cleanup', True))),
     )
     def query(self, statement, format='pandas', format_opts={}, **kwargs):
         '''
-        This method runs the provided statement using `DatabaseClient.execute`,
-        and then formats the results using the nominated formatter.
+        Execute a statement against the data source using `.execute()`, and then
+        collect and return the results in the nominated format; optionally (and
+        by default) caching the result.
+
+        Parameters
+        ----------
+        statement : The statement to be executed by the query client (possibly templated).
+        format : A subclass of CursorFormatter, or one of: 'pandas', 'hive',
+                'csv', 'tuple' or 'dict'.
+        format_opts : A dictionary of format-specific options.
+        use_cache : True (default) or False. Whether to use the cache (if present).
+        renew : True or False (default). If cache is being used, renew it before
+                returning stored value.
+        **kwargs : Additional arguments to pass on to `.execute()`.
         '''
 
-        cursor = self.execute(statement, async=False, **kwargs)
+        cursor = self.execute(statement, async=False, template=False, **kwargs)
 
         # Some DBAPI2 cursor implementations error if attempting to extract
         # data from an empty cursor, and if so, we simply return None.
@@ -164,9 +182,10 @@ class DatabaseClient(Duct, MagicsProvider):
         for row in formatter.stream(batch=batch):
             yield row
 
-    def _get_formatter(self, format, cursor, **kwargs):
-        assert isinstance(format, cursor_formatters.CursorFormatter) or format in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(format, ','.join(self.CURSOR_FORMATTERS.keys()))
-        formatter = self.CURSOR_FORMATTERS[format]
+    def _get_formatter(self, formatter, cursor, **kwargs):
+        if not issubclass(formatter, cursor_formatters.CursorFormatter):
+            assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
+            formatter = self.CURSOR_FORMATTERS[formatter]
         return formatter(cursor, **kwargs)
 
     def stream_to_file(self, statement, file, format='csv', **kwargs):
