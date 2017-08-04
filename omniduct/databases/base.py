@@ -11,7 +11,7 @@ import pandas.io.sql
 import six
 import sqlparse
 from decorator import decorator
-from jinja2 import Template
+from jinja2 import StrictUndefined, Template
 
 from . import cursor_formatters
 from omniduct.caches.base import cached_method
@@ -246,10 +246,11 @@ class DatabaseClient(Duct, MagicsProvider):
                                  variable_start_string='{{{',
                                  variable_end_string='}}}',
                                  comment_start_string='{{#',
-                                 comment_end_string='#}}').render(getattr(self, '_templates', {}))
+                                 comment_end_string='#}}',
+                                 undefined=StrictUndefined).render(getattr(self, '_templates', {}))
 
         # Evaluate final template in provided context
-        statement = Template(statement).render(context)
+        statement = Template(statement, undefined=StrictUndefined).render(context)
 
         return statement
 
