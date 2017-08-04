@@ -68,7 +68,7 @@ class LocalCache(Cache):
         if not os.path.exists(cache_path):
             return None
         with open(cache_path, 'rb') as f:
-            logger.debug('loading local cache entry from {}'.format(cache_path))
+            logger.debug("Loading local cache entry from '{}'.".format(cache_path))
             return decoder(f.read())
 
     def has_key(self, id_duct, id_str):
