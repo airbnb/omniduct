@@ -104,6 +104,15 @@ class TupleCursorFormatter(CursorFormatter):
         return tuple(row)
 
 
+class RawCursorFormatter(CursorFormatter):
+
+    def format_dump(self, data):
+        return data
+
+    def format_row(self, row):
+        return row
+
+
 class CsvCursorFormatter(CursorFormatter):
 
     FORMAT_PARAMS = {
