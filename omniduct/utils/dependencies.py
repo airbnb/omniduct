@@ -8,6 +8,8 @@ from omniduct.utils.debug import logger
 
 
 def check_dependencies(protocols, message=None):
+    if protocols is None:
+        return
     dependencies = []
     for protocol in protocols:
         dependencies.extend(__optional_dependencies__.get(protocol, []))
