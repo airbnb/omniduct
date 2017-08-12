@@ -63,14 +63,17 @@ class SSHClient(RemoteClient):
                "-o ServerAliveCountMax=2 "
                "'exit'".format(login=self._login_info, socket=self._socket_path))
 
-        expected = ["WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
-                    "(?i)are you sure you want to continue connecting",    # 1
-                    "(?i)(?:(?:password)|(?:passphrase for key)):",        # 2
-                    "(?i)permission denied",                               # 3
-                    "(?i)terminal type",                                   # 4
-                    pexpect.TIMEOUT,                                       # 5
-                    "(?i)connection closed by remote host",                # 6
-                    pexpect.EOF]                                           # 7
+        expected = [
+            "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
+            "(?i)are you sure you want to continue connecting",    # 1
+            "(?i)(?:(?:password)|(?:passphrase for key)):",        # 2
+            "(?i)permission denied",                               # 3
+            "(?i)terminal type",                                   # 4
+            pexpect.TIMEOUT,                                       # 5
+            "(?i)connection closed by remote host",                # 6
+            "(?i)could not resolve hostname",                      # 7
+            pexpect.EOF                                            # 8
+        ]
 
         try:
             expect = pexpect.spawn(cmd)
@@ -105,6 +108,8 @@ class SSHClient(RemoteClient):
                                    'messages received so far are:\n{}'.format(expect.before))
             elif i == 6:  # Connection closed by remote host
                 raise RuntimeError("Remote closed SSH connection")
+            elif i == 7:
+                raise RuntimeError("Cannot connect to {} on your curent network connection".format(self.host))
         finally:
             expect.close()
 
