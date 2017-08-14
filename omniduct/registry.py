@@ -3,9 +3,32 @@ import yaml
 
 from omniduct.duct import Duct
 from omniduct.utils.magics import MagicsProvider
+from omniduct.utils.proxies import NestedDictObjectProxy
 
 
 class DuctRegistry(object):
+
+    class Proxy(NestedDictObjectProxy):
+
+        def __init__(self, registry, by_kind=True):
+            self._self_registry = registry
+            get_nesting = None
+            if by_kind:
+                def get_nesting(k, v):
+                    nesting = k.split('/')
+                    if v.DUCT_TYPE is not None:
+                        nesting.insert(0, v.DUCT_TYPE.value)
+                    return nesting
+
+            NestedDictObjectProxy.__init__(self, registry._registry, is_flat=True, get_nesting=get_nesting)
+
+        @property
+        def registry(self):
+            # This will only appear at top level of proxy, since children will not be of this type
+            return self._self_registry
+
+        def __dir__(self):
+            return NestedDictObjectProxy.__dir__(self) + ['registry']
 
     def __init__(self, config=None):
         self._registry = {}
@@ -27,6 +50,12 @@ class DuctRegistry(object):
         if kind and r.DUCT_TYPE != kind:
             raise KeyError("No duct called '{}' of kind '{}'.".format(name, kind.value))
         return r
+
+    def __getitem__(self, name):
+        return self._registry[name]
+
+    def __contains__(self, name):
+        return name in self._registry
 
     # Duct creation/loading methods
     def new(self, names, protocol, register_magics=True, **options):
@@ -66,9 +95,16 @@ class DuctRegistry(object):
                         raise RuntimeError("Configuration file '{}' not understood.".format(config))
         return config
 
-    def populate_namespace(self, namespace=None):
+    # Accessing ducts
+    def populate_namespace(self, namespace=None, include=None, kinds=None):
         if namespace is None:
             namespace = {}
+        if kinds is not None:
+            kinds = [Duct.Type(kind) if not isinstance(kind, Duct.Type) else kind for kind in kinds]
         for name, duct in self._registry.items():
-            namespace[name] = duct
+            if (kinds is None or duct.DUCT_TYPE in kinds) and (include is None or name in include):
+                namespace[name.split('/')[-1]] = duct
         return namespace
+
+    def get_proxy(self, by_kind=False):
+        return DuctRegistry.Proxy(self, by_kind=by_kind)

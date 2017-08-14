@@ -224,9 +224,10 @@ class Configuration(ConfigurationRegistry):
                 logger.warning("Added value for configuration key `{0}` which has yet to be registered.".format(key))
 
         for key in reset_keys:
-            self._config.pop(key)
-            if key in self._register and self._register[key]['onchange'] is not None:
-                self._register[key]['onchange'](getattr(self, key))
+            if key in self._config:
+                self._config.pop(key)
+                if key in self._register and self._register[key]['onchange'] is not None:
+                    self._register[key]['onchange'](getattr(self, key))
 
     def __restrict_keys(self, d, keys):
         if keys is None:
