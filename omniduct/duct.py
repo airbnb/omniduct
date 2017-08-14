@@ -57,7 +57,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         self.registry = registry
         self.remote = remote
         self.host = host
-        self.port = int(port) if port else None
+        self.port = port
         self.__cached_auth = {}
         self.username = username
         self.password = password
@@ -127,7 +127,8 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         for field in self.prepared_fields:
             value = getattr(self, field)
             if hasattr(value, '__call__'):
-                setattr(self, field, value(self.registry))
+                setattr(self, field, value(self))
+        self.port = int(self.port) if self.port else None
 
     @property
     def host(self):
