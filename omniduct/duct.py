@@ -130,7 +130,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             value = getattr(self, field)
             if hasattr(value, '__call__'):
                 setattr(self, field, value(self))
-        self.port = int(self.port) if self.port else None
+        self.port = int(self._port) if self._port else None
 
     @property
     def host(self):
