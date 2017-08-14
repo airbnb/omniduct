@@ -5,5 +5,6 @@ from .databases.sqlalchemy import SQLAlchemyClient
 from .filesystems.local import LocalFsClient
 from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
+from .restful.base import RestClient
 
 # from .remotes.ssh_paramiko import ParamikoSSHClient  # Not yet ready for prime time
