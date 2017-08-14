@@ -17,7 +17,7 @@ class RestClientBase(Duct):
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
-    def __init__(self, *args, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
+    def __init__(self, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
         '''
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
@@ -29,7 +29,7 @@ class RestClientBase(Duct):
         self.assume_json = assume_json
         self.endpoint_prefix = endpoint_prefix
 
-        self._init(*args, **kwargs)
+        self._init(**kwargs)
 
     def _init(self):
         pass
