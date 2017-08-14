@@ -118,7 +118,7 @@ class StatusLogger(object):
                 prefix = ": ".join(self.current_scopes) + ": "
             else:
                 prefix = "\t" * len(self.current_scopes)
-            self._progress_bar = progressbar.ProgressBar(widgets=[prefix, progressbar.widgets.Bar(), progressbar.widgets.Timer()],
+            self._progress_bar = progressbar.ProgressBar(widgets=[prefix, progressbar.widgets.Bar(), progressbar.widgets.Timer(format=' %(elapsed)s')],
                                                          redirect_stderr=True,
                                                          redirect_stdout=True).start()
 
