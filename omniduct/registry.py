@@ -36,6 +36,9 @@ class DuctRegistry(object):
         if config:
             self.import_from_config(config)
 
+    def __repr__(self):
+        return "<DuctRegistry with {} registered ducts>".format(len(self._registry))
+
     # Registry methods
     def register(self, duct, name=None):
         name = name or duct.name
@@ -50,6 +53,10 @@ class DuctRegistry(object):
         if kind and r.DUCT_TYPE != kind:
             raise KeyError("No duct called '{}' of kind '{}'.".format(name, kind.value))
         return r
+
+    @property
+    def names(self):
+        return sorted(self._registry.keys())
 
     def __getitem__(self, name):
         return self._registry[name]
