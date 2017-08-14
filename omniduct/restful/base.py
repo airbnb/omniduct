@@ -15,6 +15,8 @@ class RestClientBase(Duct):
     to access various endpoints.
     '''
 
+    DUCT_TYPE = Duct.Type.RESTFUL
+
     def __init__(self, *args, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
         '''
         This is a shim __init__ function that passes all arguments onto
@@ -63,6 +65,7 @@ class RestClientBase(Duct):
 
     def _disconnect(self):
         pass
+
 
 class RestClient(RestClientBase):
     PROTOCOLS = ['rest']

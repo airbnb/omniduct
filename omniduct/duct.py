@@ -44,6 +44,8 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         FILESYSTEM = 'filesystems'
         DATABASE = 'databases'
         CACHE = 'caches'
+        RESTFUL = 'rest_clients'
+        OTHER = 'other'
 
     AUTO_LOGGING_SCOPE = True
     DUCT_TYPE = None
