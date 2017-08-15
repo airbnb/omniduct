@@ -8,3 +8,7 @@ class DuctConnectionError(RuntimeError):
 
 class DuctServerUnreachable(RuntimeError):
     pass
+
+
+class DuctProtocolUnknown(RuntimeError):
+    pass

@@ -11,7 +11,7 @@ from enum import Enum
 import six
 from future.utils import raise_with_traceback, with_metaclass
 
-from omniduct.errors import DuctConnectionError, DuctServerUnreachable
+from omniduct.errors import DuctServerUnreachable, DuctProtocolUnknown
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.ports import is_port_bound
@@ -34,6 +34,8 @@ class ProtocolRegisteringABCMeta(ABCMeta):
                     cls._protocols[key] = cls
 
     def _for_protocol(cls, key):
+        if key not in cls._protocols:
+            raise DuctProtocolUnknown("Missing `Duct` implementation for protocol: '{}'.".format(key))
         return cls._protocols[key]
 
 
