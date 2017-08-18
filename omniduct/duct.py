@@ -74,7 +74,10 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         self.__disconnecting = False
 
     def __init_with_kwargs__(self, kwargs, **fallbacks):
-        keys = inspect.getargspec(Duct.__init__).args[1:]
+        if six.PY3:
+            keys = inspect.getfullargspec(Duct.__init__).args[1:]
+        else:
+            keys = inspect.getargspec(Duct.__init__).args[1:]
         params = {}
         for key in keys:
             if key in kwargs:
