@@ -10,7 +10,7 @@ class Neo4jClient(DatabaseClient):
 
     PROTOCOLS = ['neo4j']
     DEFAULT_PORT = 7687
-    DEFAULT_FORMAT = 'raw'
+    DEFAULT_CURSOR_FORMATTER = 'raw'
 
     @classmethod
     def statement_cleanup(cls, statement):

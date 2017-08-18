@@ -7,7 +7,6 @@ from .base import DatabaseClient
 class SQLAlchemyClient(DatabaseClient):
 
     PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase']
-    DEFAULT_FORMAT = 'pandas'
 
     def _init(self, dialect=None, driver=None, database=''):
 

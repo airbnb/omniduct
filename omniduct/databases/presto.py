@@ -18,7 +18,6 @@ class PrestoClient(DatabaseClient):
 
     PROTOCOLS = ['presto']
     DEFAULT_PORT = 3506
-    DEFAULT_FORMAT = 'pandas'
 
     def _init(self, catalog='default', schema='default'):
         self.catalog = catalog

@@ -20,7 +20,6 @@ class HiveServer2Client(DatabaseClient):
 
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
-    DEFAULT_FORMAT = 'pandas'
 
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL', **connection_options):
         self.schema = schema

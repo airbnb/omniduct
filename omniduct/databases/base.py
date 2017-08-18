@@ -52,7 +52,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     DUCT_TYPE = Duct.Type.DATABASE
     DEFAULT_PORT = None
-    DEFAULT_FORMAT = 'pandas'
+
     CURSOR_FORMATTERS = {
         'pandas': cursor_formatters.PandasCursorFormatter,
         'hive': cursor_formatters.HiveCursorFormatter,
@@ -61,6 +61,7 @@ class DatabaseClient(Duct, MagicsProvider):
         'dict': cursor_formatters.DictCursorFormatter,
         'raw': cursor_formatters.RawCursorFormatter,
     }
+    DEFAULT_CURSOR_FORMATTER = 'pandas'
 
     def __init__(self, *args, **kwargs):
         '''
@@ -184,7 +185,7 @@ class DatabaseClient(Duct, MagicsProvider):
             yield row
 
     def _get_formatter(self, formatter, cursor, **kwargs):
-        formatter = formatter or self.DEFAULT_FORMAT
+        formatter = formatter or self.DEFAULT_CURSOR_FORMATTER
         if not (inspect.isclass(formatter) and issubclass(formatter, cursor_formatters.CursorFormatter)):
             assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
             formatter = self.CURSOR_FORMATTERS[formatter]
@@ -388,7 +389,7 @@ class DatabaseClient(Duct, MagicsProvider):
             elif variable is None:
                 return result
 
-            format = kwargs.get('format', self.DEFAULT_FORMAT)
+            format = kwargs.get('format', self.DEFAULT_CURSOR_FORMATTER)
             if show == 'head':
                 show = 10
             if isinstance(show, int):
