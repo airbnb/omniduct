@@ -4,6 +4,8 @@ import yaml
 from omniduct.duct import Duct
 from omniduct.utils.magics import MagicsProvider
 from omniduct.utils.proxies import NestedDictObjectProxy
+from omniduct.utils.debug import logger
+from omniduct.errors import DuctProtocolUnknown
 
 
 class DuctRegistry(object):
@@ -82,7 +84,10 @@ class DuctRegistry(object):
             for names, options in config.get(t, {}).items():
                 protocol = options.pop('protocol')
                 register_magics = options.pop('register_magics', True)
-                self.new(names, protocol, register_magics=register_magics, **options)
+                try:
+                    self.new(names, protocol, register_magics=register_magics, **options)
+                except DuctProtocolUnknown as e:
+                    logger.error("Failed to configure `Duct` instance(s) '{}'. {}".format("', '".join(names.split(',')), str(e)))
 
         return self
 
