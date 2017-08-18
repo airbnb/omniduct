@@ -63,11 +63,6 @@ class SQLAlchemyClient(DatabaseClient):
     def _cursor_empty(self, cursor):
         return False
 
-    def _cursor_to_dataframe(self, cursor):
-        records = list(cursor.cursor.fetchall())
-        description = cursor.cursor.description
-        return pd.DataFrame(data=records, columns=[c[0] for c in description])
-
     def _table_list(self, **kwargs):
         return self.query("SHOW TABLES", **kwargs)
 
