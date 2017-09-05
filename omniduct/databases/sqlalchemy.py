@@ -39,25 +39,21 @@ class SQLAlchemyClient(DatabaseClient):
     def _connect(self):
         import sqlalchemy
         self.engine = sqlalchemy.create_engine(self.db_uri)
-        self.connection = self.engine.connect()
 
     def _push(self):
         raise NotImplementedError
 
     def _is_connected(self):
-        return self.connection and not self.connection.closed
+        return self.engine is not None
 
     def _disconnect(self):
-        if self.connection:
-            self.connection.close()
-        self.connection = None
         self.engine = None
 
     def _execute(self, statement, query=True, cursor=None, **kwargs):
         if cursor:
             cursor.execute(statement)
         else:
-            cursor = self.connection.execute(statement).cursor
+            cursor = self.engine.execute(statement).cursor
         return cursor
 
     def _cursor_empty(self, cursor):
