@@ -35,10 +35,18 @@ def render_statement(method, self, statement, *args, **kwargs):
         pass
 
     # If templating enabled, render template
-    template = kwargs.pop('template', False)
-    template_context = kwargs.pop('template_context', {})
-
-    if template:
+    if kwargs.pop('template', False):
+        template_context = {}
+        template_context.update(self._template_context)
+        kwarg_context = kwargs.pop('template_context', {})
+        template_context.update(kwarg_context)
+        intersection = set(self._template_context.keys()) & set(kwarg_context.keys())
+        if intersection:
+            logger.warning(
+                "The following default template context keys have been overridden "
+                "by the local context: {}."
+                .format(intersection)
+            )
         statement = self.render_template(statement, template_context)
 
     return method(self, statement, *args, **kwargs)
@@ -71,7 +79,8 @@ class DatabaseClient(Duct, MagicsProvider):
         '''
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
-        self._templates = {}
+        self._templates = kwargs.pop('templates', {})
+        self._template_context = kwargs.pop('template_context', {})
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
 
