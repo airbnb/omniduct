@@ -15,13 +15,16 @@ from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
 
+DRIVER_HIVE = 'pyhive'
+DRIVER_IMPALA = 'impyla'
+
 
 class HiveServer2Client(DatabaseClient):
 
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
 
-    def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL', **connection_options):
+    def _init(self, schema=None, driver=DRIVER_HIVE, auth_mechanism='NOSASL', **connection_options):
         self.schema = schema
         self.driver = driver
         self.auth_mechanism = auth_mechanism
@@ -29,11 +32,11 @@ class HiveServer2Client(DatabaseClient):
         self.__hive = None
         self.connection_fields += ('schema',)
 
-        assert self.driver in ('pyhive', 'impyla'), "Supported drivers are pyhive and impyla."
+        assert self.driver in (DRIVER_HIVE, DRIVER_IMPALA), "Supported drivers are hiveserver2.DRIVER_HIVE and hiveserver2.DRIVER_IMPALA"
 
     def _connect(self):
         from sqlalchemy import create_engine, MetaData
-        if self.driver == 'pyhive':
+        if self.driver == DRIVER_HIVE:
             import pyhive.hive
             self.__hive = pyhive.hive.connect(host=self.host,
                                               port=self.port,
@@ -42,7 +45,7 @@ class HiveServer2Client(DatabaseClient):
                                               **self.connection_options)
             self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
-        elif self.driver == 'impyla':
+        elif self.driver == DRIVER_IMPALA:
             import impala.dbapi
             self.__hive = impala.dbapi.connect(host=self.host,
                                                port=self.port,
@@ -53,7 +56,7 @@ class HiveServer2Client(DatabaseClient):
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     def __hive_cursor(self):
-        if self.driver == 'impyla':  # Impyla seems to have all manner of connection issues, attempt to restore connection
+        if self.driver == DRIVER_IMPALA:  # Impyla seems to have all manner of connection issues, attempt to restore connection
             try:
                 with Timeout(1):
                     return self.__hive.cursor()
@@ -84,7 +87,7 @@ class HiveServer2Client(DatabaseClient):
         cursor = cursor or self.__hive_cursor()
         log_offset = 0
 
-        if self.driver == 'pyhive':
+        if self.driver == DRIVER_HIVE:
             from TCLIService.ttypes import TOperationState
             cursor.execute(statement, async=True)
 
@@ -95,7 +98,7 @@ class HiveServer2Client(DatabaseClient):
                     time.sleep(poll_interval)
                     status = cursor.poll().operationState
 
-        elif self.driver == 'impyla':
+        elif self.driver == DRIVER_IMPALA:
             cursor.execute_async(statement)
             if not async:
                 while cursor.is_executing():
@@ -105,9 +108,9 @@ class HiveServer2Client(DatabaseClient):
         return cursor
 
     def _cursor_empty(self, cursor):
-        if self.driver == 'impyla':
+        if self.driver == DRIVER_IMPALA:
             return not cursor.has_result_set
-        elif self.driver == 'pyhive':
+        elif self.driver == DRIVER_HIVE:
             return cursor.description is None
         return False
 
@@ -120,7 +123,7 @@ class HiveServer2Client(DatabaseClient):
     def _log_status(self, cursor, log_offset=0):
         matcher = re.compile('[0-9/]+ [0-9\:]+ (INFO )?')
 
-        if self.driver == 'pyhive':
+        if self.driver == DRIVER_HIVE:
             log = cursor.fetch_logs()
         else:
             log = cursor.get_log().strip().split('\n')
