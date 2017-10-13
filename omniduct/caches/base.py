@@ -16,8 +16,9 @@ def cached_method(id_str,
                   id_duct=lambda self, kwargs: "{}.{}".format(self.__class__.__name__, self.name),
                   use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
                   renew=lambda self, kwargs: kwargs.pop('renew', False),
-                  encoder=pickle.dumps,
-                  decoder=pickle.loads):
+                  format=lambda self, kwargs: None,
+                  serializer=lambda format: pickle.dump,  # Serializers accept obj, file handle and format.
+                  deserializer=lambda format: pickle.load):  # Deserializers accept file handle and format.
     @decorator
     def wrapped(method, self, *args, **kwargs):
         if six.PY3 and not hasattr(sys, 'pypy_version_info'):
@@ -29,6 +30,7 @@ def cached_method(id_str,
         _cache = cache(self)
         _use_cache = use_cache(self, kwargs)
         _renew = renew(self, kwargs)
+        _format = format(self, kwargs)
 
         if _cache is None or not _use_cache:
             return method(self, **kwargs)
@@ -43,7 +45,7 @@ def cached_method(id_str,
                     id_duct=_id_duct,
                     id_str=_id_str,
                     value=value,
-                    encoder=encoder
+                    serializer=serializer(_format)
                 )
             except Exception:  # Remove any lingering (perhaps partial) cache files
                 _cache.clear(
@@ -59,7 +61,7 @@ def cached_method(id_str,
         return _cache.get(
             id_duct=_id_duct,
             id_str=_id_str,
-            decoder=decoder
+            deserializer=deserializer(_format)
         )
     return wrapped
 
@@ -90,7 +92,7 @@ class Cache(Duct):
         pass
 
     @abstractmethod
-    def get(self, id_duct, id_str, decoder=pickle.loads):
+    def get(self, id_duct, id_str, deserializer=pickle.load):
         pass
 
     @abstractmethod
@@ -102,5 +104,5 @@ class Cache(Duct):
         pass
 
     @abstractmethod
-    def set(self, id_duct, id_str, value, encoder=pickle.dumps):
+    def set(self, id_duct, id_str, value, serializer=pickle.dump):
         pass

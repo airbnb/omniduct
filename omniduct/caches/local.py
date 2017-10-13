@@ -63,13 +63,13 @@ class LocalCache(Cache):
         cache_path = self.dir if id_duct is None else os.path.dirname(self.get_path(id_duct, 'None'))
         shutil.rmtree(cache_path)
 
-    def get(self, id_duct, id_str, decoder=pickle.loads):
+    def get(self, id_duct, id_str, deserializer=pickle.load):
         cache_path = self.get_path(id_duct, id_str)
         if not os.path.exists(cache_path):
             return None
         with open(cache_path, 'rb') as f:
             logger.debug("Loading local cache entry from '{}'.".format(cache_path))
-            return decoder(f.read())
+            return deserializer(f)
 
     def has_key(self, id_duct, id_str):
         return os.path.exists(self.get_path(id_duct, id_str))
@@ -77,7 +77,7 @@ class LocalCache(Cache):
     def keys(self, id_dict):
         raise NotImplementedError()
 
-    def set(self, id_duct, id_str, value, encoder=pickle.dumps):
+    def set(self, id_duct, id_str, value, serializer=pickle.dump):
         cache_path = self.get_path(id_duct, id_str, create=True)
         with open(cache_path, 'wb') as f:
-            return f.write(encoder(value))
+            return serializer(value, f)

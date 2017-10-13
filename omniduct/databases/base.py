@@ -24,6 +24,14 @@ from omniduct.utils.magics import MagicsProvider, process_line_arguments, proces
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
+def cache_serializer(format):
+    return DatabaseClient.CURSOR_FORMATTERS[format].serialize
+
+
+def cache_deserializer(format):
+    return DatabaseClient.CURSOR_FORMATTERS[format].deserialize
+
+
 @decorator
 def render_statement(method, self, statement, *args, **kwargs):
     # Check if statement is an SQLAlchemy executable expression, and if so, render it
@@ -158,6 +166,9 @@ class DatabaseClient(Duct, MagicsProvider):
     @render_statement
     @cached_method(
         id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.get('cleanup', True))),
+        format=lambda self, kwargs: kwargs['format'] if kwargs['format'] is not None else self.DEFAULT_CURSOR_FORMATTER,
+        serializer=cache_serializer,
+        deserializer=cache_deserializer
     )
     def query(self, statement, format=None, format_opts={}, **kwargs):
         '''
