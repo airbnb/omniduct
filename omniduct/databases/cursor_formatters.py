@@ -1,5 +1,8 @@
 import csv
 import io
+import pickle
+
+import pandas as pd
 
 
 class CursorFormatter(object):
@@ -29,9 +32,6 @@ class CursorFormatter(object):
 
     def stream(self, batch=None):
         try:
-            column_names = self.column_names
-            column_formats = self.column_formats
-
             if batch is not None:
                 while True:
                     b = [self.prepare_row(row) for row in self.cursor.fetchmany(batch)]
@@ -53,6 +53,14 @@ class CursorFormatter(object):
 
     def format_row(self, row):
         raise NotImplementedError("{} does not support formatting streaming data.".format(self.__class__.__name__))
+
+    @classmethod
+    def serialize(cls, formatted_data, fh):
+        return pickle.dump(formatted_data, fh)
+
+    @classmethod
+    def deserialize(cls, fh):
+        return pickle.load(fh)
 
 
 class PandasCursorFormatter(CursorFormatter):
@@ -84,6 +92,14 @@ class PandasCursorFormatter(CursorFormatter):
         # TODO: Handle parsing of date fields
 
         return pd.Series(row, index=self.column_names)
+
+    @classmethod
+    def serialize(cls, formatted_data, fh):
+        return pd.to_pickle(formatted_data, fh)
+
+    @classmethod
+    def deserialize(cls, fh):
+        return pd.read_pickle(fh)
 
 
 class DictCursorFormatter(CursorFormatter):
