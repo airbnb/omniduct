@@ -61,6 +61,13 @@ class FileSystemClient(Duct, MagicsProvider):
     def _showdir(self, path):
         raise NotImplementedError
 
+    def find(self, pattern=None, path_prefix=None, files=True, dirs=False):
+        return self.connect()._find(pattern, path_prefix, files, dirs)
+
+    @abstractmethod
+    def _find(self, pattern, path_prefix, files, dirs):
+        raise NotImplementedError
+
     # Directory handling
 
     def mkdir(self, path, parents=True):

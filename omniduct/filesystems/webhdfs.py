@@ -93,6 +93,9 @@ class WebHdfsClient(FileSystemClient):
             'replication',
         ]].sort_values(['type', 'pathSuffix']).reset_index(drop=True)
 
+    def _find(self, pattern, path_prefix, files, dirs):
+        raise NotImplementedError
+
     # File opening
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
