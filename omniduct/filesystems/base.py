@@ -263,3 +263,11 @@ class FileSystemFile(object):
             raise io.UnsupportedOperation("File not open for writing")
         self.__io_buffer.write(s)
         self.__modified = True
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.readline()
+
+    next = __next__  # Python 2
