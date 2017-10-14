@@ -238,6 +238,9 @@ class SSHClient(RemoteClient):
             ['type', 'path']
         ).reset_index(drop=True)[['type', 'path', 'bytes', 'last_modified', 'file_mode', 'owner', 'group', 'link_count']]
 
+    def _find(self, pattern, path_prefix, files, dirs):
+        raise NotImplementedError
+
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):

@@ -81,6 +81,9 @@ class ParamikoSSHClient(RemoteClient):
     def _showdir(self, path):
         raise NotImplementedError
 
+    def _find(self, pattern, path_prefix, files, dirs):
+        raise NotImplementedError
+
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
