@@ -12,7 +12,7 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
-    def _init(self, bucket=None, aws_profile=None):
+    def _init(self, bucket=None, aws_profile='default'):
         # Note: aws_profile, if specified, should be the name of a profile as
         # specified in ~/.aws/credentials. Authentication is handled by the
         # `opinel` library, which is also aware of environment variables.
