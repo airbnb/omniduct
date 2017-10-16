@@ -53,6 +53,11 @@ __optional_dependencies__ = {
         'requests',  # For rerouting redirect queries to our port-forwarded services
     ],
 
+    's3': [
+        'opinel',  # AWS credential management
+        'boto3',  # AWS client library
+    ],
+
     # Remotes
     'ssh': [
         'pexpect',  # Command line handling (including smartcard activation)
