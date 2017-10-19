@@ -21,7 +21,6 @@ class SQLAlchemyClient(DatabaseClient):
 
         self.driver = driver
         self.database = database
-        self.__hive = None
         self.connection_fields += ('schema',)
 
         self.engine = None

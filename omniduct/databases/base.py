@@ -451,19 +451,18 @@ class DatabaseClient(Duct, MagicsProvider):
 
             ip = get_ipython()
 
-            try:
-                if body is None:
-                    assert name is not None, "Name must be specified in line-mode."
-                    rendered = self.render_template(name, context=context or ip.user_ns, by_name=True)
-                    if not show:
-                        return rendered
-                else:
-                    rendered = self.render_template(body, context=context or ip.user_ns, by_name=False)
-                    if name is not None:
-                        ip.user_ns[name] = rendered
-            finally:
-                if show:
-                    print(rendered)
+            if body is None:
+                assert name is not None, "Name must be specified in line-mode."
+                rendered = self.render_template(name, context=context or ip.user_ns, by_name=True)
+            else:
+                rendered = self.render_template(body, context=context or ip.user_ns, by_name=False)
+                if name is not None:
+                    ip.user_ns[name] = rendered
+
+            if show:
+                print(rendered)
+            else:
+                return rendered
 
         @register_line_magic("{}.{}".format(base_name, 'desc'))
         @process_line_arguments
