@@ -226,7 +226,7 @@ class RemoteClient(FileSystemClient):
             assert is_local_port_free(local_port), "Specified local port is in use, and cannot be used."
 
         if not self.is_port_bound(remote_host, remote_port):
-            raise DuctServerUnreachable("Server specified for port forwarding ({}:{}) in unreachable.".format(remote_host, remote_port))
+            raise DuctServerUnreachable("Server specified for port forwarding ({}:{}) is unreachable.".format(remote_host, remote_port))
         connection = self.connect()._port_forward_start(local_port, remote_host, remote_port)
         self.__port_forwarding_register.register(remote_host, remote_port, local_port, connection)
 
