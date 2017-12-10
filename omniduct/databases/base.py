@@ -34,29 +34,12 @@ def cache_deserializer(format):
 
 @decorator
 def render_statement(method, self, statement, *args, **kwargs):
-    # Check if statement is an SQLAlchemy executable expression, and if so, render it
-    try:
-        from sqlalchemy.sql.base import Executable
-        if isinstance(statement, Executable):
-            statement = str(statement.compile(compile_kwargs={"literal_binds": True}))
-    except ImportError:
-        pass
-
-    # If templating enabled, render template
-    if kwargs.pop('template', False):
-        template_context = {}
-        template_context.update(self._template_context)
-        kwarg_context = kwargs.pop('template_context', {})
-        template_context.update(kwarg_context)
-        intersection = set(self._template_context.keys()) & set(kwarg_context.keys())
-        if intersection:
-            logger.warning(
-                "The following default template context keys have been overridden "
-                "by the local context: {}."
-                .format(intersection)
-            )
-        statement = self.render_template(statement, template_context)
-
+    if kwargs.pop('template', True):
+        statement = self.render_template(
+            statement,
+            context=kwargs.pop('context', {}),
+            by_name=False,
+        )
     return method(self, statement, *args, **kwargs)
 
 
@@ -128,8 +111,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @render_statement
     def execute(self, statement, cleanup=True, async=False, cursor=None, **kwargs):
-        '''
-        Execute a statement against the data source.
+        """Execute a statement against the data source.
 
         Parameters
         ----------
@@ -139,7 +121,7 @@ class DatabaseClient(Duct, MagicsProvider):
         async : Whether the cursor should be returned before the server-side query
                 computation is complete.
         template : Whether the statement should be treated as a Jinja2 template.
-        template_context : If the statement is to be treated as a template,
+        context : If the statement is to be treated as a template,
                  substitute in the parameters using this context.
         cursor : Rather than creating a new cursor, execute this statement against
                  the existing provided cursor (or pass None)
@@ -148,7 +130,7 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns
         -------
         A DBAPI2 compatible cursor instance.
-        '''
+        """
 
         self.connect()
 
@@ -258,8 +240,26 @@ class DatabaseClient(Duct, MagicsProvider):
         else:
             statement = name_or_statement
 
-        if not context:
+        try:
+            from sqlalchemy.sql.base import Executable
+            if isinstance(statement, Executable):
+                statement = str(statement.compile(compile_kwargs={"literal_binds": True}))
+        except ImportError:
+            pass
+
+        if context is None or context is False:
             context = {}
+
+        template_context = {}
+        template_context.update(self._template_context)  # default context
+        template_context.update(context)  # context passed in
+        intersection = set(self._template_context.keys()) & set(context.keys())
+        if intersection:
+            logger.warning(
+                "The following default template context keys have been overridden "
+                "by the local context: {}."
+                .format(intersection)
+            )
 
         # Substitute in any other named statements recursively
         while '{{{' in statement or '{{%' in statement:
@@ -272,10 +272,7 @@ class DatabaseClient(Duct, MagicsProvider):
                                  comment_end_string='#}}',
                                  undefined=StrictUndefined).render(getattr(self, '_templates', {}))
 
-        # Evaluate final template in provided context
-        statement = Template(statement, undefined=StrictUndefined).render(context)
-
-        return statement
+        return Template(statement, undefined=StrictUndefined).render(template_context)
 
     def execute_from_template(self, name, context=None, **kwargs):
         statement = self.render_template(name, context, by_name=True)
@@ -385,19 +382,19 @@ class DatabaseClient(Duct, MagicsProvider):
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic, register_line_cell_magic
 
-        def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, template_context=None, **kwargs):
+        def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, context=None, **kwargs):
 
             ip = get_ipython()
 
-            if template_context is None:
-                template_context = ip.user_ns
+            if context is None:
+                context = ip.user_ns
 
             # Line magic
             if statement is None:
-                return self.query_from_template(variable, context=template_context)
+                return self.query_from_template(variable, context=context)
 
             # Cell magic
-            result = getattr(self, executor)(statement, template=template, template_context=template_context, **kwargs)
+            result = getattr(self, executor)(statement, template=template, context=context, **kwargs)
 
             if variable is not None:
                 ip.user_ns[variable] = result
@@ -447,7 +444,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_cell_magic("{}.{}".format(base_name, 'render'))
         @process_line_cell_arguments
-        def render_template(body=None, name=None, context=None, show=True):
+        def render_template_magic(body=None, name=None, context=None, show=True):
 
             ip = get_ipython()
 
