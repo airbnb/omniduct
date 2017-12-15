@@ -7,8 +7,13 @@ import six
 from decorator import decorator
 
 from omniduct.duct import Duct
+from omniduct.utils.config import config
 
 from ..utils.debug import logger
+
+config.register('cache_fail_hard',
+                description='Raise exception if cache fails to save.',
+                default=False)
 
 
 def cached_method(id_str,
@@ -53,7 +58,9 @@ def cached_method(id_str,
                     id_str=_id_str
                 )
                 logger.warning("Failed to save results to cache. If needed, please save them manually.")
-                # TODO: reraise exception if a qualifying debug flag is set.
+                if config.cache_fail_hard:
+                    raise
+
             return value
 
         logger.caveat('Loaded from cache')
