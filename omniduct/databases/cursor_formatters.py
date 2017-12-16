@@ -3,6 +3,7 @@ import io
 import pickle
 
 import pandas as pd
+from distutils.version import LooseVersion
 
 
 class CursorFormatter(object):
@@ -95,6 +96,10 @@ class PandasCursorFormatter(CursorFormatter):
 
     @classmethod
     def serialize(cls, formatted_data, fh):
+        # compat: if pandas is old, to_pickle does not accept file handles
+        if LooseVersion(pd.__version__) <= LooseVersion('0.20.3'):
+            fh.close()
+            fh = fh.name
         return pd.to_pickle(formatted_data, fh)
 
     @classmethod
