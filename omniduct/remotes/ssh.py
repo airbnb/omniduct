@@ -109,7 +109,7 @@ class SSHClient(RemoteClient):
             elif i == 6:  # Connection closed by remote host
                 raise RuntimeError("Remote closed SSH connection")
             elif i == 7:
-                raise RuntimeError("Cannot connect to {} on your curent network connection".format(self.host))
+                raise RuntimeError("Cannot connect to {} on your current network connection".format(self.host))
         finally:
             expect.close()
 
