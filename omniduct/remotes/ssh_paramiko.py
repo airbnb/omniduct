@@ -166,7 +166,7 @@ def forward_tunnel(local_port, remote_host, remote_port, transport):
 
 
 def get_host_port(spec, default_port=22):
-    "parse 'hostname:22' into a host and port, with the port optional"
+    """parse 'hostname:22' into a host and port, with the port optional"""
     args = (spec.split(':', 1) + [default_port])[:2]
     args[1] = int(args[1])
     return args[0], args[1]

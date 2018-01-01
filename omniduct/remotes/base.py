@@ -62,10 +62,10 @@ class PortForwardingRegister(object):
 
 
 class RemoteClient(FileSystemClient):
-    '''
+    """
     SSHClient is an abstract class that can be subclassed into a fully-functional
     SSH client.
-    '''
+    """
 
     DUCT_TYPE = Duct.Type.REMOTE
 
@@ -96,10 +96,10 @@ class RemoteClient(FileSystemClient):
 
     @abstractmethod
     def _init(self, **kwargs):
-        '''
+        """
         To be defined by subclasses, and called immediately after __init__. This allows
         subclasses to initialise themselves.
-        '''
+        """
         pass
 
     # SSH commands
@@ -168,18 +168,18 @@ class RemoteClient(FileSystemClient):
         return True
 
     def execute(self, cmd, **kwargs):
-        '''
+        """
         Execute `cmd` on the remote shell via ssh. Additional keyword arguments are
         passed on to subclasses.
-        '''
+        """
         return self.connect()._execute(cmd, **kwargs)
 
     @abstractmethod
     def _execute(self, cmd, **kwargs):
-        '''
+        """
         Should return a tuple of:
         (<status code>, <data printed to stdout>, <data printed to stderr>)
-        '''
+        """
         raise NotImplementedError
 
     # Port forwarding code
@@ -199,13 +199,13 @@ class RemoteClient(FileSystemClient):
         return host, port, local_port
 
     def port_forward(self, remote_host, remote_port=None, local_port=None):
-        '''
+        """
         Establishes a local port forwarding from local port `local` to remote
         port `remote`. If `local` is `None`, automatically find an available local
         port, and forward it. This method returns the used local port.
 
         If the remote port is already forwarded, a new connection is not created.
-        '''
+        """
 
         # Hostname and port extraction
         remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
@@ -258,9 +258,9 @@ class RemoteClient(FileSystemClient):
         self.__port_forwarding_register.unregister(remote_host, remote_port)
 
     def port_forward_stopall(self):
-        '''
+        """
         Stop all port forwarding.
-        '''
+        """
         for remote_host in self.__port_forwarding_register._register:
             self.port_forward_stop(remote_host=remote_host)
 
@@ -269,11 +269,11 @@ class RemoteClient(FileSystemClient):
         return urlunparse(parsed_uri._replace(netloc='localhost:{}'.format(self.port_forward(parsed_uri.netloc))))
 
     def show_port_forwards(self):
-        '''
+        """
         Return a list of active port forwards, in the form:
         (local, remote, obj)
         where `obj` is the value returned from `_port_forward_start`.
-        '''
+        """
         if len(self.__port_forwarding_register._register) == 0:
             print("No port forwards currently in use.")
         for remote_host, (local_port, _) in self.__port_forwarding_register._register.items():

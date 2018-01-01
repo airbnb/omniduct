@@ -44,10 +44,10 @@ def render_statement(method, self, statement, *args, **kwargs):
 
 
 class DatabaseClient(Duct, MagicsProvider):
-    '''
+    """
     QueryClient is an abstract class that can be subclassed to allow the databases
     of various data sources, such as databases or website apis.
-    '''
+    """
 
     DUCT_TYPE = Duct.Type.DATABASE
     DEFAULT_PORT = None
@@ -63,11 +63,11 @@ class DatabaseClient(Duct, MagicsProvider):
     DEFAULT_CURSOR_FORMATTER = 'pandas'
 
     def __init__(self, *args, **kwargs):
-        '''
+        """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
         to instantiate themselves with arbitrary parameters.
-        '''
+        """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
         self._templates = kwargs.pop('templates', {})
@@ -153,7 +153,7 @@ class DatabaseClient(Duct, MagicsProvider):
         deserializer=cache_deserializer
     )
     def query(self, statement, format=None, format_opts={}, **kwargs):
-        '''
+        """
         Execute a statement against the data source using `.execute()`, and then
         collect and return the results in the nominated format; optionally (and
         by default) caching the result.
@@ -168,7 +168,7 @@ class DatabaseClient(Duct, MagicsProvider):
         renew : True or False (default). If cache is being used, renew it before
                 returning stored value.
         **kwargs : Additional arguments to pass on to `.execute()`.
-        '''
+        """
         cursor = self.execute(statement, async=False, template=False, **kwargs)
 
         # Some DBAPI2 cursor implementations error if attempting to extract
@@ -220,10 +220,10 @@ class DatabaseClient(Duct, MagicsProvider):
             return self.execute(f.read(), **kwargs)
 
     def query_from_file(self, file, **kwargs):
-        '''
+        """
         This method is shorthand for:
         QueryClient.execute_from_file(file, parse=True, **kwargs)
-        '''
+        """
         with open(file, 'r') as f:
             return self.query(f.read(), **kwargs)
 
@@ -285,7 +285,7 @@ class DatabaseClient(Duct, MagicsProvider):
     # Uploading data to data store
     @logging_scope('Push', timed=True)
     def push(self, df, table, if_exists='fail', **kwargs):
-        '''
+        """
         This method pushes a local dataframe `df` to the connected data store
         as a table `table`.
 
@@ -301,7 +301,7 @@ class DatabaseClient(Duct, MagicsProvider):
             - append: If table exists, insert data. Create if does not exist.
         kwargs : dict
             Additional arguments which are passed on to `QueryClient._push`.
-        '''
+        """
         assert if_exists in {'fail', 'replace', 'append'}
         self.connect()._push(df, table, if_exists=if_exists, **kwargs)
 
@@ -323,10 +323,10 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def table_list(self, **kwargs):
-        '''
+        """
         Return a list of table names in the data source as a DataFrame. Additional kwargs are
         passed to `QueryClient._table_list`.
-        '''
+        """
         return self._table_list(**kwargs)
 
     @abstractmethod
@@ -334,9 +334,9 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def table_exists(self, table, **kwargs):
-        '''
+        """
         Return boolean if table exists in schema
-        '''
+        """
         return self._table_exists(table=table, **kwargs)
 
     @abstractmethod
@@ -344,12 +344,12 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def table_desc(self, table, **kwargs):
-        '''
+        """
         Describe a table in the data source. Additional kwargs are
         passed to `QueryClient._table_desc`.
 
         Returns a pandas dataframe of table fields and descriptors.
-        '''
+        """
         return self._table_desc(table, **kwargs)
 
     @abstractmethod
@@ -357,12 +357,12 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def table_head(self, table, n=10, **kwargs):
-        '''
+        """
         Show a sample of the data in `table` of the data source. `n` is the number of records
         to show in this sample. The additional `kwargs` are passed on to `QueryClient._table_head`.
 
         Returns a pandas DataFrame.
-        '''
+        """
         return self._table_head(table, n=n, **kwargs)
 
     @abstractmethod
@@ -370,9 +370,9 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def table_props(self, table, **kwargs):
-        '''
+        """
         Return a dataframe of table properties for `table`.
-        '''
+        """
         return self._table_props(table, **kwargs)
 
     @abstractmethod

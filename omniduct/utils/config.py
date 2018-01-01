@@ -25,7 +25,7 @@ class ConfigurationRegistry(object):
 
     def register(self, key, description=None, default=None, onchange=None, onload=None,
                  type=None, host=None):
-        '''
+        """
         Register a configuration key that can be set by the user. As noted in the
         class level documentation, these keys should not lead to changes in the
         output of omniduct functions. The same code should generate the same results
@@ -42,7 +42,7 @@ class ConfigurationRegistry(object):
          - type : Values set will be of `isinstance(val, type)`
 
         * If not specified, these fields default to None.
-        '''
+        """
         if key in dir(self):
             raise KeyError("Key `{0}` cannot be registered as it conflicts with a method of OmniductConfiguration.".format(key))
         if key in self._register:
@@ -66,11 +66,11 @@ class ConfigurationRegistry(object):
         }
 
     def show(self):
-        '''
+        """
         Pretty print the configuration options available to be set, as well as
         their current values, descriptions and the module from which they were
         registered.
-        '''
+        """
         for key in sorted(self._register.keys()):
             desc = self._register[key].get('description')
             if desc is None:
@@ -131,20 +131,20 @@ class Configuration(ConfigurationRegistry):
                     "Configuration file at {0} cannot be loaded. Perhaps try deleting it.".format(self.__config_path))
 
     def all(self):
-        '''
+        """
         Return a dictionary containing all configuration keys. Note that this is
         the actual dictionary storing the configuration options, so modifying
         this dictionary will modify the configuration options *without* running
         the standard checks.
-        '''
+        """
         return self._config
 
     def show(self):
-        '''
+        """
         Pretty print the configuration options available to be set, as well as
         their current values, descriptions and the module from which they were
         registered.
-        '''
+        """
         for key in sorted(self._register.keys()):
             desc = self._register[key].get('description')
             if desc is None:
@@ -155,12 +155,12 @@ class Configuration(ConfigurationRegistry):
             print('\t({0})'.format(self._register[key]['host']))
 
     def __setattr__(self, key, value):
-        '''
+        """
         Allow setting configuration options using the standard python attribute
         methods, as described in the class documentation.
 
         Attributes prefixed with '_' are loaded from this class.
-        '''
+        """
         if key.startswith('_'):
             object.__setattr__(self, key, value)
         elif key in self._register:
@@ -175,12 +175,12 @@ class Configuration(ConfigurationRegistry):
             raise KeyError("No such configuration key `{0}`.".format(key))
 
     def __getattr__(self, key):
-        '''
+        """
         Allow retrieval of configuration keys using standard python atribute
         methods, as described in the class documentation.
 
         Attributes prefixed with '_' are loaded from this class.
-        '''
+        """
         if key.startswith('_'):
             return object.__getattr__(self, key)
         if key in self._register:
@@ -195,7 +195,7 @@ class Configuration(ConfigurationRegistry):
         raise AttributeError("No such configuration key `{0}`.".format(key))
 
     def reset(self, *keys, **target_config):
-        '''
+        """
         Reset all configuration keys specifed to their default values, or values
         specified in `target_config`. If both `keys` and `target_config` are
         specified, `keys` acts to both filter the keys of `target_config` and add
@@ -206,7 +206,7 @@ class Configuration(ConfigurationRegistry):
 
         If no keys are specified, reset all keys:
         >>> config.reset()
-        '''
+        """
         if len(keys) == 0:
             keys = set(list(self._register.keys()) + list(target_config.keys()))
 
@@ -235,7 +235,7 @@ class Configuration(ConfigurationRegistry):
         return {key: d[key] for key in keys if key in d}
 
     def save(self, filename=None, keys=None, replace=None):
-        '''
+        """
         Save the current configuration as a JSON file. Accepted arguments are:
          - filename : The location of the file to be saved. If not specified,
             default configuration location is used (and autoloaded on startup).
@@ -246,7 +246,7 @@ class Configuration(ConfigurationRegistry):
             maintained except where they conflict with the keys specified. The
             default value is `None`, in which case it maps to `True` if keys=None,
             or `False` if specific keys are specified. (default=None)
-        '''
+        """
         filename = filename or self._config_path
         filename = os.path.join(ensure_path_exists(os.path.dirname(filename)), os.path.basename(filename))
         config = {}
@@ -265,7 +265,7 @@ class Configuration(ConfigurationRegistry):
             f.write(json_config)
 
     def load(self, filename=None, keys=None, replace=None, force=False):
-        '''
+        """
         Load a configuration from the disk. Accepted arguments are:
          - filename : The location of the configuration. By default, this will
             point to the automatically loaded configuration file.
@@ -280,7 +280,7 @@ class Configuration(ConfigurationRegistry):
             but in some cases (such as startup), the register has yet to be filled,
             and so results in spouts spurious warnings. This allows one to bypass
             all checks.
-        '''
+        """
         filename = filename or self._config_path
         if replace is None:
             replace = True if keys is None else False
