@@ -176,7 +176,7 @@ class Configuration(ConfigurationRegistry):
 
     def __getattr__(self, key):
         """
-        Allow retrieval of configuration keys using standard python atribute
+        Allow retrieval of configuration keys using standard python attribute
         methods, as described in the class documentation.
 
         Attributes prefixed with '_' are loaded from this class.
@@ -196,7 +196,7 @@ class Configuration(ConfigurationRegistry):
 
     def reset(self, *keys, **target_config):
         """
-        Reset all configuration keys specifed to their default values, or values
+        Reset all configuration keys specified to their default values, or values
         specified in `target_config`. If both `keys` and `target_config` are
         specified, `keys` acts to both filter the keys of `target_config` and add
         default values as the missing keys.
