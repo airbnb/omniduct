@@ -118,7 +118,7 @@ class HiveServer2Client(DatabaseClient):
             status = cursor.poll().operationState
 
     def _log_status(self, cursor, log_offset=0):
-        matcher = re.compile('[0-9/]+ [0-9\:]+ (INFO )?')
+        matcher = re.compile('[0-9/]+ [0-9:]+ (INFO )?')
 
         if self.driver == 'pyhive':
             log = cursor.fetch_logs()
