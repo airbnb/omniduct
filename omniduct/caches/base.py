@@ -78,11 +78,11 @@ class Cache(Duct):
     DUCT_TYPE = Duct.Type.CACHE
 
     def __init__(self, *args, **kwargs):
-        '''
+        """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
         to instantiate themselves with arbitrary parameters.
-        '''
+        """
         Duct.__init_with_kwargs__(self, kwargs)
         self._init(*args, **kwargs)
 

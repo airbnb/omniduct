@@ -20,7 +20,7 @@ config.register('logging_level',
 
 
 class StatusLogger(object):
-    '''
+    """
     StatusLogger is a wrapper around `logging.Logger` that allows for consistent
     treatment of logging messages. While not strictly required,
     it simplifies and abstracts the usage of the logging module within omniduct.
@@ -33,7 +33,7 @@ class StatusLogger(object):
 
     StatusLogger will automatically detect the context of the logged message, and
     include it in the log messages.
-    '''
+    """
 
     def __init__(self, auto_scoping=False):
         self.__scopes = []
@@ -97,17 +97,17 @@ class StatusLogger(object):
 
     @property
     def current_scopes(self):
-        '''
+        """
         The current logger scopes. This is not designed to work with multiple
         threads.
-        '''
+        """
         return detect_scopes()
 
     @property
     def current_scope_props(self):
-        ''''
+        """
         The properties for the most nested manual scope.
-        '''
+        """
         if len(self.__scopes) == 0:
             return None
         return self.__scopes[-1]
@@ -125,10 +125,10 @@ class StatusLogger(object):
         return self._progress_bar
 
     def progress(self, progress, complete=False):
-        '''
+        """
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
-        '''
+        """
         complete = complete or (self.current_scope_props is None)  # Only leave progress bar open if within a scope
         if config.logging_level <= logging.INFO:
             self.__get_progress_bar().update(progress)
@@ -139,10 +139,10 @@ class StatusLogger(object):
     # Logging emulation
 
     def __get_logger_instance(self, context=None):
-        '''
+        """
         Get a `logger.Logger` instance for the provided context; inferring the
         context from the runtime stack if the provided context is `None`.
-        '''
+        """
         if context is None:
             try:
                 caller = inspect.stack()[2]
@@ -152,18 +152,18 @@ class StatusLogger(object):
         return logging.getLogger(context)
 
     def __getattr__(self, name):
-        '''
+        """
         Return the attributes of the wrapped `logging.Logger` instance rather
         than this one (unless the property actually exists in StatusLogger).
-        '''
+        """
         return getattr(self.__get_logger_instance(), name)
 
     def setLevel(self, level, context=None):
-        '''
+        """
         Add a keyword argument `context` to the standard `setLevel` method, in
         order to allow for fine-grained logging levels, while retaining the
         simplicity of a single "logger" instance.
-        '''
+        """
         self.__get_logger_instance(context).setLevel(level)
 
 
@@ -191,9 +191,9 @@ def detect_scopes():
 
 
 class LoggingHandler(logging.Handler):
-    '''
+    """
     An implementation of Logging.Handler to render the logging methods shown in Omniduct and derivatives.
-    '''
+    """
 
     def __init__(self, level=logging.NOTSET):
         logging.Handler.__init__(self, level=level)
@@ -245,12 +245,12 @@ class LoggingHandler(logging.Handler):
 
 
 def logging_scope(name, *wargs, **wkwargs):
-    '''
+    """
     A decorator to add the decorated function as a new logging scope, with name `name`.
     All additional arguments are passed to `StatusLogger._scope_enter`. Current
     supported keyword arguments are "timed", in which case when the scope closes,
     the duration of the call is shown.
-    '''
+    """
     def logging_scope(func, *args, **kwargs):
         logger._scope_enter(name, *wargs, **wkwargs)
         success = True

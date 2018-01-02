@@ -6,23 +6,23 @@ from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 
 class RestClientBase(Duct):
-    '''
+    """
     This is a simple wrapper around the requests library to simplify the use
     of RESTful clients with omniduct. This allows all the automatic features
     around port forwarding from remote hosts to be inherited. This client can
     be used directly, or decorated by subclasses which can add methods
     specific to any REST service; and internally use `request` and `request_json`
     to access various endpoints.
-    '''
+    """
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
     def __init__(self, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
-        '''
+        """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
         to instantiate themselves with arbitrary parameters.
-        '''
+        """
         Duct.__init_with_kwargs__(self, kwargs, port=80)
 
         self.server_protocol = server_protocol

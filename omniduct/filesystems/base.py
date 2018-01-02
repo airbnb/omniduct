@@ -12,11 +12,11 @@ class FileSystemClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     def __init__(self, *args, **kwargs):
-        '''
+        """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
         to instantiate themselves with arbitrary parameters.
-        '''
+        """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._init(*args, **kwargs)
 
@@ -102,10 +102,10 @@ class FileSystemClient(Duct, MagicsProvider):
     # File transfer
 
     def copy_to_local(self, source, dest=None, overwrite=False):
-        '''
+        """
         Copies a file from `source` on the remote host to `dest` on the local host.
         If `overwrite` is `True`, overwrites file on the local host.
-        '''
+        """
         if dest is None:
             dest = os.path.basename(source)
         if not overwrite and os.path.exists(dest):
@@ -113,10 +113,10 @@ class FileSystemClient(Duct, MagicsProvider):
         return self.connect()._copy_to_local(source, dest, overwrite)
 
     def copy_from_local(self, source, dest=None, overwrite=False):
-        '''
+        """
         Copies a file from `source` on the local host to `dest` on the remote host.
         If `overwrite` is `True`, overwrites file on the remote host.
-        '''
+        """
         if dest is None:
             dest = os.path.basename(source)
         if not overwrite and self.exists(dest):
