@@ -26,7 +26,8 @@ install:
   - pip install pycodestyle ".[all]"
 
 script:
-  - "pycodestyle --ignore=E501,E712,E722,W503 ."
+  - "pycodestyle --ignore=E501,E712,E722,W503,W601 ."
+  - "nosetests"
 
 # Deploy to pypi automatically from tagged releases on the stable branch
 deploy:
