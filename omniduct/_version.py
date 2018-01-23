@@ -72,6 +72,7 @@ __optional_dependencies__ = {
         'nose',      # test runner
         'mock',      # mocking
         'pyfakefs',  # mock filesystem
+        'coverage',   # test coverage monitoring
     ]
 }
 __optional_dependencies__['all'] = [dep for deps in __optional_dependencies__.values() for dep in deps]
