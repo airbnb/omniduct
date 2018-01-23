@@ -66,6 +66,12 @@ __optional_dependencies__ = {
     'ssh_paramiko': [
         'paramiko',  # Primary client
         'pexpect',  # Command line handling (including smartcard activation)
+    ],
+
+    'test': [
+        'nose',      # test runner
+        'mock',      # mocking
+        'pyfakefs',  # mock filesystem
     ]
 }
 __optional_dependencies__['all'] = [dep for deps in __optional_dependencies__.values() for dep in deps]
