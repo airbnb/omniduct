@@ -132,6 +132,13 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         self.__cached_auth = {}
         self.__prepreparation_values = {}
 
+    @property
+    def __prepare_triggers(self):
+        return (
+            ('cache',)
+            + object.__getattribute__(self, 'connection_fields')
+        )
+
     def __init_with_kwargs__(self, kwargs, **fallbacks):
         if six.PY3:
             keys = inspect.getfullargspec(Duct.__init__).args[1:]
@@ -170,7 +177,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             if (not object.__getattribute__(self, '_Duct__prepared')
                     and not object.__getattribute__(self, '_Duct__getting')
                     and not object.__getattribute__(self, '_Duct__disconnecting')
-                    and key in object.__getattribute__(self, 'connection_fields')):
+                    and key in object.__getattribute__(self, '_Duct__prepare_triggers')):
                 object.__setattr__(self, '_Duct__getting', True)
                 object.__getattribute__(self, 'prepare')()
                 object.__setattr__(self, '_Duct__getting', False)
