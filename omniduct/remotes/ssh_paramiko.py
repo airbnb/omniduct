@@ -64,7 +64,15 @@ class ParamikoSSHClient(RemoteClient):
     def _is_port_bound(self, host, port):
         return True
 
-    # FileSystem methods
+    # Path properties and helpers
+
+    def _path_home(self):
+        return NotImplementedError
+
+    def _path_separator(self):
+        raise NotImplementedError
+
+    # File node properties
 
     def _exists(self, path):
         raise NotImplementedError
@@ -75,13 +83,12 @@ class ParamikoSSHClient(RemoteClient):
     def _isfile(self, path):
         raise NotImplementedError
 
-    def _listdir(self, path):
+    # Directory handling and enumeration
+
+    def _dir(self, path):
         raise NotImplementedError
 
-    def _showdir(self, path):
-        raise NotImplementedError
-
-    def _find(self, pattern, path_prefix, files, dirs):
+    def _mkdir(self, path, recursive):
         raise NotImplementedError
 
     # File handling
@@ -89,10 +96,10 @@ class ParamikoSSHClient(RemoteClient):
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
-    def _file_append_(self, path, s, binary):
+    def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
-    def _file_write_(self, path, s, binary):
+    def _file_append_(self, path, s, binary):
         raise NotImplementedError
 
 
