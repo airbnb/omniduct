@@ -67,7 +67,7 @@ def run_in_subprocess(cmd, check_output=False, ** kwargs):
         os.killpg(os.getpgid(process.pid), signal.SIGINT)  # send signal to the process group, recursively killing all children
         output, unused_err = process.communicate()
         raise subprocess.TimeoutExpired(process.args, timeout, output=output)
-    return SubprocessResults(returncode=process.returncode, stdout=stdout or '', stderr=stderr or '')
+    return SubprocessResults(returncode=process.returncode, stdout=stdout or b'', stderr=stderr or b'')
 
 
 class TimeoutError(Exception):
