@@ -18,6 +18,11 @@ from omniduct.utils.ports import is_port_bound
 
 
 class ProtocolRegisteringABCMeta(ABCMeta):
+    """
+    This metaclass provides automatic registration of Duct subclasses so that
+    they can be looked up by the protocols they support. Note that protocol
+    mappings must be unique.
+    """
 
     def __init__(cls, name, bases, dct):
         ABCMeta.__init__(cls, name, bases, dct)
@@ -40,8 +45,59 @@ class ProtocolRegisteringABCMeta(ABCMeta):
 
 
 class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
+    """
+    `Duct` is the abstract base class of all protocol implementations, and
+    defines the basic lifecycle of all connections, along with some magic
+    that provides automatic registration of Duct protocol implementations.
+    All connections made by `Duct` instances are lazy, meaning that instantiation
+    is "free", and no protocol connections are made until required by subsequent
+    interactions (i.e. when the value of any attribute in the list of
+    `connection_fields` is accessed). All `Ducts` will automatically connnect and
+    disconnect as required, and so manual intervention is not typically required
+    to maintain connections.
+
+    Attributes:
+        protocol (str): The name of the protocol for which this instance was
+            created (especially useful if a `Duct` subclass supports multiple
+            protocols).
+        name (str): The name given to this `Duct` instance (defaults to class
+            name).
+        registry (None, omniduct.registry.DuctRegistry): A reference to a
+            `DuctRegistry` instance for runtime lookup of other services.
+        remote (None, omniduct.remotes.base.RemoteClient): A reference to a
+            `RemoteClient` instance to manage connections to remote services.
+        cache (None, omniduct.caches.base.Cache): A reference to a `Cache`
+            instance to add support for caching, if applicable.
+        connection_fields (tuple<str>, list<str>): A list of instance attributes
+            to monitor for changes, whereupon the `Duct` instance should automatically
+            disconnect. By default, the following attributes are monitored:
+            'host', 'port', 'remote', 'username', and 'password'.
+        prepared_fields (tuple<str>, list<str>): A list of instance attributes to
+            be populated (if their values are callable) when the instance first
+            connects to a service. Refer to `Duct.prepare` and `Duct._prepare` for
+            more details. By default, the following attributes are prepared:
+            '_host', '_port', '_username', and '_password'.
+
+    Additional attributes including `host`, `port`, `username` and `password` are
+    documented inline below.
+
+    Class Attributes:
+        AUTO_LOGGING_SCOPE (bool): Whether this class should be used by omniduct
+            logging code as a "scope". Should be overridden by subclasses as
+            appropriate.
+        DUCT_TYPE (Duct.Type): The type of `Duct` service that is provided by
+            this Duct instance. Should be overridden by subclasses as
+            appropriate.
+        PROTOCOLS (list<str>): The name(s) of any protocols that should be
+            associated with this class. Should be overridden by subclasses as
+            appropriate.
+    """
 
     class Type(Enum):
+        """
+        The `Duct.Type` enum specifies all of the permissible values of
+        `Duct.DUCT_TYPE`.
+        """
         REMOTE = 'remotes'
         FILESYSTEM = 'filesystems'
         DATABASE = 'databases'
@@ -62,18 +118,19 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         self.remote = remote
         self.host = host
         self.port = port
-        self.__cached_auth = {}
         self.username = username
         self.password = password
         self.cache = cache
 
-        self.connection_fields = ('host', 'port', 'remote', 'cache', 'username', 'password')
+        self.connection_fields = ('host', 'port', 'remote', 'username', 'password')
         self.prepared_fields = ('_host', '_port', '_username', '_password')
 
         atexit.register(self.disconnect)
         self.__prepared = False
         self.__getting = False
         self.__disconnecting = False
+        self.__cached_auth = {}
+        self.__prepreparation_values = {}
 
     def __init_with_kwargs__(self, kwargs, **fallbacks):
         if six.PY3:
@@ -90,6 +147,22 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @classmethod
     def for_protocol(cls, key):
+        """
+        This classmethod retrieves the appropriate `Duct` subclass to connect to
+        the provided protocol. If no subclass of `Duct` has been created
+        in the current Python session, a `DuctProtocolUnknown` error is
+        thrown.
+
+        Parameters:
+            key (str): The protocol of interest.
+
+        Returns:
+            `Duct` subclass: The appropriate class for the provided protocol.
+
+        Raises:
+            DuctProtocolUnknown: If no class has been defined that offers the
+                named protocol.
+        """
         return functools.partial(cls._for_protocol(key), protocol=key)
 
     def __getattribute__(self, key):
@@ -122,25 +195,79 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         object.__setattr__(self, key, value)
 
     def prepare(self):
+        """
+        This method is called before the value of any of the fields referenced
+        in `self.connection_fields` are retrieved, and does not return anything.
+        The fields include, by default: 'host', 'port', 'remote', 'cache',
+        'username', and 'password'. Subclasses may add or subtract from these
+        special fields.
+
+        When called, it first checks whether the instance has already been prepared,
+        and if not calls `_prepare` and then records that the instance has been
+        successfully prepared.
+        """
         if not self.__prepared:
             self._prepare()
             self.__prepared = True
 
     def _prepare(self):
-        if self.remote and isinstance(self.remote, six.string_types):
-            self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
-        if self.cache and isinstance(self.cache, six.string_types):
-            self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
+        """
+        This method may be overridden by subclasses, but provides the following
+        default behaviour:
+
+         - Ensures `self.registry`, `self.remote` and `self.cache` values are
+           instances of the right types.
+         - It replaces string values of `self.remote` and `self.cache` with
+           remotes and caches looked up using `self.registry.lookup`.
+         - It looks through each of the fields nominated in `self.prepared_fields`
+           and, if the corresponding value is callable, sets the value of that
+           field to result of calling that value with a reference to `self`. By
+           default, `prepared_fields` contains '_host', '_port', '_username',
+           and '_password'.
+         - Ensures value of self.port is an integer (or None).
+        """
+        # Import necessary classes lazily (to prevent dependency cycles)
+        from omniduct.registry import DuctRegistry
+        from omniduct.caches.base import Cache
+        from omniduct.remotes.base import RemoteClient
+
+        # Check registry is of an appropriate type (if present)
+        assert (self.registry is None) or isinstance(self.registry, DuctRegistry), "Provided registry is not an instance of `omniduct.registry.DuctRegistry`."
+
+        # If registry is present, lookup remotes and caches if necessary
+        if self.registry is not None:
+            if self.remote and isinstance(self.remote, six.string_types):
+                self.__prepreparation_values['remote'] = self.remote
+                self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
+            if self.cache and isinstance(self.cache, six.string_types):
+                self.__prepreparation_values['cache'] = self.cache
+                self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
+
+        # Check if remote and cache objects are of correct type (if present)
+        assert (self.remote is None) or isinstance(self.remote, RemoteClient), "Provided remote is not an instance of `omniduct.remotes.base.RemoteClient`."
+        assert (self.cache is None) or isinstance(self.cache, Cache), "Provided cache is not an instance of `omniduct.caches.base.Cache`."
+
+        # Replace prepared fields with the result of calling existing values
+        # with a reference to `self`.
         for field in self.prepared_fields:
             value = getattr(self, field)
             if hasattr(value, '__call__'):
+                self.__prepreparation_values[field] = value
                 setattr(self, field, value(self))
+
+        # Ensure port is an integer value
         self.port = int(self._port) if self._port else None
 
     @property
     def host(self):
+        """
+        str: The host name providing the service, or '127.0.0.1' if `self.remote` is
+        not `None`, whereupon the service will be port-forwarded locally. You can
+        view the remote hostname using `duct._host`, and change the remote host
+        at runtime using: `duct.host = '<host>'`.
+        """
         if self.remote:
-            return '127.0.0.1'
+            return '127.0.0.1'  # TODO: Make this configurable.
         return self._host
 
     @host.setter
@@ -149,6 +276,12 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @property
     def port(self):
+        """
+        int: The local port for the service. If `self.remote` is not `None`, the
+        port will be port-forwarded from the remote host. To see the port used on
+        the remote host refer to `duct._port`. You can change the remote port
+        at runtime using: `duct.port = <port>`.
+        """
         if self.remote:
             return self.remote.port_forward('{}:{}'.format(self._host, self._port))
         return self._port
@@ -159,6 +292,14 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @property
     def username(self):
+        """
+        str: Some services require authentication in order to connect to the
+        service, in which case the appropriate username can be specified. If not
+        specified at instantiation, your local login name will be used. If `True`
+        was provided, you will be prompted to type your username at runtime as
+        necessary. If `False` was provided, then `None` will be returned. You can
+        specify a different username at runtime using: `duct.username = '<username>'`.
+        """
         if self._username is True:
             if 'username' not in self.__cached_auth:
                 self.__cached_auth['username'] = input("Enter username for '{}':".format(self.name))
@@ -179,6 +320,14 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     @property
     def password(self):
+        """
+        str: Some services require authentication in order to connect to the
+        service, in which case the appropriate password can be specified. If
+        `True` was provided at instantiation, you will be prompted to type your
+        password at runtime when necessary. If `False` was provided, then
+        `None` will be returned. You can specify a different password at runtime
+        using: `duct.password = '<password>'`.
+        """
         if self._password is True:
             if 'password' not in self.__cached_auth:
                 self.__cached_auth['password'] = getpass.getpass("Enter password for '{}':".format(self.name))
@@ -208,11 +357,16 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
     @logging_scope("Connecting")
     def connect(self):
         """
-        If a connection to the filesystem does not already exist, calling
-        this method creates it.
+        This method causes the `Duct` instance to connect to the service, if it
+        is not already connected. It is not normally necessary for a user to
+        manually call this function, since when a connection is required, it is
+        automatically created.
 
-        NOTE: It is not normally necessary for a user to manually call this function,
-        since when a connection is required, it is automatically made.
+        Subclasses should implement `Duct._connect` to do whatever is necessary
+        to bring a connection into being.
+
+        Returns:
+            `Duct` instance: A reference to the current object.
         """
         if self.remote:
             logger.info("Connecting to {}:{} on {}.".format(self._host, self._port, self.remote.host))
@@ -231,10 +385,24 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             logger.info("Connected to {}:{}.".format(self.host, self.port))
         return self
 
+    @abstractmethod
+    def _connect(self):
+        """
+        This method should be overridden by subclasses, and when called, should
+        create a connection to the appropriate service. It is not necessary for
+        this method to return anything.
+        """
+        raise NotImplementedError
+
     def is_connected(self):
         """
-        Return `True` if the filesystem client is connected to the data source, and
-        `False` otherwise.
+        This method checks to see whether a `Duct` instance is currently
+        connected. This is performed by verifying that the remote host and port
+        are still accessible, and then by calling `Duct._is_connected`, which
+        should be implemented by subclasses.
+
+        Returns:
+            bool: Whether this `Duct` instance is currently connected.
         """
         if not self.__prepared:
             return False
@@ -248,9 +416,24 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
         return self._is_connected()
 
+    @abstractmethod
+    def _is_connected(self):
+        """
+        This method should be implemented by subclasses and return `True` when
+        this `Duct` instance is connected, and `False` otherwise.
+        """
+        raise NotImplementedError
+
     def disconnect(self):
         """
-        Disconnects this client
+        This method disconnects this `Duct` instance from the service, and is
+        automatically called during reconnections and/or at Python interpreter
+        shutdown. It first calls `Duct._disconnect` (which should be implemented
+        by subclasses) and then notifies the `RemoteClient` subclass, if present,
+        to stop port-forwarding the remote service.
+
+        Returns:
+            `Duct` instance: A reference to this object.
         """
         if not self.__prepared:
             return
@@ -266,25 +449,42 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         finally:
             self.__disconnecting = False
 
-    def reconnect(self):
-        """
-        Disconnects, and then reconnects, this client
-        """
-        self.disconnect()
-        self.connect()
-
-    def reset(self):
-        self.disconnect()
-        self.__cached_auth = {}
-
-    @abstractmethod
-    def _connect(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _is_connected(self):
-        raise NotImplementedError
+        return self
 
     @abstractmethod
     def _disconnect(self):
+        """
+        Subclasses should implement this method to disconnect from remote
+        services. The return value of this method is not used.
+        """
         raise NotImplementedError
+
+    def reconnect(self):
+        """
+        Disconnects, and then reconnects, this client. This is entirely equivalent
+        to `duct.disconnect().connect()`.
+
+        Returns:
+            `Duct` instance: A reference to this object.
+        """
+        return self.disconnect().connect()
+
+    def reset(self):
+        """
+        This method resets the `Duct` instance to it's pre-preparation state. In
+        particular it disconnects from the service, resets any temporary
+        authentication and restores the values of the attributes listed in
+        `prepared_fields` to their values as of when `Duct.prepare` was called.
+
+        Returns:
+            `Duct` instance: A reference to this object.
+        """
+        self.disconnect()
+        self.__cached_auth = {}
+
+        for key, value in self.__prepreparation_values.items():
+            setattr(self, key, value)
+        self.__prepreparation_values = {}
+        self.__prepared = False
+
+        return self
