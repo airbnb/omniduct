@@ -1,8 +1,6 @@
 import posixpath
 
-import pandas
-
-from .base import FileSystemClient
+from .base import FileSystemClient, FileSystemFileDesc
 
 
 class WebHdfsClient(FileSystemClient):
@@ -36,16 +34,22 @@ class WebHdfsClient(FileSystemClient):
         self.__webhdfs = None
         self.__home_directory = None
 
-    # File enumeration
+    # Path properties and helpers
 
-    def __get_path(self, path):
-        return posixpath.abspath(posixpath.join(self.__home_directory, path or ''))
+    def _path_home(self):
+        if not self.__home_directory:
+            self.connect()
+        return self.__home_directory
+
+    def _path_separator(self):
+        return '/'
 
     def __in_home_directory(self, path):
         return posixpath.abspath(path).startswith(self.__home_directory)
 
+    # File node properties
+
     def _exists(self, path):
-        path = self.__get_path(path)
         from pywebhdfs.errors import FileNotFound
         try:
             self.__webhdfs.get_file_dir_status(path)
@@ -54,7 +58,6 @@ class WebHdfsClient(FileSystemClient):
             return False
 
     def _isdir(self, path):
-        path = self.__get_path(path)
         from pywebhdfs.errors import FileNotFound
         try:
             stats = self.__webhdfs.get_file_dir_status(path)
@@ -63,7 +66,6 @@ class WebHdfsClient(FileSystemClient):
             return False
 
     def _isfile(self, path):
-        path = self.__get_path(path)
         from pywebhdfs.errors import FileNotFound
         try:
             stats = self.__webhdfs.get_file_dir_status(path)
@@ -71,46 +73,40 @@ class WebHdfsClient(FileSystemClient):
         except FileNotFound:
             return False
 
-    def _listdir(self, path, detailed=False):
-        path = self.__get_path(path)
-        files = self.__webhdfs.list_dir(path)
-        return [f['pathSuffix'] for f in files['FileStatuses']['FileStatus']]
+    # Directory handling and enumeration
 
-    def _showdir(self, path):
-        path = self.__get_path(path)
+    def _dir(self, path):
         files = self.__webhdfs.list_dir(path)
-        return pandas.DataFrame(files['FileStatuses']['FileStatus'])[[
-            'type',
-            'pathSuffix',
-            'childrenNum',
-            'blockSize',
-            'accessTime',
-            'modificationTime',
-            'permission',
-            'owner',
-            'group',
-            'length',
-            'replication',
-        ]].sort_values(['type', 'pathSuffix']).reset_index(drop=True)
+        for f in files['FileStatuses']['FileStatus']:
+            yield FileSystemFileDesc(
+                fs=self,
+                path=posixpath.join(path, f['pathSuffix']),
+                name=f['pathSuffix'],
+                type=f['type'].lower(),
+                bytes=f['length'],
+                owner=f['owner'],
+                group=f['group'],
+                last_modified=f['modificationTime'],
+                last_accessed=f['accessTime'],
+                permissions=f['permission'],
+                replication=f['replication']
+            )
 
-    def _find(self, pattern, path_prefix, files, dirs):
+    def _mkdir(self, path, recursive):
         raise NotImplementedError
 
-    # File opening
+    # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
-        path = self.__get_path(path)
         read = self.__webhdfs.read_file(path, offset=offset, length='null' if size < 0 else size)
         if not binary:
             read = read.decode()
         return read
 
     def _file_append_(self, path, s, binary):
-        path = self.__get_path(path)
         return self.__webhdfs.append_file(path, s)
 
     def _file_write_(self, path, s, binary):
-        path = self.__get_path(path)
         if not self.global_writes and not self.__in_home_directory(path):
             raise RuntimeError("Attempting to write outside of home directory without setting '{name}.global_writes' to True.".format(name=self.name))
         return self.__webhdfs.create_file(path, s, overwrite=True)

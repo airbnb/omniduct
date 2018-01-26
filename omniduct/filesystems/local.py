@@ -1,6 +1,8 @@
+import datetime
+import errno
 import os
 
-from .base import FileSystemClient, FileSystemFile
+from .base import FileSystemClient, FileSystemFileDesc
 
 
 class LocalFsClient(FileSystemClient):
@@ -8,8 +10,8 @@ class LocalFsClient(FileSystemClient):
     PROTOCOLS = ['localfs']
     DEFAULT_PORT = 22
 
-    def _init(self):
-        pass
+    def _init(self, cwd_as_home=True):
+        self.__cwd_as_home = cwd_as_home
 
     def _connect(self):
         pass
@@ -21,6 +23,11 @@ class LocalFsClient(FileSystemClient):
         pass
 
     # File enumeration
+    def _path_home(self):
+        return os.getcwd() if self.__cwd_as_home else os.path.expanduser('~')
+
+    def _path_separator(self):
+        return os.path.sep
 
     def _exists(self, path):
         return os.path.exists(path)
@@ -31,26 +38,55 @@ class LocalFsClient(FileSystemClient):
     def _isfile(self, path):
         return os.path.isfile(path)
 
-    def _listdir(self, path):
-        return os.listdir(path)
+    def _dir(self, path):
+        if not os.path.isdir(path):
+            raise RuntimeError("No such folder.")
+        for f in os.listdir(path):
+            f_path = os.path.join(path, f)
 
-    def _showdir(self, path):
-        raise NotImplementedError
+            attrs = {}
 
-    def _find(self, pattern, path_prefix, files, dirs):
-        raise NotImplementedError
+            if os.name == 'posix':
+                import grp
+                import pwd
+
+                stat = os.stat(f_path)
+
+                attrs.update({
+                    'owner': pwd.getpwuid(stat.st_uid).pw_name,
+                    'group': grp.getgrgid(stat.st_gid).gr_name,
+                    'permissions': oct(stat.st_mode),
+                    'created': str(datetime.datetime.fromtimestamp(stat.st_ctime)),
+                    'last_modified': str(datetime.datetime.fromtimestamp(stat.st_mtime)),
+                    'last_accessed': str(datetime.datetime.fromtimestamp(stat.st_atime)),
+                })
+
+            yield FileSystemFileDesc(
+                fs=self,
+                path=f_path,
+                name=f,
+                type='directory' if os.path.isdir(f_path) else 'file',
+                bytes=os.path.getsize(f_path),
+                **attrs
+            )
+
+    def _walk(self, path):
+        return os.walk(path)
+
+    def _mkdir(self, path, recursive):
+        try:
+            os.makedirs(path) if recursive else os.makedir(path)
+        except OSError as exc:  # Python >2.5
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
 
     # File opening
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
-        if self.remote:
-            read = self.remote.execute('cat {}'.format(path)).stdout
-            if not binary:
-                read = read.decode()
-            return read
-        else:
-            with open(path, 'r{}'.format('b' if binary else '')) as f:
-                return f.read()
+        with open(path, 'r{}'.format('b' if binary else '')) as f:
+            return f.read()
 
     def _file_append_(self, path, s, binary):
         raise NotImplementedError

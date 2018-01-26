@@ -1,9 +1,6 @@
-import os
 import re
 
-import pandas as pd
-
-from .base import FileSystemClient
+from .base import FileSystemClient, FileSystemFileDesc
 from ..utils.debug import logger
 
 
@@ -55,7 +52,21 @@ class S3Client(FileSystemClient):
     def _disconnect(self):
         pass
 
-    # File enumeration
+    # Path properties and helpers
+
+    def _path_home(self):
+        return '/'
+
+    def _path_separator(self):
+        return '/'
+
+    def _path(self, path):
+        path = super(S3Client, self)._path(path)
+        if path.startswith('/'):
+            path = path[1:]
+        return path
+
+    # File node properties
 
     def _exists(self, path):
         return self.isfile(path) or self.isdir(path)
@@ -73,8 +84,9 @@ class S3Client(FileSystemClient):
         except:
             return False
 
+    # Directory handling and enumeration
+
     def __dir_paginator(self, path):
-        path = path or ''
         if path.endswith('/'):
             path = path[:-1]
         paginator = self._client.get_paginator('list_objects')
@@ -86,57 +98,47 @@ class S3Client(FileSystemClient):
         )
         return iterator
 
-    def _listdir(self, path):
+    def _dir(self, path):
         iterator = self.__dir_paginator(path)
 
-        paths = []
         for response_data in iterator:
             for prefix in response_data.get('CommonPrefixes', []):
-                paths.append(prefix['Prefix'][:-1])  # Remove trailing slash
+                yield FileSystemFileDesc(
+                    fs=self,
+                    path=prefix['Prefix'][:-1],
+                    name=prefix['Prefix'][:-1].split('/')[-1],  # Remove trailing slash
+                    type='directory',
+                )
             for prefix in response_data.get('Contents', []):
-                paths.append(prefix['Key'])
+                yield FileSystemFileDesc(
+                    fs=self,
+                    path=prefix['Key'],
+                    name=prefix['Key'].split('/')[-1],
+                    type='file',
+                    bytes=prefix['Size'],
+                    owner=prefix['Owner']['DisplayName'],
+                    last_modified=prefix['LastModified']
+                )
 
-        return paths
+    # TODO: Interestingly, directly using Amazon S3 methods seems slower than generic approach. Hypothesis: keys is not async.
+    # def _find(self, path_prefix, **attrs):
+    #     if len(set(attrs).difference(('name',))) > 0 or hasattr(attrs.get('name'), '__call__'):
+    #         logger.warning('Falling back to recursive search, rather than using S3, since find requires filters on more than just name.')
+    #         for result in super(S3Client, self)._find(path_prefix, **attrs):
+    #             yield result
+    #
+    #     pattern = re.compile(attrs.get('name') or '.*')
+    #
+    #     b = self._resource.Bucket(self.bucket)
+    #     keys = b.objects.filter(Prefix=path_prefix)
+    #     for k in keys:
+    #         if pattern is None or pattern.match(k.key[len(path_prefix):]):
+    #             yield k.key
 
-    def _showdir(self, path):
-        iterator = self.__dir_paginator(path)
+    def _mkdir(self, path, recursive):
+        raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
 
-        paths = []
-        for response_data in iterator:
-            for prefix in response_data.get('CommonPrefixes', []):
-                paths.append({
-                    'type': 'dir',
-                    'name': prefix['Prefix'][:-1].split('/')[-1]  # Remove trailing slash
-                })
-            for prefix in response_data.get('Contents', []):
-                paths.append({
-                    'type': 'file',
-                    'name': prefix['Key'].split('/')[-1],
-                    'last_modified': prefix['LastModified'],
-                    'owner': prefix['Owner']['DisplayName'],
-                    'size': prefix['Size']
-                })
-
-        df = pd.DataFrame(paths)
-        col_order = [col for col in ('type', 'name', 'size', 'owner', 'last_modified') if col in df.columns]
-        return df[col_order]
-
-    def _find(self, pattern, path_prefix, files, dirs):
-        if dirs:
-            logger.warning('S3Client does not yet support finding directories. Ignoring `dirs=True`.')
-        if not files:
-            return
-
-        path_prefix = path_prefix if path_prefix is not None else ''
-        pattern = re.compile(pattern) if pattern is not None else None
-
-        b = self._resource.Bucket(self.bucket)
-        keys = b.objects.filter(Prefix=path_prefix)
-        for k in keys:
-            if pattern is None or pattern.match(k.key[len(path_prefix):]):
-                yield k.key
-
-    # File opening
+    # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         assert self.isfile(path), "File `{}` does not exist.".format(path)

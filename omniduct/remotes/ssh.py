@@ -1,15 +1,16 @@
 import datetime
 import getpass
 import os
+import posixpath
 import re
 import tempfile
 
 import pandas as pd
+
+from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
-from omniduct.utils.ports import is_local_port_free
 from omniduct.utils.processes import run_in_subprocess
-
 from omniduct.errors import DuctAuthenticationError
 
 SSH_ASKPASS = '{omniduct_dir}/utils/ssh_askpass'.format(omniduct_dir=os.path.dirname(__file__))
@@ -138,7 +139,7 @@ class SSHClient(RemoteClient):
         # Send exit request to control socket.
         cmd = "ssh {login} -T -S {socket} -O exit".format(login=self._login_info,
                                                           socket=self._socket_path)
-        proc = run_in_subprocess(cmd)
+        run_in_subprocess(cmd)
 
     # RemoteClient implementation
 
@@ -198,6 +199,16 @@ class SSHClient(RemoteClient):
 
     # FileSystem methods
 
+    # Path properties and helpers
+
+    def _path_home(self):
+        return '~'
+
+    def _path_separator(self):
+        return '/'
+
+    # File node properties
+
     def _exists(self, path):
         return self.execute('if [ ! -e {} ]; then exit 1; fi'.format(path)).returncode == 0
 
@@ -207,13 +218,10 @@ class SSHClient(RemoteClient):
     def _isfile(self, path):
         return self.execute('if [ ! -f {} ]; then exit 1; fi'.format(path)).returncode == 0
 
-    def _listdir(self, path):
-        path = os.path.join('~', path or '')
-        return sorted([f for f in self.execute('ls -a {}'.format(path)).stdout.decode().strip().split('\n') if f not in ['.', '..']])
+    # Directory handling and enumeration
 
-    def _showdir(self, path):
-        path = os.path.join('~', path or '')
-        dir = pd.DataFrame(sorted([re.split('\s+', f) for f in self.execute('ls -al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
+    def _dir(self, path):
+        dir = pd.DataFrame(sorted([re.split('\s+', f) for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
                            columns=['file_mode', 'link_count', 'owner', 'group', 'bytes', 'month', 'day', 'time', 'path'])
 
         def convert_to_datetime(x):
@@ -228,7 +236,10 @@ class SSHClient(RemoteClient):
                 minute=int(time.split(':')[1]) if time is not None else 0
             )
 
-        return dir.assign(
+        if len(dir) == 0:  # Directory is empty
+            return
+
+        dir = dir.assign(
             last_modified=lambda x: x.apply(convert_to_datetime, axis=1),
             type=lambda x: x.apply(lambda x: 'directory' if x.file_mode.startswith('d') else 'file', axis=1)
         ).drop(
@@ -236,10 +247,22 @@ class SSHClient(RemoteClient):
             axis=1
         ).sort_values(
             ['type', 'path']
-        ).reset_index(drop=True)[['type', 'path', 'bytes', 'last_modified', 'file_mode', 'owner', 'group', 'link_count']]
+        ).reset_index(drop=True)
 
-    def _find(self, pattern, path_prefix, files, dirs):
-        raise NotImplementedError
+        for i, row in dir.iterrows():
+            yield FileSystemFileDesc(
+                fs=self,
+                path=posixpath.join(path, row.path),
+                name=row.path,
+                type='directory' if row.file_mode.startswith('d') else 'file',
+                bytes=row.bytes,
+                owner=row.owner,
+                group=row.group,
+                last_modified=row.last_modified,
+            )
+
+    def _mkdir(self, path, recursive):
+        assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
     # File handling
 
@@ -266,49 +289,47 @@ class SSHClient(RemoteClient):
 
     # File transfer
 
-    def _copy_to_local(self, source, dest, overwrite):
+    def download(self, source, dest=None, overwrite=False, fs=None):
         """
-        SCP remote file.
+        This method overloads the default download method, and handles
+        remote-to-local downloads specially.
+        """
+        from ..filesystems.local import LocalFsClient
 
-        Parameters
-        ----------
-        origin_file : string
-            Path to local file to copy.
-        destination_file : string
-            Target location on remote host.
-        """
-        self.connect()
-        logger.info('Copying file to local...')
-        template = 'scp -o ControlPath={socket} {login}:{remote_file} {local_file}'
-        destination_file = dest or os.path.split(source)[1]
-        proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                 login=self._login_info,
-                                                 local_file=destination_file,
-                                                 remote_file=source),
-                                 check_output=True)
-        logger.info(proc.stderr or 'Success')
+        if fs is None or isinstance(fs, LocalFsClient):
+            self.connect()
+            logger.info('Copying file to local...')
+            template = 'scp -r -o ControlPath={socket} {login}:"{remote_file}" "{local_file}"'
+            dest = dest or posixpath.basename(source)
+            proc = run_in_subprocess(template.format(socket=self._socket_path,
+                                                     login=self._login_info,
+                                                     local_file=dest.replace('"', r'\"'),
+                                                     remote_file=source.replace('"', r'\"')),
+                                     check_output=True)
+            logger.info(proc.stderr or 'Success')
+        else:
+            return super(RemoteClient, self).download(source, dest, overwrite, fs)
 
-    def _copy_from_local(self, source, dest, overwrite):
+    def upload(self, source, dest=None, overwrite=False, fs=None):
         """
-        SCP local file.
+        This method overloads the default download method, and handles
+        local-to-remote uploads specially.
+        """
+        from ..filesystems.local import LocalFsClient
 
-        Parameters
-        ----------
-        origin_file : string
-            Path to remote file to copy.
-        destination_file : string
-            Target location on local machine.
-        """
-        self.connect()
-        logger.info('Copying file from local...')
-        template = 'scp -o ControlPath={socket} {local_file} {login}:{remote_file}'
-        destination_file = dest or os.path.split(source)[1]
-        proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                 login=self._login_info,
-                                                 local_file=source,
-                                                 remote_file=destination_file),
-                                 check_output=True)
-        logger.info(proc.stderr or 'Success')
+        if fs is None or isinstance(fs, LocalFsClient):
+            self.connect()
+            logger.info('Copying file from local...')
+            template = 'scp -r -o ControlPath={socket} "{local_file}" {login}:"{remote_file}"'
+            dest = dest or posixpath.basename(source)
+            proc = run_in_subprocess(template.format(socket=self._socket_path,
+                                                     login=self._login_info,
+                                                     local_file=source.replace('"', r'\"'),
+                                                     remote_file=dest).replace('"', r'\"'),
+                                     check_output=True)
+            logger.info(proc.stderr or 'Success')
+        else:
+            return super(RemoteClient, self).upload(source, dest, overwrite, fs)
 
     # Helper methods
 
