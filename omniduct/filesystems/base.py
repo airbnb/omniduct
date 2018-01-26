@@ -349,10 +349,12 @@ class FileSystemClient(Duct, MagicsProvider):
                 file/folder `source` should be downloaded. If not specified,
                 defaults to the local filesystem.
         """
-        source = self._path(source)
         if fs is None:
             from .local import LocalFsClient
             fs = LocalFsClient()
+
+        source = self._path(source)
+        dest = fs._path(dest)
 
         if dest.endswith(fs.path_separator):
             assert fs.isdir(dest), "No such directory `{}`".format(dest)
