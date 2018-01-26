@@ -621,5 +621,27 @@ class FileSystemFileDesc(namedtuple('Node', [
         d.update(self.extra)
         return d
 
+    # Convenience methods
+
     def open(self, mode='rt'):
+        assert self.type == 'file', "`.open(...)` is only appropriate for files."
         return self.fs.open(self.path, mode=mode)
+
+    def dir(self):
+        assert self.type == 'directory', "`.dir(...)` is only appropriate for directories."
+        return self.fs.dir(self.path)
+
+    def listdir(self):
+        assert self.type == 'directory', "`.listdir(...)` is only appropriate for directories."
+        return self.fs.listdir(self.path)
+
+    def showdir(self):
+        assert self.type == 'directory', "`.showdir(...)` is only appropriate for directories."
+        return self.fs.showdir(self.path)
+
+    def find(self, **attrs):
+        assert self.type == 'directory', "`.find(...)` is only appropriate for directories."
+        return self.fs.find(self.path, **attrs)
+
+    def download(self, dest=None, overwrite=False, fs=None):
+        return self.fs.download(self.path, dest=dest, overwrite=overwrite, fs=fs)
