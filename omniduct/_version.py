@@ -47,6 +47,10 @@ __optional_dependencies__ = {
         'sqlalchemy'  # Primary client
     ],
 
+    'druid': [
+        'pydruid>=0.4.0',  # Primary client
+    ],
+
     # Filesystems
     'webhdfs': [
         'pywebhdfs',  # Primary client
