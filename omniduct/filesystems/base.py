@@ -433,6 +433,7 @@ class FileSystemClient(Duct, MagicsProvider):
             target_prefix = (
                 source if source.endswith(self.path_separator) else source + self.path_separator
             )
+            targets.append(source, dest, True)
 
             for path, dirs, files in self.walk(source):
                 for dir in dirs:
@@ -453,7 +454,7 @@ class FileSystemClient(Duct, MagicsProvider):
             targets.append((source, dest, False))
 
         for target in targets:
-            if target[2]:
+            if target[2] and not fs.isdir(target[1]):
                 fs.mkdir(target[1])
             else:
                 self.connect()._download(target[0], target[1], overwrite, fs)
