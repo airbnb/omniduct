@@ -51,6 +51,10 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @property
     def path_separator(self):
+        """
+        str: The character(s) to use in separating path components. Typically
+        this will be '/'.
+        """
         return self._path_separator()
 
     @abstractmethod
@@ -58,6 +62,23 @@ class FileSystemClient(Duct, MagicsProvider):
         raise NotImplementedError
 
     def path_join(self, path, *components):
+        """
+        This method generates a new path that is the composition of base `path`
+        with any additional path components. If any component starts with
+        `self.path_separator` or `self.path_home`, then all previous path
+        components are discarded, and the effective base path becomes that
+        component. Note that this method does *not* simplify paths components
+        like '..'.
+
+        Parameters:
+            path (str): The base path to which components should be joined.
+            *components (str): Any additional components to join to the base
+                path.
+
+        Returns:
+            str: The path resulting from joining all of the components nominated,
+            in order, to the base path.
+        """
         for component in components:
             if component.startswith(self.path_separator) or component.startswith(self.path_home):  # It may be that some filesystems use special characters to denote home, like '~'
                 path = component
@@ -66,9 +87,33 @@ class FileSystemClient(Duct, MagicsProvider):
         return path
 
     def path_basename(self, path):
+        """
+        This method returns the name of the last component of any given path,
+        where components are determined by splitting by `self.path_separator`.
+        Note that if a path ends with a path separator, the basename will be
+        the empty string.
+
+        Parameters:
+            path (str): The path from which the basename should be extracted.
+
+        Returns:
+            str: The extracted basename.
+        """
         return self._path(path).split(self.path_separator)[-1]
 
     def path_dirname(self, path):
+        """
+        This method returns the entire path except for the basename (the last
+        component), where components are determined by splitting by
+        `self.path_separator`.
+
+        Parameters:
+            path (str): The path from which the directory path should be
+                extracted.
+
+        Returns:
+            str: The extracted directory path.
+        """
         return self.path_separator.join(self._path(path).split(self.path_separator)[:-1])
 
     def _path(self, path=None):
@@ -79,7 +124,8 @@ class FileSystemClient(Duct, MagicsProvider):
     def exists(self, path):
         """
         This method checks whether a file (or folder) exists at the given path,
-        relative (as appropriate) to the current working directory of home folder.
+        relative (as appropriate) to the current working directory (on remote
+        filesytems, this will typically be the home folder).
 
         Parameters:
             path (str): The path for which to check existence.
@@ -97,7 +143,8 @@ class FileSystemClient(Duct, MagicsProvider):
     def isdir(self, path):
         """
         This method checks to see whether a folder/directory exists at the given
-        path.
+        path, relative to the current working directory  (on remote filesytems,
+        this will typically be the home folder).
 
         Parameters:
             path (str): The path for which to check directory nature.
@@ -114,8 +161,9 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def isfile(self, path):
         """
-        This method checks to see whether a file (not a directory) exists at the given
-        path.
+        This method checks to see whether a file (not a directory) exists at the
+        given path, relative to the current working directory (on remote
+        filesytems, this will typically be the home folder).
 
         Parameters:
             path (str): The path for which to check file nature.
@@ -143,6 +191,9 @@ class FileSystemClient(Duct, MagicsProvider):
         This method returns a generator over `FileSystemFileDesc` objects that
         represent the files/directories that a present as children of the
         nominated path. If `path` is not a directory, an exception is raised.
+        The path is interpreted as being relative to the current working
+        directory (on remote filesytems, this will typically be the home
+        folder).
 
         :todo:`Which exception class should be raised.`
 
@@ -159,7 +210,9 @@ class FileSystemClient(Duct, MagicsProvider):
     def listdir(self, path=None):
         """
         This method inspects the contents of a directory, and returns the names
-        of child members as strings.
+        of child members as strings. `path` is interpreted relative to the
+        current working directory (on remote filesytems, this will typically be
+        the home folder).
 
         Parameters:
             path (str): The path of the directory from which to enumerate filenames.
@@ -171,9 +224,17 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def showdir(self, path=None):
         """
-        This method returns a pandas DataFrame representation of the contents of
-        a path. Some columns may be unique to a particular protocol, but
-        the returned DataFrame will at least have the columns: .... :todo:`asdasd`
+        This method returns a `pandas.DataFrame` representation of the contents of
+        a path. The exact columns will vary from filesystem to filesystem, and
+        some columns may be unique to a particular protocol, but
+        the returned DataFrame will at least have the columns: 'name' and 'type'.
+
+        Parameters:
+            path (str): The path of the directory from which to show contents.
+
+        Returns:
+            pandas.DataFrame: A DataFrame representation of the contents of the
+            nominated directory.
         """
         assert self.isdir(path), "'{}' is not a valid directory.".format(path)
         return self.connect()._showdir(self._path(path))
@@ -193,8 +254,8 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def walk(self, path=None):
         """
-        This method recursively walks over all paths that are children of
-        `path`, return a geneator over tuples, one for each directory, of form:
+        This method returns a generator which recursively walks over all paths
+        that are children of `path`, one result for each directory, of form:
         (<path name>, [<directory 1>, ...], [<file 1>, ...])
 
         Parameters:
@@ -202,8 +263,8 @@ class FileSystemClient(Duct, MagicsProvider):
                 contents.
 
         Returns:
-            generator<tuple>: A generator of tuples, each associated with a
-                directory descendent of `path`.
+            generator<tuple>: A generator of tuples, each tuple being associated
+            with one directory that is either `path` or one of its descendants.
         """
         assert self.isdir(path), "'{}' is not a valid directory.".format(path)
         return self.connect()._walk(self._path(path))
@@ -226,7 +287,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         This method searches for files or folders which satisfy certain
         constraints on the attributes of the file (as encoded into
-        `FileSystemFileDesc`). Note that without an attribute constraints,
+        `FileSystemFileDesc`). Note that without attribute constraints,
         this method will function identically to `self.dir`.
 
         Parameters:
@@ -327,9 +388,9 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
-        This method downloads a file/folder from path `source` on this filesystem
-        to the path `dest` on filesytem `fs`, overwriting any existing file if
-        `overwrite` is `True`.
+        This method (recursively) downloads a file/folder from path `source` on
+        this filesystem to the path `dest` on filesytem `fs`, overwriting any
+        existing file if `overwrite` is `True`.
 
         Parameters:
             source (str): The path on this filesystem of the file to download to
@@ -349,6 +410,9 @@ class FileSystemClient(Duct, MagicsProvider):
                 file/folder `source` should be downloaded. If not specified,
                 defaults to the local filesystem.
         """
+
+        # TODO: Consider integration with `odo` for optimised data transfers.
+
         if fs is None:
             from .local import LocalFsClient
             fs = LocalFsClient()
@@ -403,9 +467,10 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
-        This method uploads a file/folder from path `source` on filesystem `fs`
-        to the path `dest` on this filesytem, overwriting any existing file if
-        `overwrite` is `True`. This is equivalent to `fs.download(..., fs=self)`.
+        This method (recursively) uploads a file/folder from path `source` on
+        filesystem `fs` to the path `dest` on this filesytem, overwriting any
+        existing file if `overwrite` is `True`. This is equivalent to
+        `fs.download(..., fs=self)`.
 
         Parameters:
             source (str): The path on the specified filesystem (`fs`) of the

@@ -7,9 +7,6 @@ import os
 import sys
 from abc import abstractmethod
 
-import pandas as pd
-import pandas.io.sql
-import six
 import sqlparse
 from decorator import decorator
 from jinja2 import StrictUndefined, Template
@@ -17,7 +14,6 @@ from jinja2 import StrictUndefined, Template
 from . import cursor_formatters
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
-from omniduct.utils.config import config
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.magics import MagicsProvider, process_line_arguments, process_line_cell_arguments
 
@@ -45,8 +41,19 @@ def render_statement(method, self, statement, *args, **kwargs):
 
 class DatabaseClient(Duct, MagicsProvider):
     """
-    QueryClient is an abstract class that can be subclassed to allow the databases
-    of various data sources, such as databases or website apis.
+    `DatabaseClient` is an abstract subclass of `Duct` that provides a common
+    API for all database clients, which in turn will be subclasses of this
+    class.
+
+    Allow use of `DatabaseClient(...)` as a short-hand for
+    `DatabaseClient.query()`.
+
+    Class Attributes:
+        DUCT_TYPE (`Duct.Type`): The type of `Duct` protocol implemented by this class.
+        DEFAULT_PORT (int): The default port for the database service (defined
+            by subclasses).
+        CURSOR_FORMATTERS (dict<str, CursorFormatter): asdsd
+        DEFAULT_CURSOR_FORMATTER (str): ...
     """
 
     DUCT_TYPE = Duct.Type.DATABASE
@@ -82,12 +89,27 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def __call__(self, query, **kwargs):
-        """Calls DatabaseClient.query() largely for backwards compatibility"""
+        """
+        Allow use of `DatabaseClient(...)` as a short-hand for
+        `DatabaseClient.query()`.
+        """
         return self.query(query, **kwargs)
 
     # Querying
     @classmethod
     def statements_split(cls, statements):
+        """
+        This classmethod converts a single string containing one or more SQL
+        statements into an iterator of strings, each corresponding to one SQL
+        statement. If the statement's language is not to be SQL, this method
+        should be overloaded appropriately.
+
+        Parameters:
+            statements (str): A string containing one or more SQL statements.
+
+        Returns:
+            iterator<str>: An iterator of SQL statements.
+        """
         for statement in sqlparse.split(statements):
             statement = statement.strip()
             if statement.endswith(';'):
@@ -97,12 +119,38 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @classmethod
     def statement_cleanup(cls, statement):
+        """
+        This classmethod takes an SQL statement and reformats it by consistently
+        removing comments and replacing all whitespace. It is used by the
+        `query` method to avoid functionally identical queries hitting different
+        cache kets. If the statement's language is not to be SQL, this method
+        should be overloaded appropriately.
+
+        Parameters:
+            statement (str): The statement to be reformatted/cleaned-up.
+
+        Returns:
+            str: The new statement, consistently reformatted.
+        """
         statement = sqlparse.format(statement, strip_comments=True, reindent=True)
         statement = os.linesep.join([line for line in statement.splitlines() if line])
         return statement
 
     @classmethod
     def statement_hash(cls, statement, cleanup=True):
+        """
+        This classmethod is used to determine the hash used to identify query
+        statements to the cache (if configured).
+
+        Parameters:
+            statement (str): A string representation of the statement to be
+                hashed.
+            cleanup (bool): Whether the statement should first be consistently
+                reformatted using `statement_cleanup`.
+
+        Returns:
+            str: The hash used to identify a statement to the cache.
+        """
         if cleanup:
             statement = cls.statement_cleanup(statement)
         if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(statement, unicode):
@@ -111,25 +159,32 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @render_statement
     def execute(self, statement, cleanup=True, async=False, cursor=None, **kwargs):
-        """Execute a statement against the data source.
+        """
+        This method executes a given statement against the relevant database,
+        returning the results as a standard DBAPI2 compatible cursor. Where
+        supported by database implementations, this cursor can the be used
+        in future executions, by passing it as the `cursor` keyword argument.
 
-        Parameters
-        ----------
-        statement : The statement to be executed by the query client (possibly templated).
-        cleanup : Whether statement should be normalised (whitespace and comments removed).
-                  This helps to avoid missing the cache for similar queries.
-        async : Whether the cursor should be returned before the server-side query
-                computation is complete.
-        template : Whether the statement should be treated as a Jinja2 template.
-        context : If the statement is to be treated as a template,
-                 substitute in the parameters using this context.
-        cursor : Rather than creating a new cursor, execute this statement against
-                 the existing provided cursor (or pass None)
-        kwargs : Extra keyword arguments to be passed on to _execute, as implemented by subclasses.
+        Parameters:
+            statement (str): The statement to be executed by the query client
+                (possibly templated).
+            cleanup (bool): Whether statement should be cleaned up before
+                computing the hash used to cache results.
+            async (bool): Whether the cursor should be returned before the
+                server-side query computation is complete and the relevant
+                results downloaded.
+            cursor (DBAPI2 cursor):  Rather than creating a new cursor, execute
+                the statement against the provided cursor.
+            **kwargs (dict): Extra keyword arguments to be passed on to
+                `_execute`, as implemented by subclasses.
+            template (bool): Whether the statement should be treated as a Jinja2
+                template. [Used by `render_template` decorator.]
+            context (dict): The context in which the template should be
+                evaluated (a dictionary of parameters to values). [Used by
+                `render_template` decorator.]
 
-        Returns
-        -------
-        A DBAPI2 compatible cursor instance.
+        Returns:
+            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
         """
 
         self.connect()
@@ -154,20 +209,28 @@ class DatabaseClient(Duct, MagicsProvider):
     )
     def query(self, statement, format=None, format_opts={}, **kwargs):
         """
-        Execute a statement against the data source using `.execute()`, and then
-        collect and return the results in the nominated format; optionally (and
-        by default) caching the result.
+        This method executes a statement against the database using
+        `DatabaseClient.execute()`, and then collects the results before
+        returning them formatted as nominated; optionally (and by default)
+        caching the result if a cache is configured.
 
-        Parameters
-        ----------
-        statement : The statement to be executed by the query client (possibly templated).
-        format : A subclass of CursorFormatter, or one of: 'pandas', 'hive',
-                'csv', 'tuple' or 'dict'.
-        format_opts : A dictionary of format-specific options.
-        use_cache : True (default) or False. Whether to use the cache (if present).
-        renew : True or False (default). If cache is being used, renew it before
-                returning stored value.
-        **kwargs : Additional arguments to pass on to `.execute()`.
+        Parameters:
+            statement (str): The statement to be executed by the query client
+                (possibly templated).
+            format (str): A subclass of CursorFormatter, or one of: 'pandas',
+                'hive', 'csv', 'tuple' or 'dict'. Defaults to
+                `self.DEFAULT_CURSOR_FORMATTER`.
+            format_opts (dict): A dictionary of format-specific options.
+            **kwargs (dict): Additional arguments to pass on to
+                `DatabaseClient.execute()`.
+            use_cache (bool): True (default) or False. Whether to use the cache
+                (if present). [Used by `cached_method` decorator.]
+            renew (bool): True or False (default). If cache is being used, renew
+                it before returning stored value. [Used by `cached_method`
+                decorator.]
+
+        Returns:
+            The results of the query formatted as nominated.
         """
         cursor = self.execute(statement, async=False, template=False, **kwargs)
 
@@ -180,6 +243,27 @@ class DatabaseClient(Duct, MagicsProvider):
         return formatter.dump()
 
     def stream(self, statement, format=None, format_opts={}, batch=None, **kwargs):
+        """
+        This method executes a statement against the database, and streams
+        results from the resulting cursor object as an iterator over objects
+        of the nominated format. If `batch` is not `None`, then the iterator
+        will be over lists of size `batch`.
+
+        Parameters:
+            statement (str): The statement to be executed against the database.
+            format (str): A subclass of CursorFormatter, or one of: 'pandas',
+                'hive', 'csv', 'tuple' or 'dict'. Defaults to
+                `self.DEFAULT_CURSOR_FORMATTER`.
+            format_opts (dict): A dictionary of format-specific options.
+            batch (int): If not `None`, the number of rows from the resulting
+                cursor to be returned at once.
+            **kwargs (dict): Additional keyword arguments to pass onto
+                `DatabaseClient.execute`.
+
+        Returns:
+            iterator: An iterator over objects of the nominated format or, if
+                batched, a list of such objects.
+        """
         cursor = self.execute(statement, async=False, **kwargs)
         formatter = self._get_formatter(format, cursor, **format_opts)
 
@@ -194,6 +278,22 @@ class DatabaseClient(Duct, MagicsProvider):
         return formatter(cursor, **kwargs)
 
     def stream_to_file(self, statement, file, format='csv', **kwargs):
+        """
+        This method is a wrapper around `DatabaseClient.stream` that enables the
+        iterative writing of cursor results to a file. This is especially useful
+        when there are a very large number of results, and loading them all into
+        memory would require considerable resources. Note that 'csv' is always
+        the default format for this method.
+
+        Parameters:
+            statement (str): The statement to be executed against the database.
+            file (str, file-like-object): The filename where the data should be
+                written, or an open file-like resource.
+            format (str): The format to be used ('csv' by default). Format
+                options can be passed via `**kwargs`.
+            **kwargs: Additional keyword arguments to pass onto
+                `DatabaseClient.stream`.
+        """
         close_later = False
         if isinstance(file, str):
             file = open(file, 'w')
@@ -207,32 +307,47 @@ class DatabaseClient(Duct, MagicsProvider):
 
     def execute_from_file(self, file, **kwargs):
         """
-        Read file contents and execute them against the connected data source.
+        This method reads the contents of a file and executes them as a string
+        statement against against the database.
 
-        Parameters
-        ----------
-        file : str
-            File containing a query
-        kwargs : dict
-            Extra parameters to pass on to `execute`.
+        Parameters:
+            file (str): The path of the file containing the query statement to
+                be executed against the database.
+            **kwargs (dict): Extra keyword arguments to pass on to
+                `DatabaseClient.execute`.
+
+        Returns:
+            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
         """
         with open(file, 'r') as f:
             return self.execute(f.read(), **kwargs)
 
     def query_from_file(self, file, **kwargs):
         """
-        This method is shorthand for:
-        QueryClient.execute_from_file(file, parse=True, **kwargs)
+        This method reads the contents of a file and executes them as a string
+        statement against against the database, returning the results of the
+        query formatted as nominated (see `DatabaseClient.query` for more
+        details).
+
+        Parameters:
+            file (str): The path of the file containing the query statement to
+                be executed against the database.
+            **kwargs (dict): Extra keyword arguments to pass on to
+                `DatabaseClient.query`.
+
+        Returns:
+            The results of the query formatted as nominated.
         """
         with open(file, 'r') as f:
             return self.query(f.read(), **kwargs)
 
     def add_template(self, name, body):
+        "TODO: Templating"
         self._templates[name] = body
         return self
 
     def render_template(self, name_or_statement, context=None, by_name=False):
-
+        "TODO: Templating"
         if by_name:
             if name_or_statement not in self._templates:
                 raise ValueError("No such template of name: '{}'.".format(name_or_statement))
@@ -275,10 +390,12 @@ class DatabaseClient(Duct, MagicsProvider):
         return Template(statement, undefined=StrictUndefined).render(template_context)
 
     def execute_from_template(self, name, context=None, **kwargs):
+        "TODO: Templating"
         statement = self.render_template(name, context, by_name=True)
         return self.execute(statement, **kwargs)
 
     def query_from_template(self, name, context=None, **kwargs):
+        "TODO: Templating"
         statement = self.render_template(name, context, by_name=True)
         return self.query(statement, **kwargs)
 
@@ -286,21 +403,22 @@ class DatabaseClient(Duct, MagicsProvider):
     @logging_scope('Push', timed=True)
     def push(self, df, table, if_exists='fail', **kwargs):
         """
-        This method pushes a local dataframe `df` to the connected data store
-        as a table `table`.
+        Todo:
+            Review the naming of this method.
 
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The pandas dataframe to push into the data store.
-        table : str
-            The name of the table into which the dataframe should be pushed.
-        if_exists : {'fail', 'replace', 'append'}, default 'fail'
-            - fail: If table exists, do nothing.
-            - replace: If table exists, drop it, recreate it, and insert data.
-            - append: If table exists, insert data. Create if does not exist.
-        kwargs : dict
-            Additional arguments which are passed on to `QueryClient._push`.
+        This method uploads a local dataframe to the database, creating,
+        overwriting or appending to the nominated table.
+
+        Parameters:
+            df (pandas.DataFrame): The dataframe to upload into the database.
+            table (str): The name of the table into which the dataframe should
+                be uploaded.
+            if_exists (str): if nominated table already exists: 'fail' to do
+                nothing, 'replace' to drop, recreate and insert data into new
+                table, and 'append' to add data from this table into the
+                existing table.
+            **kwargs (dict): Additional keyword arguments to pass onto
+                `QueryClient._push`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
         self.connect()._push(df, table, if_exists=if_exists, **kwargs)
@@ -317,10 +435,7 @@ class DatabaseClient(Duct, MagicsProvider):
         return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False, if_exists=if_exists, **kwargs)
 
     def _cursor_empty(self, cursor):
-        pass
-
-    def _cursor_wait(self, cursor, poll_interval=1):
-        pass
+        return False
 
     def table_list(self, **kwargs):
         """

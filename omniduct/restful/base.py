@@ -1,8 +1,7 @@
 import requests
-from future.moves.urllib.parse import urlparse, urlencode, urljoin
+from future.moves.urllib.parse import urljoin
 
 from omniduct.duct import Duct
-from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 
 class RestClientBase(Duct):

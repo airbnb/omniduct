@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
-from . import cursor_formatters
 
 
 class Neo4jClient(DatabaseClient):
