@@ -299,13 +299,16 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             self.connect()
             logger.info('Copying file to local...')
-            template = 'scp -r -o ControlPath={socket} {login}:"{remote_file}" "{local_file}"'
             dest = dest or posixpath.basename(source)
-            proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                     login=self._login_info,
-                                                     local_file=dest.replace('"', r'\"'),
-                                                     remote_file=source.replace('"', r'\"')),
-                                     check_output=True)
+            cmd = (
+                "scp -r -o ControlPath={socket} {login}:'{remote_file}' '{local_file}'".format(
+                    socket=self._socket_path,
+                    login=self._login_info,
+                    remote_file=dest.replace('"', r'\"'),
+                    local_file=source.replace('"', r'\"'),  # quote escaped for bash
+                )
+            )
+            proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or 'Success')
         else:
             return super(RemoteClient, self).download(source, dest, overwrite, fs)
@@ -320,13 +323,16 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             self.connect()
             logger.info('Copying file from local...')
-            template = 'scp -r -o ControlPath={socket} "{local_file}" {login}:"{remote_file}"'
             dest = dest or posixpath.basename(source)
-            proc = run_in_subprocess(template.format(socket=self._socket_path,
-                                                     login=self._login_info,
-                                                     local_file=source.replace('"', r'\"'),
-                                                     remote_file=dest).replace('"', r'\"'),
-                                     check_output=True)
+            cmd = (
+                "scp -r -o ControlPath={socket} '{local_file}' {login}:'{remote_file}'".format(
+                    socket=self._socket_path,
+                    local_file=source.replace('"', r'\"'),  # quote escaped for bash
+                    login=self._login_info,
+                    remote_file=dest.replace('"', r'\"'),
+                )
+            )
+            proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or 'Success')
         else:
             return super(RemoteClient, self).upload(source, dest, overwrite, fs)
