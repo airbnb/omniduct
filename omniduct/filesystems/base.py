@@ -17,19 +17,24 @@ class FileSystemClient(Duct, MagicsProvider):
         DUCT_TYPE (`Duct.Type`): The type of `Duct` protocol implemented by this class.
         DEFAULT_PORT (int): The default port for the filesystem service (defined
             by subclasses).
+
+    Parameters:
+        cwd (str): The path prefix to use as the current working directory (if None,
+            the user's home directory is used where that makes sense).
     """
 
     DUCT_TYPE = Duct.Type.FILESYSTEM
     DEFAULT_PORT = None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cwd=None, **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
         to instantiate themselves with arbitrary parameters.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
-        self._init(*args, **kwargs)
+        self._path_cwd = cwd
+        self._init(**kwargs)
 
     @abstractmethod
     def _init(self):
@@ -48,6 +53,18 @@ class FileSystemClient(Duct, MagicsProvider):
     @abstractmethod
     def _path_home(self):
         return NotImplementedError
+
+    @property
+    def path_cwd(self):
+        """
+        str: The path prefix associated with the current working directory.
+        """
+        return self._path_cwd or self.path_home
+
+    @path_cwd.setter
+    def path_cwd(self, path_cwd):
+        assert self.isdir(self._path(path_cwd)), "Specified path does not exist."
+        self._path_cwd = path_cwd
 
     @property
     def path_separator(self):
@@ -117,7 +134,7 @@ class FileSystemClient(Duct, MagicsProvider):
         return self.path_separator.join(self._path(path).split(self.path_separator)[:-1])
 
     def _path(self, path=None):
-        return self.path_home if path is None else self.path_join(self.path_home, path)
+        return self.path_cwd if path is None else self.path_join(self.path_cwd, path)
 
     # Filesystem accessors
 

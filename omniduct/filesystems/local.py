@@ -9,9 +9,9 @@ class LocalFsClient(FileSystemClient):
 
     PROTOCOLS = ['localfs']
 
-    def _init(self, cwd_as_home=True):
+    def _init(self):
         assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
-        self.__cwd_as_home = cwd_as_home
+        self._path_cwd = self._path_cwd or os.getcwd()
 
     def connect(self):
         return self
@@ -27,7 +27,7 @@ class LocalFsClient(FileSystemClient):
 
     # File enumeration
     def _path_home(self):
-        return os.getcwd() if self.__cwd_as_home else os.path.expanduser('~')
+        return os.path.expanduser('~')
 
     def _path_separator(self):
         return os.path.sep
