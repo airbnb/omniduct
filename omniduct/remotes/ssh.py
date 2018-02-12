@@ -160,11 +160,12 @@ class SSHClient(RemoteClient):
         proc : Popen subprocess
             Subprocess used to run remote command.
         """
-        template = 'ssh {login} -T -o ControlPath={socket} << EOF\n{cmd}\nEOF'
+        template = 'ssh {login} -T -o ControlPath={socket} << EOF\ncd "{cwd}"\n{cmd}\nEOF'
         config = dict(self._subprocess_config)
         config.update(kwargs)
         return run_in_subprocess(template.format(login=self._login_info,
                                                  socket=self._socket_path,
+                                                 cwd=self.path_cwd.replace('"', r'\"'),
                                                  cmd=cmd),
                                  check_output=True,
                                  **config)
@@ -222,7 +223,8 @@ class SSHClient(RemoteClient):
     # Directory handling and enumeration
 
     def _dir(self, path):
-        dir = pd.DataFrame(sorted([re.split('\s+', f) for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
+        # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
+        dir = pd.DataFrame(sorted([re.split('\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
                            columns=['file_mode', 'link_count', 'owner', 'group', 'bytes', 'month', 'day', 'time', 'path'])
 
         def convert_to_datetime(x):
@@ -255,7 +257,7 @@ class SSHClient(RemoteClient):
                 fs=self,
                 path=posixpath.join(path, row.path),
                 name=row.path,
-                type='directory' if row.file_mode.startswith('d') else 'file',
+                type='directory' if row.file_mode.startswith('d') else 'file',  # TODO: What about links, which are of form: lrwxrwxrwx?
                 bytes=row.bytes,
                 owner=row.owner,
                 group=row.group,
