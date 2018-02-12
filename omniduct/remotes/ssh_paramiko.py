@@ -13,6 +13,7 @@ except ImportError:
 class ParamikoSSHClient(RemoteClient):
 
     PROTOCOLS = ['ssh_paramiko']
+    DEFAULT_PORT = 22
 
     def _init(self):
         logger.warning("The Paramiko SSH client is still under development, \

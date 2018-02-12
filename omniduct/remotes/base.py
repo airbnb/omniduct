@@ -68,6 +68,7 @@ class RemoteClient(FileSystemClient):
     """
 
     DUCT_TYPE = Duct.Type.REMOTE
+    DEFAULT_PORT = None
 
     def __init__(self, smartcards=None, **kwargs):
         """
@@ -87,7 +88,7 @@ class RemoteClient(FileSystemClient):
         self : SSHClient
             An SSHClient object with the connection details specified.
         """
-        FileSystemClient.__init_with_kwargs__(self, kwargs, port=22)
+        FileSystemClient.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
         self.smartcards = smartcards
         self.__port_forwarding_register = PortForwardingRegister()

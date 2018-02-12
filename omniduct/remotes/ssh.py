@@ -30,6 +30,7 @@ class SSHClient(RemoteClient):
     """
 
     PROTOCOLS = ['ssh']
+    DEFAULT_PORT = 22
 
     def _init(self):
         pass

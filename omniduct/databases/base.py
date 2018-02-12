@@ -69,7 +69,7 @@ class DatabaseClient(Duct, MagicsProvider):
     }
     DEFAULT_CURSOR_FORMATTER = 'pandas'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
@@ -82,7 +82,7 @@ class DatabaseClient(Duct, MagicsProvider):
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
 
-        self._init(*args, **kwargs)
+        self._init(**kwargs)
 
     @abstractmethod
     def _init(self):
