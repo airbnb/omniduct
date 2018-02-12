@@ -8,10 +8,13 @@ from .base import FileSystemClient, FileSystemFileDesc
 class LocalFsClient(FileSystemClient):
 
     PROTOCOLS = ['localfs']
-    DEFAULT_PORT = 22
 
     def _init(self, cwd_as_home=True):
+        assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
         self.__cwd_as_home = cwd_as_home
+
+    def connect(self):
+        return self
 
     def _connect(self):
         pass
