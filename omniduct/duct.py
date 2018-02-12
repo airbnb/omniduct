@@ -139,18 +139,24 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             + object.__getattribute__(self, 'connection_fields')
         )
 
-    def __init_with_kwargs__(self, kwargs, **fallbacks):
-        if six.PY3:
-            keys = inspect.getfullargspec(Duct.__init__).args[1:]
-        else:
-            keys = inspect.getargspec(Duct.__init__).args[1:]
-        params = {}
-        for key in keys:
-            if key in kwargs:
-                params[key] = kwargs.pop(key)
-            elif key in fallbacks:
-                params[key] = fallbacks[key]
-        Duct.__init__(self, **params)
+    @classmethod
+    def __init_with_kwargs__(cls, self, kwargs, **fallbacks):
+        if not hasattr(self, '_Duct__inited_using_kwargs'):
+            self._Duct__inited_using_kwargs = {}
+        for cls_parent in reversed([parent for parent in inspect.getmro(cls) if issubclass(parent, Duct) and parent not in self._Duct__inited_using_kwargs and '__init__' in parent.__dict__]):
+            self._Duct__inited_using_kwargs[cls_parent] = True
+            if six.PY3:
+                argspec = inspect.getfullargspec(cls_parent.__init__)
+                keys = argspec.args[1:] + argspec.kwonlyargs
+            else:
+                keys = inspect.getargspec(cls_parent.__init__).args[1:]
+            params = {}
+            for key in keys:
+                if key in kwargs:
+                    params[key] = kwargs.pop(key)
+                elif key in fallbacks:
+                    params[key] = fallbacks[key]
+            cls_parent.__init__(self, **params)
 
     @classmethod
     def for_protocol(cls, key):
