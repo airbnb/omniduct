@@ -418,7 +418,7 @@ class FileSystemClient(Duct, MagicsProvider):
             fs = LocalFsClient()
 
         source = self._path(source)
-        dest = fs._path(dest)
+        dest = fs._path(dest or self.path_basename(source))
 
         if dest.endswith(fs.path_separator):
             assert fs.isdir(dest), "No such directory `{}`".format(dest)
@@ -460,7 +460,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 self.connect()._download(target[0], target[1], overwrite, fs)
 
     def _download(self, source, dest, overwrite, fs):
-        if not overwrite and self.exists(dest):
+        if not overwrite and fs.exists(dest):
             raise RuntimeError("File already exists on filesystem.")
         with fs.open(dest, 'wb') as f:
             assert f.binary_mode is True, dest
