@@ -9,7 +9,7 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
-    def _init(self, bucket=None, aws_profile='default'):
+    def _init(self, bucket=None, aws_profile='default', path_separator='/'):
         # Note: aws_profile, if specified, should be the name of a profile as
         # specified in ~/.aws/credentials. Authentication is handled by the
         # `opinel` library, which is also aware of environment variables.
@@ -17,6 +17,7 @@ class S3Client(FileSystemClient):
         assert bucket is not None, 'S3 Bucket must be specified using the `bucket` kwarg.'
         self.bucket = bucket
         self.aws_profile = aws_profile
+        self.__path_separator = path_separator
 
         self._setup_session()  # Ensure self.host is updated with correct AWS region
 
@@ -55,14 +56,14 @@ class S3Client(FileSystemClient):
     # Path properties and helpers
 
     def _path_home(self):
-        return '/'
+        return self.path_separator
 
     def _path_separator(self):
-        return '/'
+        return self.__path_separator
 
     def _path(self, path):
         path = super(S3Client, self)._path(path)
-        if path.startswith('/'):
+        if path.startswith(self.path_separator):
             path = path[1:]
         return path
 
@@ -87,13 +88,13 @@ class S3Client(FileSystemClient):
     # Directory handling and enumeration
 
     def __dir_paginator(self, path):
-        if path.endswith('/'):
-            path = path[:-1]
+        if path.endswith(self.path_separator):
+            path = path[:-len(self.path_separator)]
         paginator = self._client.get_paginator('list_objects')
         iterator = paginator.paginate(
             Bucket=self.bucket,
-            Prefix=path + ('/' if path else ''),
-            Delimiter='/',
+            Prefix=path + (self.path_separator if path else ''),
+            Delimiter=self.path_separator,
             PaginationConfig={'PageSize': 500}
         )
         return iterator
@@ -106,14 +107,14 @@ class S3Client(FileSystemClient):
                 yield FileSystemFileDesc(
                     fs=self,
                     path=prefix['Prefix'][:-1],
-                    name=prefix['Prefix'][:-1].split('/')[-1],  # Remove trailing slash
+                    name=prefix['Prefix'][:-1].split(self.path_separator)[-1],  # Remove trailing slash
                     type='directory',
                 )
             for prefix in response_data.get('Contents', []):
                 yield FileSystemFileDesc(
                     fs=self,
                     path=prefix['Key'],
-                    name=prefix['Key'].split('/')[-1],
+                    name=prefix['Key'].split(self.path_separator)[-1],
                     type='file',
                     bytes=prefix['Size'],
                     owner=prefix['Owner']['DisplayName'],
