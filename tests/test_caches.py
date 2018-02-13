@@ -17,7 +17,7 @@ class TestLocalCache(unittest.TestCase):
     def setUp(self):
         self.fs_patcher = Patcher()
         self.fs_patcher.setUp()
-        self.cache = LocalCache(TEST_DIR)
+        self.cache = LocalCache(dir=TEST_DIR)
 
     def test_clear(self):
         self.cache.clear(ID_DUCT, ID_STRING_NONEXISTANT)
