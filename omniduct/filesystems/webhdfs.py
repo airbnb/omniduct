@@ -8,9 +8,8 @@ class WebHdfsClient(FileSystemClient):
     PROTOCOLS = ['webhdfs']
     DEFAULT_PORT = 50070
 
-    def _init(self, namenodes=None, global_writes=False, **kwargs):
+    def _init(self, namenodes=None, **kwargs):
         self._namenodes = namenodes
-        self.global_writes = global_writes
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
@@ -43,9 +42,6 @@ class WebHdfsClient(FileSystemClient):
 
     def _path_separator(self):
         return '/'
-
-    def __in_home_directory(self, path):
-        return posixpath.abspath(path).startswith(self.__home_directory)
 
     # File node properties
 
@@ -107,6 +103,4 @@ class WebHdfsClient(FileSystemClient):
         return self.__webhdfs.append_file(path, s)
 
     def _file_write_(self, path, s, binary):
-        if not self.global_writes and not self.__in_home_directory(path):
-            raise RuntimeError("Attempting to write outside of home directory without setting '{name}.global_writes' to True.".format(name=self.name))
         return self.__webhdfs.create_file(path, s, overwrite=True)

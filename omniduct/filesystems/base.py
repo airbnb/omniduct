@@ -26,7 +26,7 @@ class FileSystemClient(Duct, MagicsProvider):
     DUCT_TYPE = Duct.Type.FILESYSTEM
     DEFAULT_PORT = None
 
-    def __init__(self, cwd=None, **kwargs):
+    def __init__(self, cwd=None, global_writes=False, **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto
         `self._init`, which is implemented by subclasses. This allows subclasses
@@ -34,6 +34,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._path_cwd = cwd
+        self.global_writes = global_writes
         self._init(**kwargs)
 
     @abstractmethod
@@ -133,8 +134,53 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         return self.path_separator.join(self._path(path).split(self.path_separator)[:-1])
 
+    def path_normpath(self, path):
+        """
+        This method returns the normalised (absolute) path corresponding to `path`
+        on this filesystem.
+
+        Parameters:
+            path (str): The path to normalise (make absolute).
+
+        Returns:
+            str: The normalised path.
+        """
+        components = self._path(path).split(self.path_separator)
+        out_path = []
+        for component in components:
+            if component == '' and len(out_path) > 0:
+                continue
+            if component == '.':
+                continue
+            elif component == '..':
+                if len(out_path) > 1:
+                    out_path.pop()
+                else:
+                    raise RuntimeError("Cannot access parent directory of filesystem root.")
+            else:
+                out_path.append(component)
+        if len(out_path) == 1 and out_path[0] == '':
+            return '/'
+        return self.path_separator.join(out_path)
+
     def _path(self, path=None):
         return self.path_cwd if path is None else self.path_join(self.path_cwd, path)
+
+    def _path_in_home_dir(self, path):
+        return self.path_normpath(path).startswith(self.path_home)
+
+    @property
+    def global_writes(self):
+        """
+        bool: Whether writes should be permitted outside of home directory. This
+        write-lock is designed to prevent inadvertent scripted writing in
+        potentially dangerous places.
+        """
+        return self._global_writes
+
+    @global_writes.setter
+    def global_writes(self, global_writes):
+        self._global_writes = global_writes
 
     # Filesystem accessors
 
@@ -355,6 +401,8 @@ class FileSystemClient(Duct, MagicsProvider):
             recursive (bool): Whether to recursively create any parents of this
                 path if they do not already exist.
         """
+        if not self.global_writes and not self._path_in_home_dir(path):
+            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         return self.connect()._mkdir(self._path(path), recursive)
 
     @abstractmethod
@@ -388,6 +436,8 @@ class FileSystemClient(Duct, MagicsProvider):
         raise NotImplementedError
 
     def _file_write(self, path, s, binary=False):
+        if not self.global_writes and not self._path_in_home_dir(path):
+            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         return self.connect()._file_write_(self._path(path), s, binary)
 
     @abstractmethod
@@ -395,6 +445,8 @@ class FileSystemClient(Duct, MagicsProvider):
         raise NotImplementedError
 
     def _file_append(self, path, s, binary=False):
+        if not self.global_writes and not self._path_in_home_dir(path):
+            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         return self.connect()._file_append_(self._path(path), s, binary)
 
     @abstractmethod
