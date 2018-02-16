@@ -56,6 +56,11 @@ class PrestoClient(DatabaseClient):
 
     # Querying
     def _execute(self, statement, cursor=None, async=False):
+        """
+        If something goes wrong, `PrestoClient` will attempt to parse the error
+        log and present the user with useful debugging information. If that fails,
+        the full traceback will be raised instead.
+        """
         from pyhive.exc import DatabaseError  # Imported here due to slow import performance in Python 3
         try:
             cursor = cursor or self.__presto.cursor()

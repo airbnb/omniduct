@@ -23,6 +23,7 @@ from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
 from omniduct.filesystems.base import FileSystemClient
 from omniduct.utils.debug import logger
+from omniduct.utils.docs import quirk_docs
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 from omniduct.utils.processes import run_in_subprocess
 
@@ -168,6 +169,7 @@ class RemoteClient(FileSystemClient):
 
         return True
 
+    @quirk_docs('_execute')
     def execute(self, cmd, **kwargs):
         """
         Execute `cmd` on the remote shell via ssh. Additional keyword arguments are
@@ -199,6 +201,7 @@ class RemoteClient(FileSystemClient):
             port = m.group('port') or remote_port
         return host, port, local_port
 
+    @quirk_docs('_port_forward_start')
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
         Establishes a local port forwarding from local port `local` to remote
@@ -244,6 +247,7 @@ class RemoteClient(FileSystemClient):
         else:
             return self.__port_forwarding_register.reverse_lookup(local_port) is not None
 
+    @quirk_docs('_port_forward_stop')
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
         # Hostname and port extraction
         remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
@@ -288,6 +292,7 @@ class RemoteClient(FileSystemClient):
     def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
         raise NotImplementedError
 
+    @quirk_docs('_is_port_bound')
     def is_port_bound(self, host, port):
         return self.connect()._is_port_bound(host, port)
 

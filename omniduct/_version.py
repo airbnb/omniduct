@@ -16,7 +16,7 @@ __dependencies__ = [
     "enum34",  # Python 3.4+ style enums in older versions of python
 
     "pyyaml",  # YAML configuration parsing
-    "decorator",  # Decorators used by caching routines
+    "decorator",  # Decorators used by caching and documentation routines
     "progressbar2>=3.30.0",  # Support for progressbars in logging routines
     "wrapt",  # Object proxying for conveniently exposing ducts in registry
 

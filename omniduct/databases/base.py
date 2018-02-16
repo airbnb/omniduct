@@ -15,6 +15,7 @@ from . import cursor_formatters
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
 from omniduct.utils.debug import logger, logging_scope
+from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import MagicsProvider, process_line_arguments, process_line_cell_arguments
 
 logging.getLogger('requests').setLevel(logging.WARNING)
@@ -158,6 +159,7 @@ class DatabaseClient(Duct, MagicsProvider):
         return hashlib.sha256(statement).hexdigest()
 
     @render_statement
+    @quirk_docs('_execute')
     def execute(self, statement, cleanup=True, async=False, cursor=None, **kwargs):
         """
         This method executes a given statement against the relevant database,
@@ -401,6 +403,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     # Uploading data to data store
     @logging_scope('Push', timed=True)
+    @quirk_docs('_push')
     def push(self, df, table, if_exists='fail', **kwargs):
         """
         Todo:
@@ -437,6 +440,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _cursor_empty(self, cursor):
         return False
 
+    @quirk_docs('_table_list')
     def table_list(self, **kwargs):
         """
         Return a list of table names in the data source as a DataFrame. Additional kwargs are
@@ -448,6 +452,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_list(self, **kwargs):
         pass
 
+    @quirk_docs('_table_exists')
     def table_exists(self, table, **kwargs):
         """
         Return boolean if table exists in schema
@@ -458,6 +463,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_exists(self, table, **kwargs):
         pass
 
+    @quirk_docs('_table_desc')
     def table_desc(self, table, **kwargs):
         """
         Describe a table in the data source. Additional kwargs are
@@ -471,6 +477,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_desc(self, table, **kwargs):
         pass
 
+    @quirk_docs('_table_head')
     def table_head(self, table, n=10, **kwargs):
         """
         Show a sample of the data in `table` of the data source. `n` is the number of records
@@ -484,6 +491,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_head(self, table, n=10, **kwargs):
         pass
 
+    @quirk_docs('_table_props')
     def table_props(self, table, **kwargs):
         """
         Return a dataframe of table properties for `table`.

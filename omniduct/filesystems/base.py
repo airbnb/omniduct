@@ -4,6 +4,7 @@ from collections import namedtuple, OrderedDict
 
 import pandas as pd
 from omniduct.duct import Duct
+from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 
@@ -44,6 +45,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # Path properties and helpers
 
     @property
+    @quirk_docs('_path_home')
     def path_home(self):
         """
         str: The default path prefix to use for all non-absolute path references
@@ -68,6 +70,7 @@ class FileSystemClient(Duct, MagicsProvider):
         self._path_cwd = path_cwd
 
     @property
+    @quirk_docs('_path_separator')
     def path_separator(self):
         """
         str: The character(s) to use in separating path components. Typically
@@ -184,6 +187,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # Filesystem accessors
 
+    @quirk_docs('_exists')
     def exists(self, path):
         """
         This method checks whether a file (or folder) exists at the given path,
@@ -203,6 +207,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _exists(self, path):
         raise NotImplementedError
 
+    @quirk_docs('_isdir')
     def isdir(self, path):
         """
         This method checks to see whether a folder/directory exists at the given
@@ -222,6 +227,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _isdir(self, path):
         raise NotImplementedError
 
+    @quirk_docs('_isfile')
     def isfile(self, path):
         """
         This method checks to see whether a file (not a directory) exists at the
@@ -249,6 +255,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         raise NotImplementedError
 
+    @quirk_docs('_dir')
     def dir(self, path=None):
         """
         This method returns a generator over `FileSystemFileDesc` objects that
@@ -272,10 +279,10 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def listdir(self, path=None):
         """
-        This method inspects the contents of a directory, and returns the names
-        of child members as strings. `path` is interpreted relative to the
-        current working directory (on remote filesytems, this will typically be
-        the home folder).
+        This method inspects the contents of a directory using `.dir(path)`, and
+        returns the names of child members as strings. `path` is interpreted
+        relative to the current working directory (on remote filesytems, this
+        will typically be the home folder).
 
         Parameters:
             path (str): The path of the directory from which to enumerate filenames.
@@ -288,9 +295,10 @@ class FileSystemClient(Duct, MagicsProvider):
     def showdir(self, path=None):
         """
         This method returns a `pandas.DataFrame` representation of the contents of
-        a path. The exact columns will vary from filesystem to filesystem, and
-        some columns may be unique to a particular protocol, but
-        the returned DataFrame will at least have the columns: 'name' and 'type'.
+        a path, which are retrieved using `.dir(path)`. The exact columns will
+        vary from filesystem to filesystem, depending on the fields returned
+        by `.dir()`, but the returned DataFrame is guaranteed to at least have
+        the columns: 'name' and 'type'.
 
         Parameters:
             path (str): The path of the directory from which to show contents.
@@ -315,6 +323,7 @@ class FileSystemClient(Duct, MagicsProvider):
         else:
             return "Directory has no contents."
 
+    @quirk_docs('_walk')
     def walk(self, path=None):
         """
         This method returns a generator which recursively walks over all paths
@@ -346,6 +355,7 @@ class FileSystemClient(Duct, MagicsProvider):
             for walked in self._walk(self._path(self.path_join(path, dir))):  # Note: using _walk directly here, which may fail if disconnected during walk.
                 yield walked
 
+    @quirk_docs('_find')
     def find(self, path_prefix=None, **attrs):
         """
         This method searches for files or folders which satisfy certain
@@ -391,6 +401,7 @@ class FileSystemClient(Duct, MagicsProvider):
             for match in self._find(self._path(self.path_join(path_prefix, dir)), **attrs):  # Note: using _find directly here, which may fail if disconnected during find.
                 yield match
 
+    @quirk_docs('_mkdir')
     def mkdir(self, path, recursive=True):
         """
         This method creates a directory at the specified path, recursively
@@ -428,6 +439,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         return FileSystemFile(self, self._path(path), mode)
 
+    @quirk_docs('_file_read_')
     def _file_read(self, path, size=-1, offset=0, binary=False):
         return self.connect()._file_read_(self._path(path), size=size, offset=offset, binary=binary)
 
@@ -435,6 +447,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
+    @quirk_docs('_file_write_')
     def _file_write(self, path, s, binary=False):
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
@@ -444,6 +457,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
+    @quirk_docs('_file_append_')
     def _file_append(self, path, s, binary=False):
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
@@ -455,6 +469,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File transfer
 
+    @quirk_docs('_download')
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
         This method (recursively) downloads a file/folder from path `source` on

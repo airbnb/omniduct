@@ -1,4 +1,5 @@
 import atexit
+import decorator
 import functools
 import getpass
 import inspect
@@ -14,6 +15,7 @@ from future.utils import raise_with_traceback, with_metaclass
 from omniduct.errors import DuctServerUnreachable, DuctProtocolUnknown
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
+from omniduct.utils.docs import quirk_docs
 from omniduct.utils.ports import is_port_bound
 
 
@@ -44,7 +46,46 @@ class ProtocolRegisteringABCMeta(ABCMeta):
         return cls._protocols[key]
 
 
-class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
+class ProtocolRegisteringQuirkDocumentedABCMeta(ProtocolRegisteringABCMeta):
+    """
+    This metaclass adds the ability to automatically append quirk documentation
+    to methods from a nominated method. For example, if the protocol specific
+    implementation of `.connect()` is implemented in `._connect`, you can
+    decorate the connect method with this decorator using
+    `@quirk_docs('_connect')`, the the documentation from the `_connect`
+    method will be appended to the `connect` docs under a heading "<cls> Quirks:".
+    """
+
+    def __init__(cls, name, bases, dct):
+        @decorator.decorator
+        def wrapped(f, *args, **kw):
+            return f(*args, **kw)
+
+        super(ProtocolRegisteringQuirkDocumentedABCMeta, cls).__init__(name, bases, dct)
+        for name, member in inspect.getmembers(cls, predicate=inspect.isfunction):
+            if not hasattr(member, '_quirks_method'):
+                continue
+
+            # Extract documentation from this member and the quirks member
+            quirk_member = getattr(cls, member._quirks_method, None)
+            if not quirk_member:
+                continue
+            member_docs = getattr(member, '__doc_orig__', None) or getattr(member, '__doc__')
+            quirk_docs = getattr(quirk_member, '__doc_orig__', None) or getattr(quirk_member, '__doc__')
+
+            if quirk_docs:
+                # Overide method object with new object so we don't modify
+                # underlying method that may be shared by multiple classes.
+                setattr(cls, name, wrapped(member))
+                member = getattr(cls, name)
+                member.__doc__ = "{member_docs}\n\n{class_name} Quirks:\n{quirk_docs}".format(
+                    member_docs=member_docs,
+                    class_name=cls.__name__,
+                    quirk_docs=quirk_docs
+                )
+
+
+class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     """
     `Duct` is the abstract base class of all protocol implementations, and
     defines the basic lifecycle of all connections, along with some magic
@@ -207,6 +248,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
             pass
         object.__setattr__(self, key, value)
 
+    @quirk_docs('_prepare')
     def prepare(self):
         """
         This method is called before the value of any of the fields referenced
@@ -368,6 +410,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
 
     # Connection
     @logging_scope("Connecting")
+    @quirk_docs('_connect')
     def connect(self):
         """
         This method causes the `Duct` instance to connect to the service, if it
@@ -407,6 +450,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         """
         raise NotImplementedError
 
+    @quirk_docs('_is_connected')
     def is_connected(self):
         """
         This method checks to see whether a `Duct` instance is currently
@@ -437,6 +481,7 @@ class Duct(with_metaclass(ProtocolRegisteringABCMeta, object)):
         """
         raise NotImplementedError
 
+    @quirk_docs('_disconnect')
     def disconnect(self):
         """
         This method disconnects this `Duct` instance from the service, and is
