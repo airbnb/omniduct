@@ -13,13 +13,11 @@ class WebHdfsClient(FileSystemClient):
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
-        self.__home_directory = None
         self.prepared_fields += ('_namenodes',)
 
     def _connect(self):
         from .webhdfs_helpers import OmniductPyWebHdfsClient
         self.__webhdfs = OmniductPyWebHdfsClient(host=self._host, port=self._port, remote=self.remote, namenodes=self._namenodes, user_name=self.username, **self.__webhdfs_kwargs)
-        self.__home_directory = self.__webhdfs.get_home_directory()
 
     def _is_connected(self):
         try:
@@ -31,14 +29,11 @@ class WebHdfsClient(FileSystemClient):
 
     def _disconnect(self):
         self.__webhdfs = None
-        self.__home_directory = None
 
     # Path properties and helpers
 
     def _path_home(self):
-        if not self.__home_directory:
-            self.connect()
-        return self.__home_directory
+        return self.__webhdfs.get_home_directory()
 
     def _path_separator(self):
         return '/'

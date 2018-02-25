@@ -35,6 +35,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._path_cwd = cwd
+        self.__path_home = None
         self.global_writes = global_writes
         self._init(**kwargs)
 
@@ -49,9 +50,12 @@ class FileSystemClient(Duct, MagicsProvider):
     def path_home(self):
         """
         str: The default path prefix to use for all non-absolute path references
-        on this filesystem.
+        on this filesystem. This is assumed not to change between connections,
+        and so will not be updated on client reconnections.
         """
-        return self._path_home()
+        if not self.__path_home:
+            self.__path_home = self.connect()._path_home()
+        return self.__path_home
 
     @abstractmethod
     def _path_home(self):

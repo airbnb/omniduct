@@ -5,6 +5,11 @@ import posixpath
 import re
 import tempfile
 
+try:  # Python 3
+    from shlex import quote as escape_path
+except ImportError:  # Python 2.7
+    from pipes import quote as escape_path
+
 import pandas as pd
 
 from omniduct.filesystems.base import FileSystemFileDesc
@@ -144,7 +149,7 @@ class SSHClient(RemoteClient):
 
     # RemoteClient implementation
 
-    def _execute(self, cmd, **kwargs):
+    def _execute(self, cmd, skip_cwd=False, **kwargs):
         """
         Execute a command on a remote host.
 
@@ -160,12 +165,14 @@ class SSHClient(RemoteClient):
         proc : Popen subprocess
             Subprocess used to run remote command.
         """
-        template = 'ssh {login} -T -o ControlPath={socket} << EOF\ncd "{cwd}"\n{cmd}\nEOF'
+        template = 'ssh {login} -T -o ControlPath={socket} << EOF\n{cwd}{cmd}\nEOF'
         config = dict(self._subprocess_config)
         config.update(kwargs)
+
+        cwd = 'cd "{path}"\n'.format(path=escape_path(self.path_cwd)) if not skip_cwd else ''
         return run_in_subprocess(template.format(login=self._login_info,
                                                  socket=self._socket_path,
-                                                 cwd=self.path_cwd.replace('"', r'\"'),
+                                                 cwd=cwd,
                                                  cmd=cmd),
                                  check_output=True,
                                  **config)
@@ -204,7 +211,7 @@ class SSHClient(RemoteClient):
     # Path properties and helpers
 
     def _path_home(self):
-        return '~'
+        return self.execute('echo ~', skip_cwd=True).stdout.decode().strip()
 
     def _path_separator(self):
         return '/'
