@@ -22,8 +22,10 @@ before_install:
   - conda install psutil
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pandas ipython future
   - source activate test-environment
+  - pip install pycodestyle wheel
+
 install:
-  - pip install pycodestyle ".[all]"
+  - pip install ".[all]"
 
 script:
   - "pycodestyle --ignore=E501,E712,E722,W503,W601 ."
@@ -37,6 +39,6 @@ deploy:
     secure: "rCsAx55Z/IS8MMJi5PlMQLg8bPHC7ava19+hU0I8AYg1lY+yxBisO48i54g4veMISR2I0HUqoK7WSFxPfOceLCYkTNV6XT8RkHjBrsmpdwS1GdeLBPaI+QOe5AfR/G2F3KXRRD2NpyIkzeo3wS7n3+sqkGBSNB1+4KtDu8PUqWKk3mv1CqKLS6ZHwwrRvk9K4oF3AD70qpu2CaPUT08xNU50tFAuzz7bwG3DIOWxzr7YefewwjiaGlsffMTp1sJxlmTYtKL1inCI7VDk3Xxymq4GQu0gIW3zWIjvZEuJlAnYoq1JhR1Btw8KNF23uz4PutbkOHq+c3j2ZyOsyzDz2pK/ywS6DnMIHpbceHH+JnOstxts05IOBIP++Wti0lfIXuOMh/lKWUNkW1KrOVr3Qz4A0UMgbJ82FzTsE2Ei/ShgLeVhpvYgN/ZaJB5g9HmL9HQAWsgHZACa2BHM90SidwZtTY1qY2Hxp9Rvj6gg3Q59CTIfTYfWOnobgiHL6ClOOk0oES36KrwU/AVOxaH1dddtWkLbX4qG0/Ur+NY7iGgD+GIwH/fAxxuTyZ81+jQjhLXpMYr0HewYI0MruqEPhekbJffqh5xRlL+S/A9Xf4+X6Ox7PKn+MQBPPwps8ZTKT8TlqUM/VgtVLBMr660kLS2Jr0LXwSUJF2JvUTOsFww="
   on:
     tags: true
+    python: "3.4"
     distributions: sdist bdist_wheel
     repo: airbnb/omniduct
-    condition: $TRAVIS_PYTHON_VERSION = "3.4"
