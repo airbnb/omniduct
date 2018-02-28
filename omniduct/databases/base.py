@@ -32,7 +32,7 @@ def cache_deserializer(format):
 @decorator
 def render_statement(method, self, statement, *args, **kwargs):
     if kwargs.pop('template', True):
-        statement = self.render_template(
+        statement = self.template_render(
             statement,
             context=kwargs.pop('context', {}),
             by_name=False,
@@ -46,8 +46,8 @@ class DatabaseClient(Duct, MagicsProvider):
     API for all database clients, which in turn will be subclasses of this
     class.
 
-    Allow use of `DatabaseClient(...)` as a short-hand for
-    `DatabaseClient.query()`.
+    Note: `DatabaseClient` subclasses are callable, so that one can use
+    `DatabaseClient(...)` as a short-hand for `DatabaseClient.query(...)`.
 
     Class Attributes:
         DUCT_TYPE (`Duct.Type`): The type of `Duct` protocol implemented by this class.
@@ -70,11 +70,13 @@ class DatabaseClient(Duct, MagicsProvider):
     }
     DEFAULT_CURSOR_FORMATTER = 'pandas'
 
+    @quirk_docs('_init', mro=True)
     def __init__(self, **kwargs):
         """
-        This is a shim __init__ function that passes all arguments onto
-        `self._init`, which is implemented by subclasses. This allows subclasses
-        to instantiate themselves with arbitrary parameters.
+        templates (dict): A dictionary of name to template mappings. Additional
+            templates can be added using `.template_add`.
+        template_context (dict): The default template context to use when
+            rendering templates.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
@@ -180,10 +182,10 @@ class DatabaseClient(Duct, MagicsProvider):
             **kwargs (dict): Extra keyword arguments to be passed on to
                 `_execute`, as implemented by subclasses.
             template (bool): Whether the statement should be treated as a Jinja2
-                template. [Used by `render_template` decorator.]
+                template. [Used by `render_statement` decorator.]
             context (dict): The context in which the template should be
                 evaluated (a dictionary of parameters to values). [Used by
-                `render_template` decorator.]
+                `render_statement` decorator.]
 
         Returns:
             DBAPI2 cursor: A DBAPI2 compatible cursor instance.
@@ -343,13 +345,71 @@ class DatabaseClient(Duct, MagicsProvider):
         with open(file, 'r') as f:
             return self.query(f.read(), **kwargs)
 
-    def add_template(self, name, body):
-        "TODO: Templating"
+    @property
+    def template_names(self):
+        """
+        list: A list of names associated with the templates associated with this
+        client.
+        """
+        return list(self._templates)
+
+    def template_add(self, name, body):
+        """
+        This method adds a template to the internal dictionary of templates
+        stored on this `PrestoClient` instance. Templates are interpreted as
+        `jinja2` templates. See `.template_render` for more information.
+
+        Parameters:
+            name (str): The name of the template.
+            body (str): The (typically) multiline body of the template.
+
+        Returns:
+            PrestoClient: A reference to this object.
+        """
         self._templates[name] = body
         return self
 
-    def render_template(self, name_or_statement, context=None, by_name=False):
-        "TODO: Templating"
+    def template_render(self, name_or_statement, context=None, by_name=False):
+        """
+        This method renders a template either by retrieving a template
+        associated with a provided template name, or by directly rendering the
+        template body as passed.
+
+        In addition to the `jinja2` templating syntax, described in more detail
+        in the official `jinja2` documentation, a meta-templating extension is
+        also provided. This meta-templating allows you to reference other
+        reference other templates. For example, if you had two SQL templates
+        named 'template_a' and 'template_b', then you could render them into one
+        SQL query using (for example):
+        ```
+        .template_render('''
+        WITH
+            a AS (
+                {{{template_a}}}
+            ),
+            b AS (
+                {{{template_b}}}
+            )
+        SELECT *
+        FROM a
+        JOIN b ON a.x = b.x
+        ''')
+        ```
+        Note that template substitution in this way is iterative, so you can
+        chain template embedding, provided that such embedding is not recursive.
+
+        Parameters:
+            name_or_statement (str): The name of a template (if `by_name` is True)
+                or else a string representation of a `jinja2` template.
+            context (dict, None): A dictionary to use as the template context.
+                If not specified, an empty dictionary is used.
+            by_name (bool): `True` if `name_or_statement` should be interpreted as a
+                template name, or `False` (default) if `name_or_statement` should be
+                interpreted as a template body.
+
+        Returns:
+            str: The rendered template.
+        """
         if by_name:
             if name_or_statement not in self._templates:
                 raise ValueError("No such template of name: '{}'.".format(name_or_statement))
@@ -392,13 +452,34 @@ class DatabaseClient(Duct, MagicsProvider):
         return Template(statement, undefined=StrictUndefined).render(template_context)
 
     def execute_from_template(self, name, context=None, **kwargs):
-        "TODO: Templating"
-        statement = self.render_template(name, context, by_name=True)
+        """
+        This method renders and then executes a named template.
+
+        Parameters:
+            name (str): The name of the template to be rendered and executed.
+            context (dict): The context in which the template should be rendered.
+            **kwargs (dict): Additional parameters to pass to `.execute()`.
+
+        Returns:
+            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
+        """
+        statement = self.template_render(name, context, by_name=True)
         return self.execute(statement, **kwargs)
 
     def query_from_template(self, name, context=None, **kwargs):
-        "TODO: Templating"
-        statement = self.render_template(name, context, by_name=True)
+        """
+        This method renders and then queries the database using a named template.
+
+        Parameters:
+            name (str): The name of the template to be rendered and used to query
+                the database.
+            context (dict): The context in which the template should be rendered.
+            **kwargs (dict): Additional parameters to pass to `.query()`.
+
+        Returns:
+           The results of the query formatted as nominated.
+        """
+        statement = self.template_render(name, context, by_name=True)
         return self.query(statement, **kwargs)
 
     # Uploading data to data store
@@ -503,6 +584,29 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def _register_magics(self, base_name):
+        """
+        The following magic functions will be registered (assuming that
+        the base name is chosen to be 'hive'):
+        - Cell Magics:
+            - `%%hive`: For querying the database.
+            - `%%hive.execute`: For executing a statement against the database.
+            - `%%hive.stream`: For executing a statement against the database,
+                and streaming the results.
+            - `%%hive.template`: The defining a new template.
+            - `%%hive.render`: Render a provided query statement.
+        - Line Magics:
+            - `%hive`: For querying the database using a named template.
+            - `%hive.execute`: For executing a named template statement against
+                the database.
+            - `%hive.stream`: For executing a named template against the database,
+                and streaming the results.
+            - `%hive.render`: Render a provided a named template.
+            - `%hive.desc`: Describe the table nominated.
+            - `%hive.head`: Return the first rows in a specified table.
+            - `%hive.props`: Show the properties specified for a nominated table.
+
+        Documentation for these magics is provided online.
+        """
         from IPython.core.magic import register_line_magic, register_cell_magic, register_line_cell_magic
 
         def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, context=None, **kwargs):
@@ -562,20 +666,20 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_cell_magic("{}.{}".format(base_name, 'template'))
         @process_line_arguments
-        def add_template(body, name):
-            self.add_template(name, body)
+        def template_add(body, name):
+            self.template_add(name, body)
 
         @register_line_cell_magic("{}.{}".format(base_name, 'render'))
         @process_line_cell_arguments
-        def render_template_magic(body=None, name=None, context=None, show=True):
+        def template_render_magic(body=None, name=None, context=None, show=True):
 
             ip = get_ipython()
 
             if body is None:
                 assert name is not None, "Name must be specified in line-mode."
-                rendered = self.render_template(name, context=context or ip.user_ns, by_name=True)
+                rendered = self.template_render(name, context=context or ip.user_ns, by_name=True)
             else:
-                rendered = self.render_template(body, context=context or ip.user_ns, by_name=False)
+                rendered = self.template_render(body, context=context or ip.user_ns, by_name=False)
                 if name is not None:
                     ip.user_ns[name] = rendered
 
