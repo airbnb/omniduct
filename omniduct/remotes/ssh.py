@@ -44,13 +44,17 @@ class SSHClient(RemoteClient):
     PROTOCOLS = ['ssh', 'ssh_cli']
     DEFAULT_PORT = 22
 
-    def _init(self, interactive=False):
+    def _init(self, interactive=False, check_known_hosts=True):
         """
         interactive (bool):  Whether `SSHClient` should ask the user questions,
             if necessary, to establish the connection. Production deployments
             using this client should set this to False, which is the default.
+        check_known_hosts (bool):  Whether `SSHClient` should check the
+            known hosts file when establishing the connection. This option
+            should only be set to False in trusted environments.
         """
-        self.interactive = False
+        self.interactive = interactive
+        self.check_known_hosts = check_known_hosts
 
     # Duct connection implementation
 
@@ -67,14 +71,17 @@ class SSHClient(RemoteClient):
         if not os.path.exists(socket_dir):
             os.makedirs(socket_dir)
         # Create persistent master connection and exit.
-        cmd = ("ssh {login} -MT "
-               "-S {socket} "
-               "-o ControlPersist=yes "
-               "-o StrictHostKeyChecking=no "
-               "-o NoHostAuthenticationForLocalhost=yes "
-               "-o ServerAliveInterval=60 "
-               "-o ServerAliveCountMax=2 "
-               "'exit'".format(login=self._login_info, socket=self._socket_path))
+        cmd = ''.join([
+            "ssh {login} -MT ",
+            "-S {socket} ",
+            "-o ControlPersist=yes ",
+            "-o StrictHostKeyChecking=no ",
+            "-o UserKnownHostsFile=/dev/null " if not self.check_known_hosts else "",
+            "-o NoHostAuthenticationForLocalhost=yes ",
+            "-o ServerAliveInterval=60 ",
+            "-o ServerAliveCountMax=2 ",
+            "'exit'",
+        ]).format(login=self._login_info, socket=self._socket_path)
 
         expected = [
             "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!",    # 0
