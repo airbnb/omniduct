@@ -4,6 +4,7 @@ import os
 import posixpath
 import re
 import tempfile
+from builtins import input
 
 try:  # Python 3
     from shlex import quote as escape_path
@@ -93,7 +94,25 @@ class SSHClient(RemoteClient):
 
             # First phase
             if i == 0:  # If host identification changed, arrest any further attempts to connect
-                raise RuntimeError('Host identification for {} has changed! If you are sure that the host identification SHOULD have changed, and are not experiencing a man-in-the-middle attack, please remove the line corresponding to this server in ~/.ssh/known_hosts; or call the `update_host_keys` method of this object.'.format(self._host))
+                error_message = (
+                    'Host identification for {} has changed! This is most likely '
+                    'due to the the server being redeployed or reconfigured but '
+                    'may also be due to a man-in-the-middle attack. If you trust '
+                    'your network connection, you should be safe to update the '
+                    'host keys for this host. To do this manually, please remove '
+                    'the line corresponding to this host in ~/.ssh/known_hosts; '
+                    'or call the `update_host_keys` method of this client.'.format(self._host)
+                )
+                if self.interactive:
+                    logger.error(error_message)
+                    auto_fix = input('Would you like this client to do this for you? (y/n)')
+                    if auto_fix == 'y':
+                        self.update_host_keys()
+                        return self.connect()
+                    else:
+                        raise RuntimeError("Host keys not updated. Please update keys manually.")
+                else:
+                    raise RuntimeError(error_message)
             if i == 1:  # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
                 expect.sendline("yes")
                 i = self.expect(expected)
