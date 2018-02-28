@@ -5,6 +5,7 @@ import getpass
 import inspect
 import os
 import pwd
+import textwrap
 from abc import ABCMeta, abstractmethod
 from builtins import input
 from enum import Enum
@@ -62,27 +63,91 @@ class ProtocolRegisteringQuirkDocumentedABCMeta(ProtocolRegisteringABCMeta):
             return f(*args, **kw)
 
         super(ProtocolRegisteringQuirkDocumentedABCMeta, cls).__init__(name, bases, dct)
+
+        mro = inspect.getmro(cls)
+        mro = mro[:[klass.__name__ for klass in mro].index('Duct') + 1]
+
+        # Handle module-level documentation
+        module_docs = [cls.__doc__]
+        for klass in mro:
+            if klass != cls and hasattr(klass, '_{}__doc_attrs'.format(klass.__name__)):
+                module_docs.append([
+                    'Attributes inherited from {}:'.format(klass.__name__),
+                    inspect.cleandoc(getattr(klass, '_{}__doc_attrs'.format(klass.__name__)))
+                ])
+
+        cls.__doc__ = cls.__doc_join(*module_docs)
+
+        # Handle function/method-level documentation
         for name, member in inspect.getmembers(cls, predicate=inspect.isfunction):
-            if not hasattr(member, '_quirks_method'):
+
+            # Check if there is anything to do
+            if (
+                inspect.isabstract(member) or
+                not (
+                    getattr(member, '_quirks_method', None) or
+                    getattr(member, '_quirks_mro', False)
+                )
+            ):
                 continue
+
+            local_member = name in cls.__dict__
 
             # Extract documentation from this member and the quirks member
-            quirk_member = getattr(cls, member._quirks_method, None)
-            if not quirk_member:
-                continue
             member_docs = getattr(member, '__doc_orig__', None) or getattr(member, '__doc__')
-            quirk_docs = getattr(quirk_member, '__doc_orig__', None) or getattr(quirk_member, '__doc__')
+            mro_docs = quirk_docs = None
+            mro_order = reversed(mro) if member._quirks_mro_reverse else mro
+            if member._quirks_mro:
+                mro_docs = cls.__doc_join(
+                    *[
+                        [
+                            'Inherited via {}:'.format(klass.__name__),
+                            getattr(getattr(klass, member.__name__), '__doc_orig__', None) or getattr(klass, member.__name__).__doc__
+                        ]
+                        for klass in mro_order if member.__name__ in klass.__dict__
+                    ]
+                )
+            if member._quirks_method and member._quirks_method in cls.__dict__:
+                quirk_member = getattr(cls, member._quirks_method, None)
+                if quirk_member:
+                    quirk_docs = getattr(quirk_member, '__doc_orig__', None) or getattr(quirk_member, '__doc__')
 
-            if quirk_docs:
+            if quirk_docs or mro_docs:
                 # Overide method object with new object so we don't modify
                 # underlying method that may be shared by multiple classes.
                 setattr(cls, name, wrapped(member))
                 member = getattr(cls, name)
-                member.__doc__ = "{member_docs}\n\n{class_name} Quirks:\n{quirk_docs}".format(
-                    member_docs=member_docs,
-                    class_name=cls.__name__,
-                    quirk_docs=quirk_docs
+                member.__doc__ = cls.__doc_join(
+                    member_docs if (local_member or not mro_docs) else None,
+                    mro_docs,
+                    [
+                        "{} Quirks:".format(cls.__name__),
+                        quirk_docs
+                    ]
                 )
+
+    @classmethod
+    def __doc_join(cls, *docs, **kwargs):
+        out = []
+        for doc in docs:
+            if doc in (None, ''):
+                continue
+            elif isinstance(doc, six.string_types):
+                out.append(textwrap.dedent(doc).strip('\n'))
+            elif isinstance(doc, (list, tuple)):
+                if len(doc) < 2:
+                    continue
+                d = cls.__doc_join(*doc[1:])
+                if d:
+                    out.append(
+                        '{header}\n{body}'.format(
+                            header=doc[0].strip(),
+                            body=textwrap.indent(d, '    ')
+                        )
+                    )
+            else:
+                raise ValueError("Unrecognised doc format: {}".format(type(doc)))
+        return '\n\n'.join(out)
 
 
 class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
