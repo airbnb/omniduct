@@ -39,9 +39,6 @@ class SQLAlchemyClient(DatabaseClient):
         import sqlalchemy
         self.engine = sqlalchemy.create_engine(self.db_uri)
 
-    def _push(self):
-        raise NotImplementedError
-
     def _is_connected(self):
         return self.engine is not None
 

@@ -514,9 +514,7 @@ class DatabaseClient(Duct, MagicsProvider):
         pass
 
     def _push(self, df, table, if_exists='fail', **kwargs):
-        if self._sqlalchemy_engine is None:
-            raise NotImplementedError("Support for pushing data tables using `{}` is not currently implemented.".format(self.__class__.__name__))
-        return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False, if_exists=if_exists, **kwargs)
+        raise NotImplementedError
 
     def _cursor_empty(self, cursor):
         return False
