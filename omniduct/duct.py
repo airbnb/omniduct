@@ -245,7 +245,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     DUCT_TYPE = None
     PROTOCOLS = None
 
-    def __init__(self, protocol=None, name=None, registry=None, remote=None, \
+    def __init__(self, protocol=None, name=None, registry=None, remote=None,
                  host='localhost', port=None, username=None, password=None, cache=None):
         """
         protocol (str, None): Name of protocol (used by Duct registries to inform
