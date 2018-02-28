@@ -8,6 +8,5 @@ from .filesystems.local import LocalFsClient
 from .filesystems.s3 import S3Client
 from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
+from .remotes.ssh_paramiko import ParamikoSSHClient
 from .restful.base import RestClient
-
-# from .remotes.ssh_paramiko import ParamikoSSHClient  # Not yet ready for prime time

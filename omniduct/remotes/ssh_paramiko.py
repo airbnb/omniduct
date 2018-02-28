@@ -1,16 +1,30 @@
+import posixpath
 import select
+import stat
 import threading
 
+from omniduct.errors import DuctAuthenticationError
+from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
+from omniduct.utils.processes import SubprocessResults
 
 try:
     import SocketServer
 except ImportError:
     import socketserver as SocketServer
 
+__all__ = ['ParamikoSSHClient']
+
 
 class ParamikoSSHClient(RemoteClient):
+    """
+
+    `ParamikoSSHClient` is an experimental SSH client that uses a `paramiko`
+    rather than command-line SSH backend. This client has been fully
+    implemented and should work as is, but until it receives further testing,
+    we recommend using the cli backed SSH client.
+    """
 
     PROTOCOLS = ['ssh_paramiko']
     DEFAULT_PORT = 22
@@ -25,7 +39,13 @@ class ParamikoSSHClient(RemoteClient):
         self.__client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy())
         self.__client.load_system_host_keys()
 
-        self.__client.connect(self.host, username=self.username)
+        try:
+            self.__client.connect(self.host, username=self.username)
+            self.__client_sftp = paramiko.SFTPClient.from_transport(self.__client.get_transport())
+        except paramiko.SSHException as e:
+            if len(e.args) == 1 and e.args[0] == 'No authentication methods available':
+                raise DuctAuthenticationError(e.args[0])
+            raise e
 
     def _is_connected(self):
         try:
@@ -35,23 +55,22 @@ class ParamikoSSHClient(RemoteClient):
 
     def _disconnect(self):
         try:
+            self.__client_sftp.close()
             return self.__client.close()
         except:
             pass
 
     def _execute(self, cmd, **kwargs):
-        return self.__client.exec_command(cmd)
-
-    def _copy_to_local(self, source, dest):
-        raise NotImplementedError
-
-    def _copy_from_local(self, source, dest):
-        raise NotImplementedError
+        stdin, stdout, stderr = self.__client.exec_command(cmd)
+        returncode = stdout.channel.recv_exit_status()
+        return SubprocessResults(
+            returncode=returncode,
+            stdout=stdout.read(),
+            stderr=stderr.read()
+        )
 
     def _port_forward_start(self, local_port, remote_host, remote_port):
         logger.debug('Now forwarding port {} to {}:{} ...'.format(local_port, remote_host, remote_port))
-
-        remote_host, remote_port = get_host_port(remote_host, remote_port)
 
         try:
             server = forward_tunnel(local_port, remote_host, remote_port, self.__client.get_transport())
@@ -68,50 +87,63 @@ class ParamikoSSHClient(RemoteClient):
     # Path properties and helpers
 
     def _path_home(self):
-        return NotImplementedError
+        return self.execute('echo ~', skip_cwd=True).stdout.decode().strip()
 
     def _path_separator(self):
-        raise NotImplementedError
+        return '/'
 
     # File node properties
 
     def _exists(self, path):
-        raise NotImplementedError
+        try:
+            self.__client_sftp.stat(path)
+            return True
+        except FileNotFoundError:
+            return False
 
     def _isdir(self, path):
-        raise NotImplementedError
+        try:
+            return stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
+        except FileNotFoundError:
+            return False
 
     def _isfile(self, path):
-        raise NotImplementedError
+        try:
+            return not stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
+        except FileNotFoundError:
+            return False
 
     # Directory handling and enumeration
 
     def _dir(self, path):
-        raise NotImplementedError
+        for attrs in self.__client_sftp.listdir_attr(path):
+            yield FileSystemFileDesc(
+                fs=self,
+                path=posixpath.join(path, attrs.filename),
+                name=attrs.filename,
+                type='directory' if stat.S_ISDIR(attrs.st_mode) else 'file',  # TODO: What about links, which are of form: lrwxrwxrwx?
+                bytes=attrs.st_size,
+                owner=attrs.st_uid,
+                group=attrs.st_gid,
+                last_modified=attrs.st_mtime,
+            )
 
     def _mkdir(self, path, recursive):
-        raise NotImplementedError
+        assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
     # File handling
 
-    def _file_read_(self, path, size=-1, offset=0, binary=False):
-        raise NotImplementedError
-
-    def _file_write_(self, path, s, binary):
-        raise NotImplementedError
-
-    def _file_append_(self, path, s, binary):
-        raise NotImplementedError
+    def _open(self, path, mode):
+        """
+        Paramiko offers a complete file-like abstraction for files opened over
+        sftp, so we use that abstraction rather than a `FileSystemFile`. Results
+        should be indistinguishable.
+        """
+        return self.__client_sftp.open(path, mode=mode)
 
 
 # Port Forwarding Utility Code
 # Largely based on code from: https://github.com/paramiko/paramiko/blob/master/demos/forward.py
-
-SSH_PORT = 22
-DEFAULT_PORT = 4000
-
-g_verbose = True
-
 
 class ForwardServer (SocketServer.ThreadingTCPServer):
     daemon_threads = True
@@ -171,10 +203,3 @@ def forward_tunnel(local_port, remote_host, remote_port, transport):
     t.start()
 
     return server
-
-
-def get_host_port(spec, default_port=22):
-    """parse 'hostname:22' into a host and port, with the port optional"""
-    args = (spec.split(':', 1) + [default_port])[:2]
-    args[1] = int(args[1])
-    return args[0], args[1]
