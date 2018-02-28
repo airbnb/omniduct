@@ -12,14 +12,28 @@ from .base import Cache
 
 
 class LocalCache(Cache):
+    """
+    `LocalCache` uses the local filesystem (at a nominated directory) to store
+    the cache.
+
+    Note: This cache will be replaced with a `FileSystemCache`, which is
+    similar but based on the `FileSystemClient` API rather than directly accessing
+    the local filesystem.
+    """
 
     PROTOCOLS = ['local_cache']
 
     def _init(self, dir):
+        """
+        dir (str): The path to act as the parent directory for the cache.
+        """
         self.dir = dir
 
     @property
     def dir(self):
+        """
+        str: The path to act as the parent directory for the cache.
+        """
         return ensure_path_exists(self._dir)
 
     @dir.setter
@@ -28,7 +42,15 @@ class LocalCache(Cache):
 
     @classmethod
     def get_hash(cls, id_str):
-        """Get a unique key for a query by taking its md5 hash"""
+        """
+        Get a unique key for the given id_str by taking its sha1 hash.
+
+        Parameters:
+            id_str (str): The id_str to be hashed.
+
+        Returns:
+            str: The sha1 hash of the id_str.
+        """
         if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(id_str, unicode):
             id_str = id_str.encode('utf8')
         return hashlib.sha1(id_str).hexdigest()

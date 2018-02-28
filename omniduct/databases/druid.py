@@ -6,6 +6,9 @@ from .base import DatabaseClient
 
 
 class DruidClient(DatabaseClient):
+    """
+    This Duct connects to a Druid server using the `pydruid` python library.
+    """
 
     PROTOCOLS = ['druid']
     DEFAULT_PORT = 80

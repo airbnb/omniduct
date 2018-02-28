@@ -198,6 +198,36 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             associated with this class. Should be overridden by subclasses as
             appropriate.
     """
+    __doc_attrs = """
+        protocol (str): The name of the protocol for which this instance was
+            created (especially useful if a `Duct` subclass supports multiple
+            protocols).
+        name (str): The name given to this `Duct` instance (defaults to class
+            name).
+        host (str): The host name providing the service (will be '127.0.0.1') if
+            service is port forwarded from remote (use `._host` to see remote
+            host).
+        port (int): The port number of the service (will be the port-forwarded
+            local port, if relevant; for remote port use `._port`).
+        username (str, bool): The username to use for the service.
+        password (str, bool): The password to use for the service.
+        registry (None, omniduct.registry.DuctRegistry): A reference to a
+            `DuctRegistry` instance for runtime lookup of other services.
+        remote (None, omniduct.remotes.base.RemoteClient): A reference to a
+            `RemoteClient` instance to manage connections to remote services.
+        cache (None, omniduct.caches.base.Cache): A reference to a `Cache`
+            instance to add support for caching, if applicable.
+        connection_fields (tuple<str>, list<str>): A list of instance attributes
+            to monitor for changes, whereupon the `Duct` instance should automatically
+            disconnect. By default, the following attributes are monitored:
+            'host', 'port', 'remote', 'username', and 'password'.
+        prepared_fields (tuple<str>, list<str>): A list of instance attributes to
+            be populated (if their values are callable) when the instance first
+            connects to a service. Refer to `Duct.prepare` and `Duct._prepare` for
+            more details. By default, the following attributes are prepared:
+            '_host', '_port', '_username', and '_password'.
+    """
+    __doc_cls_attrs__ = None
 
     class Type(Enum):
         """
@@ -215,7 +245,27 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     DUCT_TYPE = None
     PROTOCOLS = None
 
-    def __init__(self, protocol=None, name=None, registry=None, remote=None, host='localhost', port=None, username=None, password=None, cache=None):
+    def __init__(self, protocol=None, name=None, registry=None, remote=None, \
+                 host='localhost', port=None, username=None, password=None, cache=None):
+        """
+        protocol (str, None): Name of protocol (used by Duct registries to inform
+            Duct instances of how they were instantiated).
+        name (str, None): The name to used by the `Duct` instance (defaults to
+            class name if not specified).
+        registry (DuctRegistry, None): The registry to use to lookup remote
+            and/or cache instance specified by name.
+        remote (str, RemoteClient): The remote by which the ducted service
+            should be contacted.
+        host (str): The hostname of the service to be used by this client.
+        port (int): The port of the service to be used by this client.
+        username (str, bool, None): The username to authenticate with if necessary.
+            If True, then users will be prompted at runtime for credentials.
+        password (str, bool, None): The password to authenticate with if necessary.
+            If True, then users will be prompted at runtime for credentials.
+        cache(Cache, None): The cache client to be attached to this instance.
+            Cache will only used by specific methods as configured by the client.
+        """
+
         check_dependencies(self.PROTOCOLS)
 
         self.protocol = protocol

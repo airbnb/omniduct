@@ -25,34 +25,39 @@ SESSION_SSH_ASKPASS = False
 
 
 class SSHClient(RemoteClient):
-    """SSHClient manages a persistent connection to remote hosts allowing
-    remote execution, port forwarding, file transfer, and cleanup
+    """
+    `SSHClient` is an implementation of the `RemoteClient` `Duct`, offering
+    a persistent connection to remote hosts over SSH via the CLI. As such,
+    it requires that `ssh` be installed and on your executable path.
 
-    References
-    ----------
+    To speed up connections we use control sockets, which allows all connections
+    to share one SSH transport. For more details, refer to:
     https://puppetlabs.com/blog/speed-up-ssh-by-reusing-connections
 
+    Attributes:
+        interactive (bool): Whether `SSHClient` should ask the user questions,
+            if necessary, to establish the connection. Production deployments
+            using this client should set this to False, which is the default.
     """
 
-    PROTOCOLS = ['ssh']
+    PROTOCOLS = ['ssh', 'ssh_cli']
     DEFAULT_PORT = 22
 
-    def _init(self):
-        pass
+    def _init(self, interactive=False):
+        """
+        interactive (bool):  Whether `SSHClient` should ask the user questions,
+            if necessary, to establish the connection. Production deployments
+            using this client should set this to False, which is the default.
+        """
+        self.interactive = False
 
     # Duct connection implementation
 
     def _connect(self):
         """
-        Create persistent connection to remote host.
-
-        The workflow to handle passwords and host keys is inspired by the pxssh module of pexpect
-        (https://github.com/pexpect/pexpect). We have adjusted this workflow to our purposes.
-
-        Returns
-        -------
-        proc : Popen subprocess
-            Subprocess used to connect.
+        The workflow to handle passwords and host keys used by this method is
+        inspired by the `pxssh` module of `pexpect` (https://github.com/pexpect/pexpect).
+        We have adjusted this workflow to our purposes.
         """
         import pexpect
 
@@ -125,9 +130,6 @@ class SSHClient(RemoteClient):
                                     '{}\n\n Please report this!'.format(cmd)
 
     def _is_connected(self):
-        """
-        Return whether SSHClient is connected by checking the control socket.
-        """
         cmd = "ssh {login} -T -S {socket} -O check".format(login=self._login_info,
                                                            socket=self._socket_path)
         proc = run_in_subprocess(cmd)
@@ -139,9 +141,6 @@ class SSHClient(RemoteClient):
         return True
 
     def _disconnect(self):
-        """
-        Exit persistent connection to remote host.
-        """
         # Send exit request to control socket.
         cmd = "ssh {login} -T -S {socket} -O exit".format(login=self._login_info,
                                                           socket=self._socket_path)
@@ -151,19 +150,11 @@ class SSHClient(RemoteClient):
 
     def _execute(self, cmd, skip_cwd=False, **kwargs):
         """
-        Execute a command on a remote host.
-
-        Parameters
-        ----------
-        cmd : string
-            Command to be executed on remote host.
-        kwargs : keywords
-            Options to pass to subprocess.Popen.
-
-        Returns
-        -------
-        proc : Popen subprocess
-            Subprocess used to run remote command.
+        Additional Parameters:
+            skip_cwd (bool): Whether to skip changing to the current working
+                directory associated with this client before executing the
+                command. This is mainly useful to methods internal to this
+                class.
         """
         template = 'ssh {login} -T -o ControlPath={socket} << EOF\n{cwd}{cmd}\nEOF'
         config = dict(self._subprocess_config)
@@ -201,7 +192,7 @@ class SSHClient(RemoteClient):
                                   remote_host=remote_host,
                                   remote_port=remote_port)
         proc = run_in_subprocess(cmd)
-        logger.info('Success' if proc.returncode == 0 else 'Failure')
+        logger.info('Port forward succesfully stopped.' if proc.returncode == 0 else 'Failed to stop port forwarding.')
 
     def _is_port_bound(self, host, port):
         return self.execute('which nc; if [ $? -eq 0 ]; then nc -z -w2 {} {}; fi'.format(host, port)).returncode == 0
@@ -301,8 +292,32 @@ class SSHClient(RemoteClient):
 
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
-        This method overloads the default download method, and handles
-        remote-to-local downloads specially.
+        This method (recursively) downloads a file/folder from path `source` on
+        this filesystem to the path `dest` on filesytem `fs`, overwriting any
+        existing file if `overwrite` is `True`.
+
+        Parameters:
+            source (str): The path on this filesystem of the file to download to
+                the nominated filesystem (`fs`). If `source` ends
+                with '/' then contents of the the `source` directory will be
+                copied into destination folder, and will throw an error if path
+                does not resolve to a directory.
+            dest (str): The destination path on filesystem (`fs`). If not
+                specified, the file/folder is uploaded into the default path,
+                usually one's home folder. If `dest` ends with '/',
+                and corresponds to a directory, the contents of source will be
+                copied instead of copying the entire folder. If `dest` is
+                otherwise a directory, an exception will be raised.
+            overwrite (bool): `True` if the contents of any existing file by the
+                same name should be overwritten, `False` otherwise.
+            fs (FileSystemClient): The FileSystemClient into which the nominated
+                file/folder `source` should be downloaded. If not specified,
+                defaults to the local filesystem.
+
+        SSHClient Quirks:
+            This method is overloaded so that remote-to-local downloads can be
+            handled specially using `scp`. Downloads to any non-local filesystem
+            are handled using the standard implementation.
         """
         from ..filesystems.local import LocalFsClient
 
@@ -325,8 +340,31 @@ class SSHClient(RemoteClient):
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
-        This method overloads the default download method, and handles
-        local-to-remote uploads specially.
+        This method (recursively) uploads a file/folder from path `source` on
+        filesystem `fs` to the path `dest` on this filesytem, overwriting any
+        existing file if `overwrite` is `True`. This is equivalent to
+        `fs.download(..., fs=self)`.
+
+        Parameters:
+            source (str): The path on the specified filesystem (`fs`) of the
+                file to upload to this filesystem. If `source` ends with '/',
+                and corresponds to a directory, the contents of source will be
+                copied instead of copying the entire folder.
+            dest (str): The destination path on this filesystem. If not
+                specified, the file/folder is uploaded into the default path,
+                usually one's home folder, on this filesystem. If `dest` ends
+                with '/' then file will be copied into destination folder, and
+                will throw an error if path does not resolve to a directory.
+            overwrite (bool): `True` if the contents of any existing file by the
+                same name should be overwritten, `False` otherwise.
+            fs (FileSystemClient): The FileSystemClient from which to load the
+                file/folder at `source`. If not specified, defaults to the local
+                filesystem.
+
+        SSHClient Quirks:
+            This method is overloaded so that local-to-remote uploads can be
+            handled specially using `scp`. Uploads to any non-local filesystem
+            are handled using the standard implementation.
         """
         from ..filesystems.local import LocalFsClient
 
@@ -365,6 +403,17 @@ class SSHClient(RemoteClient):
         return {}
 
     def update_host_keys(self):
+        """
+        This method updates the SSH host-keys stored in `~/.ssh/known_hosts`,
+        allowing one to successfully connect to hosts when servers are,
+        for example, redeployed and have different host keys.
+        """
         assert not self.remote, "Updating host key only works for local connections."
         cmd = "ssh-keygen -R {host} && ssh-keyscan {host} >> ~/.ssh/known_hosts".format(host=self.host)
-        return run_in_subprocess(cmd, False).returncode == 0
+        proc = run_in_subprocess(cmd, True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Could not update host keys! Please handle this manually. The "
+                "error was:\n" + '\n'.join([proc.stdout.decode(), proc.stderr.decode()])
+            )
+        return proc.returncode == 0

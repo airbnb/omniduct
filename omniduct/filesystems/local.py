@@ -6,6 +6,17 @@ from .base import FileSystemClient, FileSystemFileDesc
 
 
 class LocalFsClient(FileSystemClient):
+    """
+    `LocalFsClient` is a `Duct` that implements the `FileSystemClient` common
+    API, and exposes the local filesystem.
+
+    Unlike most other filesystems, `LocalFsClient` defaults to the current
+    working directory on the local machine, rather than the home directory
+    as used on remote filesystems. To change this, you can always execute:
+    ```
+    local_fs.path_cwd = local_fs.path_home
+    ```
+    """
 
     PROTOCOLS = ['localfs']
 
@@ -87,13 +98,5 @@ class LocalFsClient(FileSystemClient):
 
     # File opening
 
-    def _file_read_(self, path, size=-1, offset=0, binary=False):
-        with open(path, 'r{}'.format('b' if binary else '')) as f:
-            return f.read()
-
-    def _file_append_(self, path, s, binary):
-        raise NotImplementedError
-
-    def _file_write_(self, path, s, binary):
-        with open(path, 'w' + ('b' if binary else '')) as f:
-            return f.write(s)
+    def _open(path, mode):
+        return open(path, mode=mode)

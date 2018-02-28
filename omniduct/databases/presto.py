@@ -15,11 +15,27 @@ from .base import DatabaseClient
 
 
 class PrestoClient(DatabaseClient):
+    """
+    This Duct connects to a Facebook Presto server instance using the `pyhive`
+    library.
+
+    In addition to the standard `DatabaseClient` API, `PrestoClient` adds a
+    `.schemas` descriptor attribute, which enables a tab completion driven
+    exploration of a Presto database's schemas and tables.
+
+    Attributes:
+        catalog (str): The default catalog to use in database queries.
+        schema (str): The default schema/database to use in database queries.
+    """
 
     PROTOCOLS = ['presto']
     DEFAULT_PORT = 3506
 
     def _init(self, catalog='default', schema='default'):
+        """
+        catalog (str): The default catalog to use in database queries.
+        schema (str): The default schema/database to use in database queries.
+        """
         self.catalog = catalog
         self.schema = schema
         self.__presto = None
@@ -109,7 +125,13 @@ class PrestoClient(DatabaseClient):
             raise_with_traceback(exception, traceback)
 
     def _push(self, df, table, if_exists='fail', schema=None, **kwargs):
-        return DatabaseClient._push(self, df, table, if_exists=if_exists, schema=schema or self.username, **kwargs)
+        """
+        Additional parameters:
+            schema (str): The schema into which the table should be pushed. If
+                not specified, the schema will be set to your username.
+        """
+        return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False,
+                         if_exists=if_exists, schema=schema or self.username, **kwargs)
 
     def _cursor_empty(self, cursor):
         return False
@@ -136,6 +158,11 @@ class PrestoClient(DatabaseClient):
 
     @property
     def schemas(self):
+        """
+        This object has as attributes the schemas on the current catalog. These
+        schema objects in turn have the tables as SQLAlchemy `Table` objects.
+        This allows tab completion and exploration of Presto Databases.
+        """
         from werkzeug import LocalProxy
 
         def get_schemas():

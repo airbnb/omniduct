@@ -5,15 +5,38 @@ from ..utils.debug import logger
 
 
 class S3Client(FileSystemClient):
+    """
+    This Duct connects to an Amazon S3 bucket instance using the `boto3`
+    library. Authentication is handled using `opinel`.
+
+    Parameters:
+        bucket (str): The name of the Amazon S3 bucket to use.
+        aws_profile (str): The name of configured AWS profile to use. This should
+            refer to the name of a profile configured in, for example,
+            `~/.aws/credentials`. Authentication is handled by the `opinel`
+            library, which is also aware of environment variables.
+    """
 
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
     def _init(self, bucket=None, aws_profile='default', path_separator='/'):
-        # Note: aws_profile, if specified, should be the name of a profile as
-        # specified in ~/.aws/credentials. Authentication is handled by the
-        # `opinel` library, which is also aware of environment variables.
-        # Set up your command line aws client, and if it works, this should too.
+        """
+        bucket (str): The name of the Amazon S3 bucket to use.
+        aws_profile (str): The name of configured AWS profile to use. This should
+            refer to the name of a profile configured in, for example,
+            `~/.aws/credentials`. Authentication is handled by the `opinel`
+            library, which is also aware of environment variables.
+        path_separator (str): Amazon S3 is essentially a key-based storage
+            system, and so one is free to choose an arbitrary "directory"
+            separator. This defaults to '/' for consistency with other
+            filesystems.
+
+        Note: aws_profile, if specified, should be the name of a profile as
+        specified in ~/.aws/credentials. Authentication is handled by the
+        `opinel` library, which is also aware of environment variables.
+        Set up your command line aws client, and if it works, this should too.
+        """
         assert bucket is not None, 'S3 Bucket must be specified using the `bucket` kwarg.'
         self.bucket = bucket
         self.aws_profile = aws_profile

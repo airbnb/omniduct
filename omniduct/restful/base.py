@@ -2,6 +2,7 @@ import requests
 from future.moves.urllib.parse import urljoin
 
 from omniduct.duct import Duct
+from omniduct.utils.docs import quirk_docs
 
 
 class RestClientBase(Duct):
@@ -16,6 +17,7 @@ class RestClientBase(Duct):
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
+    @quirk_docs('_init', mro=True)
     def __init__(self, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto

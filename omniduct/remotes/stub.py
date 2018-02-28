@@ -62,6 +62,10 @@ class StubFsClient(RemoteClient):
 
     # File handling
 
+    # Either re-implement _open, or implement the _file_*_ methods below.
+    # def _open(path, mode):
+    #     raise NotImplementedError
+
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 

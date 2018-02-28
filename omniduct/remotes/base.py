@@ -1,31 +1,15 @@
-"""
-Connection Module
------------------
-
-This module contains functionality for connecting to remote locations including
-ssh utilities (port forwarding) and execution of commands remotely.
-
-Also includes constants for remote clusters.
-"""
-
-import datetime
 import getpass
-import os
 import re
-import types
 from abc import abstractmethod
 
 import six
 from future.utils import raise_with_traceback
-import pandas as pd
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
 from omniduct.filesystems.base import FileSystemClient
-from omniduct.utils.debug import logger
 from omniduct.utils.docs import quirk_docs
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
-from omniduct.utils.processes import run_in_subprocess
 
 try:  # Python 3
     from urllib.parse import urlparse, urlunparse
@@ -64,56 +48,58 @@ class PortForwardingRegister(object):
 
 class RemoteClient(FileSystemClient):
     """
-    SSHClient is an abstract class that can be subclassed into a fully-functional
-    SSH client.
+    `RemoteClient` is an abstract subclass of `Duct` that provides a common
+    API for all remote clients, which in turn will be subclasses of this
+    class.
+
+    Parameters:
+        smartcard (dict): Mapping of smartcard names to system libraries
+            compatible with `ssh-add -s '<system library>' ...`.
+    """
+    __doc_attrs = """
+    smartcard (dict): Mapping of smartcard names to system libraries
+        compatible with `ssh-add -s '<system library>' ...`.
     """
 
     DUCT_TYPE = Duct.Type.REMOTE
     DEFAULT_PORT = None
 
+    @quirk_docs('_init', mro=True)
     def __init__(self, smartcards=None, **kwargs):
         """
-        Create a new SSHClient.
-
-        Parameters
-        ----------
-        host : string
-            Remote host for ssh.
-        user : string
-            User name for ssh.
-        kwargs : dict
-            Extra parameters passed on to SSHClient._init, as implemented by subclasses.
-
-        Returns
-        -------
-        self : SSHClient
-            An SSHClient object with the connection details specified.
+        Parameters:
+            smartcards (dict): Mapping of smartcard names to system libraries
+                compatible with `ssh-add -s '<system library>' ...`.
         """
-        FileSystemClient.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
         self.smartcards = smartcards
         self.__port_forwarding_register = PortForwardingRegister()
 
-        self._init(**kwargs)
+        FileSystemClient.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
+
+        # Note: self._init is called by FileSystemClient constructor.
 
     @abstractmethod
     def _init(self, **kwargs):
-        """
-        To be defined by subclasses, and called immediately after __init__. This allows
-        subclasses to initialise themselves.
-        """
-        pass
+        raise NotImplementedError
 
     # SSH commands
     def connect(self):
         """
-        If a connection to the ssh server does not already exist, calling
-        this method creates it. It first attempts to connect directly. If it fails, it attempts to initialise and keys
-        in case they had not already been initialised. (It does not do this before creating the connection so as to
-        minimise needless re-preparation of the keys.
+        This method causes the `Duct` instance to connect to the service, if it
+        is not already connected. It is not normally necessary for a user to
+        manually call this function, since when a connection is required, it is
+        automatically created.
 
-        NOTE: It is not normally necessary for a user to manually call this function,
-        since when a connection is required, it is automatically made.
+        Subclasses should implement `Duct._connect` to do whatever is necessary
+        to bring a connection into being.
+
+        Compared to base `Duct.connect`, this method will automatically catch
+        the first `DuctAuthenticationError` error triggered by `Duct.connect`
+        if any smartcards have been configured, before trying once more.
+
+        Returns:
+            `Duct` instance: A reference to the current object.
         """
         try:
             Duct.connect(self)
@@ -126,26 +112,19 @@ class RemoteClient(FileSystemClient):
                 raise_with_traceback(e)
         return self
 
-    def prepare_smartcards(self, *args, **more_smartcards):
+    def prepare_smartcards(self):
         """
-        This method checks attempts to ensure that the each of the provided keys is available. If not keys are not
-        specified then the list of keys is taken from the inited arguments, or if not specified, this method does nothing.
+        This method checks attempts to ensure that the each of the nominated
+        smartcards is available and prepared for use. This may result in
+        interactive requests for pin confirmation, depending on the card.
         """
 
-        smartcards = {}
-        for arg in args:
-            smartcards.update(arg)
-        smartcards.update(more_smartcards)
+        smartcard_added = False
 
-        if len(smartcards) == 0:
-            smartcards = self.smartcards or {}
-        if len(smartcards) == 0:
-            return False
+        for name, filename in self.smartcards.items():
+            smartcard_added |= self._prepare_smartcard(name, filename)
 
-        for name, filename in smartcards.items():
-            self._prepare_smartcard(name, filename)
-
-        return True
+        return smartcard_added
 
     def _prepare_smartcard(self, name, filename):
         import pexpect
@@ -172,22 +151,26 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_execute')
     def execute(self, cmd, **kwargs):
         """
-        Execute `cmd` on the remote shell via ssh. Additional keyword arguments are
-        passed on to subclasses.
+        This method evaluates the given command on the remote server.
+
+        Parameters:
+            cmd (str): The command to run on the remote associated with this
+                instance.
+            **kwargs (dict): Additional keyword arguments to be passed on to
+                `._execute`.
+
+        Returns:
+            SubprocessResults: The result of the execution.
         """
         return self.connect()._execute(cmd, **kwargs)
 
     @abstractmethod
     def _execute(self, cmd, **kwargs):
-        """
-        Should return a tuple of:
-        (<status code>, <data printed to stdout>, <data printed to stderr>)
-        """
         raise NotImplementedError
 
     # Port forwarding code
 
-    def __extract_host_and_ports(self, remote_host, remote_port, local_port):
+    def _extract_host_and_ports(self, remote_host, remote_port, local_port):
         assert remote_host is None or isinstance(remote_host, six.string_types), "Remote host, if specified, must be a string of form 'hostname(:port)'."
         assert remote_port is None or isinstance(remote_port, int), "Remote port, if specified, must be an integer."
         assert local_port is None or isinstance(local_port, int), "Local port, if specified, must be an integer."
@@ -204,15 +187,26 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_port_forward_start')
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
-        Establishes a local port forwarding from local port `local` to remote
-        port `remote`. If `local` is `None`, automatically find an available local
-        port, and forward it. This method returns the used local port.
+        This method establishes a local port forwarding from a local port `local`
+        to remote port `remote`. If `local` is `None`, an available local port is
+        automatically chosen.
 
-        If the remote port is already forwarded, a new connection is not created.
+        Note: If the remote port is already forwarded, a new connection is not
+        established.
+
+        Parameters:
+            remote_host (str): The hostname of the remote host in form:
+                'hostname(:port)'.
+            remote_port (int, None): The remote port of the service.
+            local_port (int, None): The port to use locally (automatically
+                determined if not specified).
+
+        Returns:
+            int: The local port which is port forwarded to the remote service.
         """
 
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
         assert remote_host is not None, "Remote host must be specified."
         assert remote_port is not None, "Remote port must be specified."
 
@@ -237,8 +231,24 @@ class RemoteClient(FileSystemClient):
         return local_port
 
     def has_port_forward(self, remote_host=None, remote_port=None, local_port=None):
+        """
+        This method checks to see whether a port forward is already established
+        for a nominated remote service, or whether there is a remote service
+        associated with a given local port.
+
+        Parameters:
+            remote_host (str): The hostname of the remote host in form:
+                'hostname(:port)'.
+            remote_port (int, None): The remote port of the service.
+            local_port (int, None): The port used locally.
+
+        Returns:
+            bool: Whether a port-forward for this remote service exists, or if
+            local port is specified, whether that port is locally used for port
+            forwarding.
+        """
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
 
         assert remote_host is not None and remote_port is not None or local_port is not None, "Either remote host and port must be specified, or the local port must be specified."
 
@@ -249,8 +259,20 @@ class RemoteClient(FileSystemClient):
 
     @quirk_docs('_port_forward_stop')
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
+        """
+        This method stops an existing port forwarding. If a local port is
+        provided, then the forwarding (if any) associated with that port is
+        found and stopped; otherwise any established port forwarding associated
+        with the nominated remote service is stopped.
+
+        Parameters:
+            remote_host (str): The hostname of the remote host in form:
+                'hostname(:port)'.
+            remote_port (int, None): The remote port of the service.
+            local_port (int, None): The port used locally.
+        """
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self.__extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
 
         assert remote_host is not None and remote_port is not None or local_port is not None, "Either remote host and port must be specified, or the local port must be specified."
 
@@ -264,20 +286,29 @@ class RemoteClient(FileSystemClient):
 
     def port_forward_stopall(self):
         """
-        Stop all port forwarding.
+        This method stops all port forwarding.
         """
-        for remote_host in self.__port_forwarding_register._register:
+        for remote_host in self.__port_forwarding_register._register.copy():
             self.port_forward_stop(remote_host=remote_host)
 
     def get_local_uri(self, uri):
+        """
+        This method takes a remote service uri accessible to the remote host and
+        returns a local uri accessible directly on the local host, establishing
+        any necessary port forwarding in the process.
+
+        Parameters:
+            uri (str): The remote uri to be made local.
+
+        Returns:
+            str: A local uri that tunnels all traffic to the remote host.
+        """
         parsed_uri = urlparse(uri)
         return urlunparse(parsed_uri._replace(netloc='localhost:{}'.format(self.port_forward(parsed_uri.netloc))))
 
     def show_port_forwards(self):
         """
-        Return a list of active port forwards, in the form:
-        (local, remote, obj)
-        where `obj` is the value returned from `_port_forward_start`.
+        This method prints to standard out a list of active port forward.
         """
         if len(self.__port_forwarding_register._register) == 0:
             print("No port forwards currently in use.")
@@ -294,6 +325,17 @@ class RemoteClient(FileSystemClient):
 
     @quirk_docs('_is_port_bound')
     def is_port_bound(self, host, port):
+        """
+        This method checks to see whether a particular port is active on a
+        given host, by trying to establish a connection with it.
+
+        Parameters:
+            host (str): The hostname of the target service.
+            port (int): The port of the target service.
+
+        Returns:
+            bool: Whether the port is active and accepting connections.
+        """
         return self.connect()._is_port_bound(host, port)
 
     @abstractmethod

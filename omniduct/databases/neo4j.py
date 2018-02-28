@@ -6,6 +6,10 @@ from .base import DatabaseClient
 
 
 class Neo4jClient(DatabaseClient):
+    """
+    This Duct connects to a Neo4j graph database server using the `neo4j` python
+    library.
+    """
 
     PROTOCOLS = ['neo4j']
     DEFAULT_PORT = 7687

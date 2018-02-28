@@ -4,20 +4,39 @@ from .base import FileSystemClient, FileSystemFileDesc
 
 
 class WebHdfsClient(FileSystemClient):
+    """
+    This Duct connects to an Apache WebHDFS server using the `pywebhdfs` library.
+
+    Parameters:
+        namenodes (list<str>): A list of hosts that are acting as namenodes for
+            the HDFS cluster in form "<hostname>:<port>".
+    """
 
     PROTOCOLS = ['webhdfs']
     DEFAULT_PORT = 50070
 
     def _init(self, namenodes=None, **kwargs):
-        self._namenodes = namenodes
+        """
+        namenodes (list<str>): A list of hosts that are acting as namenodes for
+            the HDFS cluster in form "<hostname>:<port>".
+        **kwargs (dict): Additional arguments to pass onto the WebHdfs client.
+        """
+        self.namenodes = namenodes
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
-        self.prepared_fields += ('_namenodes',)
+        self.prepared_fields += ('namenodes',)
 
     def _connect(self):
         from .webhdfs_helpers import OmniductPyWebHdfsClient
-        self.__webhdfs = OmniductPyWebHdfsClient(host=self._host, port=self._port, remote=self.remote, namenodes=self._namenodes, user_name=self.username, **self.__webhdfs_kwargs)
+        self.__webhdfs = OmniductPyWebHdfsClient(
+            host=self._host,
+            port=self._port,
+            remote=self.remote,
+            namenodes=self.namenodes,
+            user_name=self.username,
+            **self.__webhdfs_kwargs
+        )
 
     def _is_connected(self):
         try:

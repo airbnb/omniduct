@@ -8,6 +8,7 @@ from decorator import decorator
 
 from omniduct.duct import Duct
 from omniduct.utils.config import config
+from omniduct.utils.docs import quirk_docs
 
 from ..utils.debug import logger
 
@@ -74,9 +75,18 @@ def cached_method(id_str,
 
 
 class Cache(Duct):
+    """
+    `Cache` is an abstract subclass of `Duct` that provides a common
+    API for all cache clients, which in turn will be subclasses of this
+    class.
+
+    Note: This will likely be refactored soon to be more powerful, including the
+    ability to manage the resource usage of the cache.
+    """
 
     DUCT_TYPE = Duct.Type.CACHE
 
+    @quirk_docs('_init', mro=True)
     def __init__(self, **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto

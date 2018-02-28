@@ -27,6 +27,7 @@ class FileSystemClient(Duct, MagicsProvider):
     DUCT_TYPE = Duct.Type.FILESYSTEM
     DEFAULT_PORT = None
 
+    @quirk_docs('_init', mro=True)
     def __init__(self, cwd=None, global_writes=False, **kwargs):
         """
         This is a shim __init__ function that passes all arguments onto
@@ -426,6 +427,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File handling
 
+    @quirk_docs('_open')
     def open(self, path, mode='rt'):
         """
         This method opens the file at the given path for reading and/or writing
@@ -439,35 +441,75 @@ class FileSystemClient(Duct, MagicsProvider):
             mode (str): All standard Python file modes.
 
         Returns:
-            FileSystemFile: An opened file-like object.
+            FileSystemFile or file-like: An opened file-like object.
         """
+        return self.connect()._open(path, mode=mode)
+
+    def _open(self, path, mode):
         return FileSystemFile(self, self._path(path), mode)
 
     @quirk_docs('_file_read_')
     def _file_read(self, path, size=-1, offset=0, binary=False):
+        """
+        This method is used by `FileSystemFile` to read the contents of files.
+        `._file_read_` may be left unimplemented if `.open()` returns a different
+        kind of file handle.
+
+        Parameters:
+            path (str): The path of the file to be read.
+            size (int): The number of bytes to read at a time (-1 for max possible).
+            offset (int): The offset in bytes from the start of the file.
+            binary (bool): Whether to read the file in binary mode.
+
+        Returns:
+            str or bytes: The contents of the file.
+        """
         return self.connect()._file_read_(self._path(path), size=size, offset=offset, binary=binary)
 
-    @abstractmethod
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
     @quirk_docs('_file_write_')
     def _file_write(self, path, s, binary=False):
+        """
+        This method is used by `FileSystemFile` to write to files.
+        `._file_write_` may be left unimplemented if `.open()` returns a different
+        kind of file handle.
+
+        Parameters:
+            path (str): The path of the file to be read.
+            s (str, bytes): The content to be written to the file.
+            binary (bool): Whether to read the file in binary mode.
+
+        Returns:
+            int: Number of bytes/characters written.
+        """
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         return self.connect()._file_write_(self._path(path), s, binary)
 
-    @abstractmethod
     def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
     @quirk_docs('_file_append_')
     def _file_append(self, path, s, binary=False):
+        """
+        This method is used by `FileSystemFile` to append content to files.
+        `._file_append_` may be left unimplemented if `.open()` returns a different
+        kind of file handle.
+
+        Parameters:
+            path (str): The path of the file to be read.
+            s (str, bytes): The content to be appended to the file.
+            binary (bool): Whether to read the file in binary mode.
+
+        Returns:
+            int: Number of bytes/characters written.
+        """
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         return self.connect()._file_append_(self._path(path), s, binary)
 
-    @abstractmethod
     def _file_append_(self, path, s, binary):
         raise NotImplementedError
 
@@ -600,12 +642,14 @@ class FileSystemClient(Duct, MagicsProvider):
         @register_line_magic("{}.read".format(base_name))
         @process_line_arguments
         def read_file(path):
-            return self._file_read(path)
+            with self.open(path) as f:
+                return f.read()
 
         @register_cell_magic("{}.write".format(base_name))
         @process_line_arguments
         def write_file(cell, path):
-            return self._file_write(path, cell)
+            with self.open(path, 'w') as f:
+                f.write(cell)
 
 
 class FileSystemFile(object):
