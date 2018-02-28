@@ -142,7 +142,7 @@ class ProtocolRegisteringQuirkDocumentedABCMeta(ProtocolRegisteringABCMeta):
                     out.append(
                         '{header}\n{body}'.format(
                             header=doc[0].strip(),
-                            body=textwrap.indent(d, '    ')
+                            body='    ' + d.replace('\n', '\n    ')  # textwrap.indent not available in python2
                         )
                     )
             else:
