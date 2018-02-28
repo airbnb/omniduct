@@ -58,11 +58,15 @@ class ProtocolRegisteringQuirkDocumentedABCMeta(ProtocolRegisteringABCMeta):
     """
 
     def __init__(cls, name, bases, dct):
+        super(ProtocolRegisteringQuirkDocumentedABCMeta, cls).__init__(name, bases, dct)
+
+        # Allow method of avoiding appending of quirk docs in some environments (such as documentation)
+        if os.environ.get('OMNIDUCT_DISABLE_QUIRKDOCS', None) is not None:
+            return
+
         @decorator.decorator
         def wrapped(f, *args, **kw):
             return f(*args, **kw)
-
-        super(ProtocolRegisteringQuirkDocumentedABCMeta, cls).__init__(name, bases, dct)
 
         mro = inspect.getmro(cls)
         mro = mro[:[klass.__name__ for klass in mro].index('Duct') + 1]

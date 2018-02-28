@@ -1,0 +1,10 @@
+future
+six
+enum34
+pyyaml
+decorator
+progressbar2>=3.30.0
+wrapt
+jinja2
+pandas>=0.17.1
+sqlparse

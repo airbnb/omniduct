@@ -1,0 +1,8 @@
+S3Client
+========
+
+.. autoclass:: omniduct.filesystems.s3.S3Client
+    :members:
+    :special-members: __init__
+    :inherited-members:
+    :show-inheritance:
