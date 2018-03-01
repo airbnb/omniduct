@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import logging
 import os
 import re
+import shutil
 import tempfile
 import time
 
@@ -17,15 +18,62 @@ from .base import DatabaseClient
 
 
 class HiveServer2Client(DatabaseClient):
+    """
+    This Duct connects to an Apache HiveServer2 server instance using the
+    `pyhive` or `impyla` libraries.
+
+    Attributes:
+        schema (str, None): The default schema to use for queries (will
+            default to server-default if not specified).
+        driver (str): One of 'pyhive' (default) or 'impyla', which specifies
+            how the client communicates with Hive.
+        auth_mechanism (str): The authorisation protocol to use for connections.
+            Defaults to 'NOSASL'. Authorisation methods differ between drivers.
+            Please refer to `pyhive` and `impyla` documentation for more details.
+        push_using_hive_cli (bool): Whether the `.push()` operation should
+            directly add files using `LOAD DATA LOCAL INPATH` rather than the
+            `INSERT` operation via SQLAlchemy. Note that this requires the
+            presence of the `hive` executable on the local PATH, or if
+            connecting via a `RemoteClient` instance, on the remote's PATH.
+            This is mostly useful for older versions of Hive which do not
+            support the `INSERT` statement.
+        default_table_props (dict): A dictionary of table properties to use by
+            default when creating tables.
+        connection_options (dict): Additional options to pass through to the
+            `.connect()` methods of the drivers.
+    """
 
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
 
-    def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL', **connection_options):
+    def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
+              push_using_hive_cli=False, default_table_props=None, **connection_options):
+        """
+        schema (str, None): The default database/schema to use for queries (will
+            default to server-default if not specified).
+        driver (str): One of 'pyhive' (default) or 'impyla', which specifies
+            how the client communicates with Hive.
+        auth_mechanism (str): The authorisation protocol to use for connections.
+            Defaults to 'NOSASL'. Authorisation methods differ between drivers.
+            Please refer to `pyhive` and `impyla` documentation for more details.
+        push_using_hive_cli (bool): Whether the `.push()` operation should
+            directly add files using `LOAD DATA LOCAL INPATH` rather than the
+            `INSERT` operation via SQLAlchemy. Note that this requires the
+            presence of the `hive` executable on the local PATH, or if
+            connecting via a `RemoteClient` instance, on the remote's PATH.
+            This is mostly useful for older versions of Hive which do not
+            support the `INSERT` statement. False by default.
+        default_table_props (dict): A dictionary of table properties to use by
+            default when creating tables (default is an empty dict).
+        **connection_options (dict): Additional options to pass through to the
+            `.connect()` methods of the drivers.
+        """
         self.schema = schema
         self.driver = driver
         self.auth_mechanism = auth_mechanism
         self.connection_options = connection_options
+        self.push_using_hive_cli = push_using_hive_cli
+        self.default_table_props = default_table_props or {}
         self.__hive = None
         self.connection_fields += ('schema',)
 
@@ -74,12 +122,11 @@ class HiveServer2Client(DatabaseClient):
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
 
-    def _execute(self, statement, cursor=None, poll_interval=1, async=False):
+    def _execute(self, statement, cursor=None, async=False, poll_interval=1):
         """
-        Execute command
-
-        poll_interval : int, optional
-            Default delay in polling for query status
+        Additional Parameters:
+            poll_interval (int): Default delay in seconds between consecutive
+                query status (defaults to 1).
         """
         cursor = cursor or self.__hive_cursor()
         log_offset = 0
@@ -135,11 +182,142 @@ class HiveServer2Client(DatabaseClient):
 
         return len(log)
 
-    def _push(self, df, table, if_exists='fail', schema=None, **kwargs):
+    def _push(self, df, table, if_exists='fail', schema=None, use_hive_cli=None,
+              partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs):
+        """
+        If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
+        `True`, a `CREATE TABLE` statement will be automatically generated based
+        on the datatypes of the DataFrame (unless overwritten by
+        `dtype_overrides`). The `DataFrame` will then be exported to a CSV
+        compatible with Hive and uploaded (if necessary) to the remote, before
+        being loaded into Hive using a `LOAD DATA LOCAL INFILE ...` query using
+        the `hive` cli executable. Note that if a table is not partitioned, you
+        cannot convert it to a parititioned table without deleting it first.
+
+        If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
+        `False`, an attempt will be made to push the `DataFrame` to Hive using
+        `pandas.DataFrame.to_sql` and the SQLAlchemy binding provided by
+        `pyhive` and `impyla`. This may be slower, does not support older
+        versions of Hive, and does not support table properties or partitioning.
+
+        Additional Parameters:
+            schema (str): The schema into which the table should be pushed. If
+                not specified, the schema will be set to your username.
+            use_hive_cli (bool, None): A local override for the global
+                `.push_using_hive_cli` attribute. If not specified, the global
+                default is used. If True, then pushes are performed using the
+                `hive` CLI executable on the local/remote PATH.
+            **kwargs (dict): Additional arguments to send to `pandas.DataFrame.to_sql`.
+
+        Further Parameters for CLI method (specifying these for the pandas
+        method will cause a `RuntimeError` exception):
+            partition (dict): A mapping of column names to values that specify
+                the partition into which the provided data should be uploaded,
+                as well as providing the fields by which new tables should be
+                partitioned.
+            sep (str): Field delimiter for data (defaults to CTRL-A, or `chr(1)`).
+            table_props (dict): Properties to set on any newly created tables
+                (extends `.default_table_props`).
+            dtype_overrides (dict): Mapping of column names to Hive datatypes to
+                use instead of default mapping.
+        """
+        schema = schema or self.username
+        use_hive_cli = use_hive_cli or self.push_using_hive_cli
+        partition = partition or {}
+        table_props = table_props or {}
+        dtype_overrides = dtype_overrides or {}
+
+        # Try using SQLALchemy method
+        if not use_hive_cli:
+            if partition or table_props or dtype_overrides:
+                raise RuntimeError(
+                    "At least one of `partition` or `table_props` or "
+                    "`dtype_overrides` has been specified. Setting table "
+                    "properties or partition information is not supported "
+                    "via the SQLAlchemy backend. If this is important, please "
+                    "pass `use_hive_cli=True`, otherwise remove these values "
+                    "and try again."
+                )
+            try:
+                return df.to_sql(name=table, con=self._sqlalchemy_engine,
+                                 index=False, if_exists=if_exists,
+                                 schema=schema, **kwargs)
+            except Exception as e:
+                raise RuntimeError(
+                    "Push unsuccessful. Your version of Hive may be too old to "
+                    "support the `INSERT` keyword. You might want to try setting "
+                    "`.push_using_hive_cli = True` if your local or remote "
+                    "machine has access to the `hive` CLI executable. The "
+                    "original exception was: {}".format(e.args[0]))
+
+        # Try using Hive CLI
+
+        # If `partition` is specified, the associated columns must not be
+        # present in the dataframe.
+        assert len(set(partition).intersection(df.columns)) == 0, "The dataframe to be uploaded must not have any partitioned fields. Please remove the field(s): {}.".format(','.join(set(partition).intersection(df.columns)))
+
+        # Save dataframe to file and send it to the remote server if necessary
+        temp_dir = tempfile.mkdtemp(prefix='omniduct_hiveserver2')
+        tmp_fname = os.path.join(temp_dir, 'data_{}.csv'.format(time.time()))
+        logger.info('Saving dataframe to file... {}'.format(tmp_fname))
+        df.fillna(r'\N').to_csv(tmp_fname, index=False, header=False,
+                                sep=sep, encoding='utf-8')
+
+        if self.remote:
+            logger.info("Uploading data to remote host...")
+            self.remote.upload(tmp_fname)
+
+        # Generate create table statement.
+        tblprops = self.default_table_props.copy()
+        tblprops.update(table_props or {})
+        cts = self._create_table_statement_from_df(
+            df=df, table=table,
+            schema=schema,
+            drop=(if_exists == 'replace') and not partition,
+            text=True,
+            sep=sep,
+            table_props=tblprops,
+            partition_cols=list(partition),
+            dtype_overrides=dtype_overrides
+        )
+
+        # Generate load data statement.
+        partition_clause = '' if not partition else 'PARTITION ({})'.format(','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items()))
+        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {schema}.{table} {partition_clause};'.format(
+            path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
+            overwrite="OVERWRITE" if if_exists == "replace" else "",
+            schema=schema,
+            table=table,
+            partition_clause=partition_clause
+        )
+
+        # Run create table statement and load data statments
+        logger.info(
+            "Creating hive table `{schema}.{table}` if it does not "
+            "already exist, and inserting the provided data{partition}."
+            .format(
+                schema=schema,
+                table=table,
+                partition="into {}".format(partition_clause) if partition_clause else ""
+            )
+        )
         try:
-            return DatabaseClient._push(self, df, table, if_exists=if_exists, schema=schema or self.username, **kwargs)
-        except Exception as e:
-            raise RuntimeError("Push unsuccessful. Your version of Hive may be too old to support the `INSERT` keyword. Original exception was: {}".format(e.args[0]))
+            stmts = '\n'.join([cts, lds])
+            logger.debug(stmts)
+            proc = self._run_in_hivecli(stmts)
+            if proc.returncode != 0:
+                raise RuntimeError(proc.stderr.decode())
+        finally:
+            # Clean up files
+            if self.remote:
+                self.remote.execute('rm -rf {}'.format(tmp_fname))
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+        logger.info("Successfully uploaded dataframe {partition}`{schema}.{table}`.".format(
+            schema=schema,
+            table=table,
+            partition="into {} of ".format(partition_clause) if partition_clause else ""
+        ))
 
     def _table_list(self, schema=None, like='*', **kwargs):
         schema = schema or self.schema or 'default'
@@ -184,75 +362,90 @@ class HiveServer2Client(DatabaseClient):
             proc = run_in_subprocess(sys_cmd, check_output=True)
         return proc
 
+    @classmethod
+    def _create_table_statement_from_df(cls, df, table, schema='default', drop=False,
+                                        text=True, sep=chr(1), loc=None,
+                                        table_props=None, partition_cols=None,
+                                        dtype_overrides=None):
+        """
+        Return create table statement for new hive table based on pandas dataframe.
 
-def _create_table_statement_from_df(df, table, schema='default', drop=False,
-                                    text=True, sep=None, loc=None):
-    """
-    Return create table statement for new hive table based on pandas dataframe.
+        Parameters:
+            df (pandas.DataFrame, pandas.Series): Used to determine column names
+                and types for create table statement.
+            table (str): The name of the target table.
+            schema (str): The name of the target schema.
+            drop (bool): Whether to include a drop table statement before the
+                create table statement.
+            text (bool): Whether data will be stored as a textfile.
+            sep (str): The separator used by the text data store (defaults to
+                CTRL-A, i.e. `chr(1)`, which is the default Hive separator).
+            loc (str): Desired HDFS location (if not the default).
+            table_props (dict): The table properties (if any) to set on the table.
+            partition_cols (list): The columns by which the created table should
+                be partitioned.
 
-    Parameters
-    ----------
-    df : pandas.DataFrame or pandas.Series
-        Used to determine column names and types for create table statement.
-    table : str
-        Table name for create table statement.
-    schema : str
-        Schema for create table statement
-    drop : bool
-        Whether to include a drop table statement along with create table statement.
-    text : bool
-        Whether data will be stored as a text file.
-    sep : str
-        Field delimiter for text file (only used if text==True).
-    loc : str, optional
-        Desired hdfs location.
+        Returns:
+            str: The Hive SQL required to create the table with the above
+                configuration.
+        """
+        table_props = table_props or {}
+        partition_cols = partition_cols or []
+        dtype_overrides = dtype_overrides or {}
 
-    Returns
-    -------
-    cmd : str
-        A create table statement.
-    """
-    # dtype kind to hive type mapping dict.
-    DTYPE_KIND_HIVE_TYPE = {
-        'b': 'BOOLEAN',  # boolean
-        'i': 'BIGINT',   # signed integer
-        'u': 'BIGINT',   # unsigned integer
-        'f': 'DOUBLE',   # floating-point
-        'c': 'STRING',   # complex floating-point
-        'O': 'STRING',   # object
-        'S': 'STRING',   # (byte-)string
-        'U': 'STRING',   # Unicode
-        'V': 'STRING'    # void
-    }
-    sep = sep or "\t"
+        # dtype kind to hive type mapping dict.
+        DTYPE_KIND_HIVE_TYPE = {
+            'b': 'BOOLEAN',  # boolean
+            'i': 'BIGINT',   # signed integer
+            'u': 'BIGINT',   # unsigned integer
+            'f': 'DOUBLE',   # floating-point
+            'c': 'STRING',   # complex floating-point
+            'O': 'STRING',   # object
+            'S': 'STRING',   # (byte-)string
+            'U': 'STRING',   # Unicode
+            'V': 'STRING'    # void
+        }
 
-    # Sanitive column names and map data types to hive types.
-    columns = []
-    for col, dtype in df.dtypes.iteritems():
-        col_sanitized = re.sub('\W', '', col.lower().replace(' ', '_'))
-        hive_type = DTYPE_KIND_HIVE_TYPE[dtype.kind]
-        columns.append('  {column}  {type}'.format(column=col_sanitized,
-                                                   type=hive_type))
+        # Sanitise column names and map numpy/pandas data-types to hive types.
+        columns = []
+        for col, dtype in df.dtypes.iteritems():
+            col_sanitized = re.sub('\W', '', col.lower().replace(' ', '_'))
+            hive_type = dtype_overrides.get(col) or DTYPE_KIND_HIVE_TYPE[dtype.kind]
+            columns.append(
+                '  {column}  {type}'.format(column=col_sanitized, type=hive_type)
+            )
 
-    cmd = Template("""
-    {% if drop %}
-    DROP TABLE IF EXISTS {{ schema }}.{{ table }};
-    {% endif -%}
-    CREATE TABLE IF NOT EXISTS {{ schema }}.{{ table }} (
-    {%- for col in columns %}
-     {{ col }} {% if not loop.last %}, {% endif %}
-    {%- endfor %}
-    )
-    {%- if text %}
-    ROW FORMAT DELIMITED
-    FIELDS TERMINATED BY "{{ sep }}"
-    STORED AS TEXTFILE
-    {% endif %}
-    {%- if loc %}
-    LOCATION "{{ loc }}"
-    {%- endif %}
-    ;
-    """).render(drop=drop, table=table, schema=schema, columns=columns, text=text, sep=sep)
+        partition_columns = ['{} STRING'.format(col) for col in partition_cols]
 
-    logger.debug('Create Table Statement: {}'.format(cmd))
-    return cmd
+        tblprops = ["'{key}' = '{value}'".format(key=key, value=value) for key, value in table_props.items()]
+        tblprops = "TBLPROPERTIES({})".format(",".join(tblprops)) if len(tblprops) > 0 else ""
+
+        cmd = Template("""
+        {% if drop %}
+        DROP TABLE IF EXISTS {{ schema }}.{{ table }};
+        {% endif -%}
+        CREATE TABLE IF NOT EXISTS {{ schema }}.{{ table }} (
+            {%- for col in columns %}
+            {{ col }} {% if not loop.last %}, {% endif %}
+            {%- endfor %}
+        )
+        {%- if partition_columns %}
+        PARTITIONED BY (
+            {%- for col in partition_columns %}
+            {{ col }} {% if not loop.last %}, {% endif %}
+            {%- endfor %}
+        )
+        {%- endif %}
+        {%- if text %}
+        ROW FORMAT DELIMITED
+        FIELDS TERMINATED BY "{{ sep }}"
+        STORED AS TEXTFILE
+        {% endif %}
+        {%- if loc %}
+        LOCATION "{{ loc }}"
+        {%- endif %}
+        {{ tblprops }}
+        ;
+        """).render(**locals())
+
+        return cmd
