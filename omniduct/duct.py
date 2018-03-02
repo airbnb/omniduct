@@ -5,6 +5,7 @@ import getpass
 import inspect
 import os
 import pwd
+import re
 import textwrap
 from abc import ABCMeta, abstractmethod
 from builtins import input
@@ -428,6 +429,10 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             if hasattr(value, '__call__'):
                 self.__prepreparation_values[field] = value
                 setattr(self, field, value(self))
+
+        # If host has a port included in it, override the value of self._port
+        if re.match('[^\:]+:[0-9]{1,5}', self._host):
+            self._host, self._port = self._host.split(':')
 
         # Ensure port is an integer value
         self.port = int(self._port) if self._port else None

@@ -1,4 +1,5 @@
 import posixpath
+import random
 
 from .base import FileSystemClient, FileSystemFileDesc
 from .local import LocalFsClient
@@ -42,8 +43,7 @@ class WebHdfsClient(FileSystemClient):
             self._conf_parser = CdhHdfsConfParser(self.remote or LocalFsClient(), conf_path=auto_conf_path)
             self.reset()  # Asking for `self.remote` above "prepares" the Duct. Undo this.
             self.namenodes = lambda duct: duct._conf_parser.namenodes(auto_conf_cluster)
-            self._host = lambda duct: duct._conf_parser.namenodes(auto_conf_cluster)[0].split(':')[0]
-            self._port = lambda duct: int(duct._conf_parser.namenodes(auto_conf_cluster)[0].split(':')[1])
+            self._host = lambda duct: random.choice(duct._conf_parser.namenodes(auto_conf_cluster))
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
