@@ -5,7 +5,7 @@ __all__ = ['__author__', '__author_email__', '__version__']
 
 __author__ = "Matthew Wardrop, Dan Frank"
 __author_email__ = "matthew.wardrop@airbnb.com, dan.frank@airbnb.com"
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 
 # These are the core dependencies, and should not include those which are used only in handling specific protocols.
