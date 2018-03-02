@@ -18,7 +18,7 @@ from omniduct.errors import DuctServerUnreachable, DuctProtocolUnknown
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.docs import quirk_docs
-from omniduct.utils.ports import is_port_bound
+from omniduct.utils.ports import naive_load_balancer, is_port_bound
 
 
 class ProtocolRegisteringABCMeta(ABCMeta):
@@ -429,6 +429,11 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             if hasattr(value, '__call__'):
                 self.__prepreparation_values[field] = value
                 setattr(self, field, value(self))
+
+        if isinstance(self._host, (list, tuple)):
+            if '_host' not in self.__prepreparation_values:
+                self.__prepreparation_values['_host'] = self._host
+            self._host = naive_load_balancer(self._host, port=self._port)
 
         # If host has a port included in it, override the value of self._port
         if re.match('[^\:]+:[0-9]{1,5}', self._host):

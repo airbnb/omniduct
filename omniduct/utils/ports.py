@@ -1,8 +1,8 @@
+import random
+import re
 import socket
 
 from omniduct.utils.debug import logger
-
-from .processes import run_in_subprocess
 
 
 def is_local_port_free(local_port):
@@ -57,3 +57,25 @@ def is_port_bound(hostname, port, timeout=None):
     finally:
         s.close()
     return True
+
+
+# Random hosts for ssh gateway nodes
+def naive_load_balancer(hosts, port):
+    # Shuffle hosts randomly
+    hosts = hosts.copy()
+    random.shuffle(hosts)
+
+    # Check if host is available and if so return it
+    pattern = re.compile('(?P<host>[^\:]+)(?::(?P<port>[0-9]{1,5}))?')
+    for host in hosts:
+        m = pattern.match(host)
+        if is_port_bound(m.group('host'), int(m.group('port') or port), timeout=1):
+            return host
+        else:
+            logger.warning("Avoiding down or inaccessible host: '{}'.".format(host))
+
+    raise RuntimeError(
+        "Unable to connect to any of the hosts associated with this service. "
+        "This may be due to networking issues, such as not being connected to "
+        "the internet or your company's VPN.".format(host)
+    )
