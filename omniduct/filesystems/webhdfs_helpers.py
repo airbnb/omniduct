@@ -1,7 +1,8 @@
 import json
+import xml.dom.minidom
 
 import requests
-from pywebhdfs import errors, operations
+from pywebhdfs import errors
 from pywebhdfs.webhdfs import (PyWebHdfsClient, _is_standby_exception,
                                _move_active_host_to_head)
 
@@ -45,9 +46,9 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     @property
     def namenodes(self):
         if self.remote:
-            return ['localhost:{}'.format(self.remote.port_forward('{}:{}'.format(nn_host, self._port))) for nn_host in self._namenodes]
+            return ['localhost:{}'.format(self.remote.port_forward(nn)) for nn in self._namenodes]
         else:
-            return ['{}:{}'.format(nn, self._port) for nn in self._namenodes]
+            return self._namenodes
 
     @namenodes.setter
     def namenodes(self, namenodes):
@@ -96,3 +97,53 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
             except requests.exceptions.RequestException:
                 pass
         raise errors.ActiveHostNotFound(msg="Could not find active host")
+
+
+class CdhHdfsConfParser(object):
+    """
+    This class serves to automatically extract HDFS cluster information from
+    Cloudera configuration files.
+    """
+
+    def __init__(self, fs, conf_path=None):
+        """
+        Parameters:
+            conf_path (str): The path of the configuration file to be parsed.
+            fs (FileSystemClient): The filesystem on which the configuration
+                file should be found.
+        """
+        self.fs = fs
+        self.conf_path = conf_path or '/etc/hadoop/conf.cloudera.hdfs2/hdfs-site.xml'
+
+    @property
+    def config(self):
+        if not hasattr(self, '_config'):
+            self._config = self._get_config()
+        return self._config
+
+    def _get_config(self):
+        with self.fs.open(self.conf_path) as f:
+            d = xml.dom.minidom.parseString(f.read())
+
+        properties = d.getElementsByTagName('property')
+
+        return {
+            prop.getElementsByTagName('name')[0].childNodes[0].wholeText:
+                prop.getElementsByTagName('value')[0].childNodes[0].wholeText
+            for prop in properties
+        }
+
+    @property
+    def clusters(self):
+        clusters = []
+        for key in self.config:
+            if key.startswith('dfs.ha.namenodes.'):
+                clusters.append(key[len('dfs.ha.namenodes.'):])
+        return clusters
+
+    def namenodes(self, cluster):
+        namenodes = self.config['dfs.ha.namenodes.{}'.format(cluster)].split(',')
+        return [
+            self.config['dfs.namenode.http-address.{}.{}'.format(cluster, namenode)]
+            for namenode in namenodes
+        ]

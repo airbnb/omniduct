@@ -1,6 +1,7 @@
 import posixpath
 
 from .base import FileSystemClient, FileSystemFileDesc
+from .local import LocalFsClient
 
 
 class WebHdfsClient(FileSystemClient):
@@ -15,13 +16,34 @@ class WebHdfsClient(FileSystemClient):
     PROTOCOLS = ['webhdfs']
     DEFAULT_PORT = 50070
 
-    def _init(self, namenodes=None, **kwargs):
+    def _init(self, namenodes=None, auto_conf=False, auto_conf_cluster=None,
+              auto_conf_path=None, **kwargs):
         """
         namenodes (list<str>): A list of hosts that are acting as namenodes for
             the HDFS cluster in form "<hostname>:<port>".
+        auto_conf (bool): Whether to automatically extract host, port and
+            namenode information from Cloudera configuration files. If True,
+            automatically extracted values will override other passed values.
+        auto_conf_cluster (str): The name of the cluster for which to extract
+            configuration.
+        auto_conf_path (str): The path of the `hdfs-site.xml` file in which
+            the HDFS configuration is stored (on the remote filesystem if
+            `remote` is specified, and on the local filesystem otherwise).
+            Defaults to '/etc/hadoop/conf.cloudera.hdfs2/hdfs-site.xml'.
         **kwargs (dict): Additional arguments to pass onto the WebHdfs client.
         """
         self.namenodes = namenodes
+
+        if auto_conf:
+            from .webhdfs_helpers import CdhHdfsConfParser
+
+            assert auto_conf_cluster is not None, "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
+
+            self._conf_parser = CdhHdfsConfParser(self.remote or LocalFsClient(), conf_path=auto_conf_path)
+            self.reset()  # Asking for `self.remote` above "prepares" the Duct. Undo this.
+            self.namenodes = lambda duct: duct._conf_parser.namenodes(auto_conf_cluster)
+            self._host = lambda duct: duct._conf_parser.namenodes(auto_conf_cluster)[0].split(':')[0]
+            self._port = lambda duct: int(duct._conf_parser.namenodes(auto_conf_cluster)[0].split(':')[1])
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
