@@ -98,5 +98,5 @@ class LocalFsClient(FileSystemClient):
 
     # File opening
 
-    def _open(path, mode):
+    def _open(self, path, mode):
         return open(path, mode=mode)
