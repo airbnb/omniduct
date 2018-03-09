@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import json
 import logging
 import os
 import re
@@ -268,6 +269,19 @@ class HiveServer2Client(DatabaseClient):
             self.remote.upload(tmp_fname)
 
         # Generate create table statement.
+        auto_table_props = set(self.default_table_props).difference(table_props)
+        if len(auto_table_props) > 0:
+            logger.warning(
+                "In addition to any specified table properties, this "
+                "HiveServer2Client has added the following default table "
+                "properties:\n{default_props}\nTo override them, please "
+                "specify overrides using: `.push(..., table_props={{...}}).`"
+                .format(default_props=json.dumps({
+                    prop: value for prop, value in self.default_table_props.items()
+                    if prop in auto_table_props
+                }, indent=True))
+            )
+
         tblprops = self.default_table_props.copy()
         tblprops.update(table_props or {})
         cts = self._create_table_statement_from_df(
