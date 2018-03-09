@@ -1,5 +1,6 @@
 import posixpath
 import random
+from functools import partial
 
 from .base import FileSystemClient, FileSystemFileDesc
 from .local import LocalFsClient
@@ -40,10 +41,12 @@ class WebHdfsClient(FileSystemClient):
 
             assert auto_conf_cluster is not None, "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
 
-            self._conf_parser = CdhHdfsConfParser(self.remote or LocalFsClient(), conf_path=auto_conf_path)
-            self.reset()  # Asking for `self.remote` above "prepares" the Duct. Undo this.
-            self.namenodes = lambda duct: duct._conf_parser.namenodes(auto_conf_cluster)
-            self._host = lambda duct: random.choice(duct._conf_parser.namenodes(auto_conf_cluster))
+            def get_host_and_set_namenodes(duct, cluster, conf_path):
+                conf_parser = CdhHdfsConfParser(duct.remote or LocalFsClient(), conf_path=conf_path)
+                duct.namenodes = conf_parser.namenodes(cluster)
+                return random.choice(duct.namenodes)
+
+            self._host = partial(get_host_and_set_namenodes, cluster=auto_conf_cluster, conf_path=auto_conf_path)
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
