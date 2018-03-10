@@ -3,7 +3,20 @@
 [![Coverage Status](https://coveralls.io/repos/github/airbnb/omniduct/badge.svg?branch=master)](https://coveralls.io/github/airbnb/omniduct?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/omniduct/badge/?version=latest)](http://omniduct.readthedocs.io/en/latest/?badge=latest)
 
+`omniduct` provides uniform interfaces for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc).
 
-`omniduct` is a Python 2/3 package that provides a uniform interface for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc). It is especially useful in contexts where the data stores are only available via remote gateway nodes, where `omniduct` can automatically manage port forwarding over SSH to make these data stores available locally. It also provides convenient magic functions for use in IPython and Jupyter Notebooks.
+- **Documentation:** http://omniduct.readthedocs.io
+- **Source:** https://github.com/airbnb/omniduct
+- **Bug reports:** https://github.com/airbnb/omniduct/issues
 
-Documentation, including examples and API details, can be found [here](http://omniduct.readthedocs.io/).
+It provides:
+
+- A generic plugin-based programmatic API to access data in a consistent manner across different services (see [supported protocols](http://omniduct.readthedocs.io/en/latest/protocols.html)).
+    A framework for lazily connecting to data sources and maintaining these connections during the entire lifetime of the relevant Python session.
+    Convenient IPython magic functions for interfacing with data providers from within IPython and Jupyter Notebook sessions.
+    Utility classes and methods to assist in maintaining registries of useful services.
+
+
+- Automatic port forwarding of remote services over SSH where connections cannot be made directly.
+-
+It is especially useful in contexts where the data stores are only available via remote gateway nodes, where `omniduct` can automatically manage port forwarding over SSH to make these data stores available locally. It also provides convenient magic functions for use in IPython and Jupyter Notebooks.

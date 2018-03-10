@@ -24,6 +24,8 @@ end, it offers the following features:
   across different services (see :doc:`protocols`).
 - A framework for lazily connecting to data sources and maintaining these
   connections during the entire lifetime of the relevant Python session.
+- Automatic port forwarding of remote services over SSH where connections cannot
+  be made directly.
 - Convenient IPython magic functions for interfacing with data providers from
   within IPython and Jupyter Notebook sessions.
 - Utility classes and methods to assist in maintaining registries of useful
