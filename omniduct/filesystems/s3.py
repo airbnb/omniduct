@@ -165,7 +165,9 @@ class S3Client(FileSystemClient):
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
-        assert self.isfile(path), "File `{}` does not exist.".format(path)
+        if not self.isfile(path):
+            raise FileNotFoundError("File `{}` does not exist.".format(path))
+
         obj = self._resource.Object(self.bucket, path)
         body = obj.get()['Body'].read()
 

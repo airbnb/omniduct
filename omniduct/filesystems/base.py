@@ -443,8 +443,6 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             FileSystemFile or file-like: An opened file-like object.
         """
-        if 'r' in mode:
-            assert self.isfile(path), 'No such file {}'.format(path)
         return self.connect()._open(path, mode=mode)
 
     def _open(self, path, mode):

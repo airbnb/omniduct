@@ -133,6 +133,9 @@ class WebHdfsClient(FileSystemClient):
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
+        if not self.isfile(path):
+            raise FileNotFoundError("File `{}` does not exist.".format(path))
+
         read = self.__webhdfs.read_file(path, offset=offset, length='null' if size < 0 else size)
         if not binary:
             read = read.decode()
