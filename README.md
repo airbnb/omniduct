@@ -12,11 +12,7 @@
 It provides:
 
 - A generic plugin-based programmatic API to access data in a consistent manner across different services (see [supported protocols](http://omniduct.readthedocs.io/en/latest/protocols.html)).
-    A framework for lazily connecting to data sources and maintaining these connections during the entire lifetime of the relevant Python session.
-    Convenient IPython magic functions for interfacing with data providers from within IPython and Jupyter Notebook sessions.
-    Utility classes and methods to assist in maintaining registries of useful services.
-
-
+- A framework for lazily connecting to data sources and maintaining these connections during the entire lifetime of the relevant Python session.
 - Automatic port forwarding of remote services over SSH where connections cannot be made directly.
--
-It is especially useful in contexts where the data stores are only available via remote gateway nodes, where `omniduct` can automatically manage port forwarding over SSH to make these data stores available locally. It also provides convenient magic functions for use in IPython and Jupyter Notebooks.
+- Convenient IPython magic functions for interfacing with data providers from within IPython and Jupyter Notebook sessions.
+- Utility classes and methods to assist in maintaining registries of useful services.
