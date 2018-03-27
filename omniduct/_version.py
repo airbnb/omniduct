@@ -72,6 +72,11 @@ __optional_dependencies__ = {
         'pexpect',  # Command line handling (including smartcard activation)
     ],
 
+    # Rest clients
+    'rest': [
+        'requests',  # Library to handle underlying REST queries
+    ],
+
     'test': [
         'nose',      # test runner
         'mock',      # mocking

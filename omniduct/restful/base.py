@@ -1,4 +1,3 @@
-import requests
 from future.moves.urllib.parse import urljoin
 
 from omniduct.duct import Duct
@@ -48,6 +47,7 @@ class RestClientBase(Duct):
         return url
 
     def request(self, endpoint, method='get', **kwargs):
+        import requests
         self.connect()
         url = urljoin(self.base_url, endpoint)
         return requests.request(method, url, **kwargs)
