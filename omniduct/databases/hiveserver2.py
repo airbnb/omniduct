@@ -88,6 +88,8 @@ class HiveServer2Client(DatabaseClient):
                                               port=self.port,
                                               auth=self.auth_mechanism,
                                               database=self.schema,
+                                              username=self.username,
+                                              password=self.password,
                                               **self.connection_options)
             self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
@@ -97,6 +99,8 @@ class HiveServer2Client(DatabaseClient):
                                                port=self.port,
                                                auth_mechanism=self.auth_mechanism,
                                                database=self.schema,
+                                               user=self.username,
+                                               password=self.password,
                                                **self.connection_options)
             self._sqlalchemy_engine = create_engine('impala://{}:{}/{}'.format(self.host, self.port, self.schema))
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)

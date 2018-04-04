@@ -21,6 +21,8 @@ class DruidClient(DatabaseClient):
         from pydruid.db import connect
         logger.info('Connecting to Druid database ...')
         self.__druid = connect(self.host, self.port, path='/druid/v2/sql/', scheme='http')
+        if self.username:
+            self.__druid.set_basic_auth_credentials(self.username, self.password)
 
     def _is_connected(self):
         return self.__druid is not None

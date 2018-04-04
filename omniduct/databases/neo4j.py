@@ -26,7 +26,8 @@ class Neo4jClient(DatabaseClient):
     def _connect(self):
         from neo4j.v1 import GraphDatabase
         logger.info('Connecting to Neo4J graph database ...')
-        self.__driver = GraphDatabase.driver("bolt://{}:{}".format(self.host, self.port))
+        auth = (self.username, self.password) if self.username else None
+        self.__driver = GraphDatabase.driver("bolt://{}:{}".format(self.host, self.port), auth=auth)  # TODO: Add kerberos support
 
     def _is_connected(self):
         return hasattr(self, '__driver') and self.__driver is not None

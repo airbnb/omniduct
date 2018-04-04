@@ -47,9 +47,9 @@ class PrestoClient(DatabaseClient):
         from pyhive import presto  # Imported here due to slow import performance in Python 3
         from sqlalchemy import create_engine, MetaData
         logger.info('Connecting to Presto coordinator...')
-        self.__presto = presto.connect(self.host, port=self.port,
+        self.__presto = presto.connect(self.host, port=self.port, username=self.username, password=self.password,
                                        catalog=self.catalog, schema=self.schema,
-                                       poll_interval=1, source='omniduct {}'.format(__version__))
+                                       poll_interval=1, source=self.source, **self.connection_options)
         self._sqlalchemy_engine = create_engine('presto://{}:{}/{}/{}'.format(self.host, self.port, self.catalog, self.schema))
         self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
