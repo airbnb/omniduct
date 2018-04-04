@@ -7,7 +7,7 @@ from omniduct.restful.base import RestClient
 class TestRestClient(unittest.TestCase):
 
     @mock.patch.object(RestClient, 'connect')
-    @mock.patch('omniduct.restful.base.requests.request')
+    @mock.patch('requests.request')
     def test_default_request(self, mock_request, mock_connect):
         client = RestClient(server_protocol='http', host='localhost', port=80)
         client.request('/')
