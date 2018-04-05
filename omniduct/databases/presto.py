@@ -26,20 +26,40 @@ class PrestoClient(DatabaseClient):
     Attributes:
         catalog (str): The default catalog to use in database queries.
         schema (str): The default schema/database to use in database queries.
+        connection_options (dict): Additional options to pass on to
+            `pyhive.presto.connect(...)`.
     """
 
     PROTOCOLS = ['presto']
     DEFAULT_PORT = 3506
 
-    def _init(self, catalog='default', schema='default'):
+    def _init(self, catalog='default', schema='default', source=None, **connection_options):
         """
         catalog (str): The default catalog to use in database queries.
         schema (str): The default schema/database to use in database queries.
+        source (str): The source of this query (by default "omniduct <version>").
+            If manually specified, result will be: "<source> / omniduct <version>".
+        connection_options (dict): Additional options to pass on to
+            `pyhive.presto.connect(...)`.
         """
         self.catalog = catalog
         self.schema = schema
+        self.source = source
+        self.connection_options = connection_options
         self.__presto = None
         self.connection_fields += ('catalog', 'schema')
+
+    @property
+    def source(self):
+        return self._source
+
+    @source.setter
+    def source(self, source):
+        omniduct_source = 'omniduct {}'.format(__version__)
+        if source is None:
+            self._source = omniduct_source
+        else:
+            self._source = "{} / {}".format(source, omniduct_source)
 
     # Connection
 
