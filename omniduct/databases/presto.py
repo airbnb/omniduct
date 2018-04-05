@@ -104,7 +104,9 @@ class PrestoClient(DatabaseClient):
             status = cursor.poll()
             if not async:
                 logger.progress(0)
-                while status['stats']['state'] != "FINISHED":
+                # status None means command executed successfully
+                # See https://github.com/dropbox/PyHive/blob/master/pyhive/presto.py#L234
+                while status is not None and status['stats']['state'] != "FINISHED":
                     if status['stats'].get('totalSplits', 0) > 0:
                         pct_complete = round(status['stats']['completedSplits'] / float(status['stats']['totalSplits']), 4)
                         logger.progress(pct_complete * 100)
