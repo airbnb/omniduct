@@ -149,6 +149,8 @@ class StatusLogger(object):
                 context = inspect.getmodule(caller.frame).__name__
             except:
                 context = 'omniduct'
+        if not context == 'omniduct' and not context.startswith('omniduct.'):
+            context = 'omniduct.external.{}'.format(context)
         return logging.getLogger(context)
 
     def __getattr__(self, name):

@@ -120,7 +120,7 @@ class Configuration(ConfigurationRegistry):
 
     @_config_path.setter
     def _config_path(self, path):
-        self.__config_path = path
+        self.__config_path = os.path.expandvars(os.path.expanduser(path))
 
         if path is not None and os.path.exists(self.__config_path):
             # Restore configuration

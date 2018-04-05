@@ -95,6 +95,8 @@ class DuctRegistry(object):
         if isinstance(config, six.string_types):
             try:
                 config = yaml.load(config)
+                if not isinstance(config, dict):
+                    raise ValueError("Invalid configuration specified.")
             except:
                 with open(config) as f:
                     if config.endswith('.py'):
