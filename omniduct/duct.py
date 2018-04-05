@@ -209,8 +209,8 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             protocols).
         name (str): The name given to this `Duct` instance (defaults to class
             name).
-        host (str): The host name providing the service (will be '127.0.0.1') if
-            service is port forwarded from remote (use `._host` to see remote
+        host (str): The host name providing the service (will be '127.0.0.1', if
+            service is port forwarded from remote; use `._host` to see remote
             host).
         port (int): The port number of the service (will be the port-forwarded
             local port, if relevant; for remote port use `._port`).
@@ -251,7 +251,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     PROTOCOLS = None
 
     def __init__(self, protocol=None, name=None, registry=None, remote=None,
-                 host='localhost', port=None, username=None, password=None, cache=None):
+                 host=None, port=None, username=None, password=None, cache=None):
         """
         protocol (str, None): Name of protocol (used by Duct registries to inform
             Duct instances of how they were instantiated).
@@ -436,7 +436,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             self._host = naive_load_balancer(self._host, port=self._port)
 
         # If host has a port included in it, override the value of self._port
-        if re.match('[^\:]+:[0-9]{1,5}', self._host):
+        if self._host is not None and re.match('[^\:]+:[0-9]{1,5}', self._host):
             self._host, self._port = self._host.split(':')
 
         # Ensure port is an integer value
@@ -525,6 +525,14 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
         self._password = password
 
     def __assert_server_reachable(self):
+        if self.host is not None or self.port is not None:
+            if self.host is None:
+                raise ValueError("Port specified but no host provided.")
+            if self.port is None:
+                raise ValueError("Host specified but no port specified.")
+        else:
+            return
+
         if not is_port_bound(self.host, self.port):
             if self.remote and not self.remote.is_port_bound(self._host, self._port):
                 self.disconnect()
@@ -553,10 +561,14 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
         Returns:
             `Duct` instance: A reference to the current object.
         """
-        if self.remote:
-            logger.info("Connecting to {}:{} on {}.".format(self._host, self._port, self.remote.host))
-        else:
-            logger.info("Connecting to {}:{}.".format(self.host, self.port))
+        if self.host:
+            logger.info(
+                "Connecting to {host}:{port}{remote}.".format(
+                    host=self._host,
+                    port=self._port,
+                    remote="on {}".format(self.remote.host) if self.remote else ""
+                )
+            )
         self.__assert_server_reachable()
         if not self.is_connected():
             try:
@@ -564,10 +576,14 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             except Exception as e:
                 self.reset()
                 raise_with_traceback(e)
-        if self.remote:
-            logger.info("Connected to {}:{} on {}.".format(self._host, self._port, self.remote.host))
-        else:
-            logger.info("Connected to {}:{}.".format(self.host, self.port))
+        if self.host:
+            logger.info(
+                "Connected to {host}:{port}{remote}.".format(
+                    host=self._host,
+                    port=self._port,
+                    remote="on {}".format(self.remote.host) if self.remote else ""
+                )
+            )
         return self
 
     @abstractmethod
