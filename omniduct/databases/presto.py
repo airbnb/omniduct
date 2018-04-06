@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import ast
+import logging
 import re
 import sys
 
@@ -66,6 +67,7 @@ class PrestoClient(DatabaseClient):
     def _connect(self):
         from pyhive import presto  # Imported here due to slow import performance in Python 3
         from sqlalchemy import create_engine, MetaData
+        logging.getLogger('pyhive').setLevel(1000)  # Silence pyhive logging.
         logger.info('Connecting to Presto coordinator...')
         self.__presto = presto.connect(self.host, port=self.port, username=self.username, password=self.password,
                                        catalog=self.catalog, schema=self.schema,
