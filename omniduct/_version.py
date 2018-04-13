@@ -35,6 +35,7 @@ __optional_dependencies__ = {
     'hiveserver2': [
         'pyhive[hive]>=0.4',  # Primary client
         'impyla>=0.14.0',  # Primary client
+        'thrift>=0.10.0',  # Thrift dependency which seems not to be installed with upstream deps
     ],
 
     'presto': [
