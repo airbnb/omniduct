@@ -248,7 +248,7 @@ class SSHClient(RemoteClient):
 
     def _dir(self, path):
         # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
-        dir = pd.DataFrame(sorted([re.split('\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
+        dir = pd.DataFrame(sorted([re.split(r'\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
                            columns=['file_mode', 'link_count', 'owner', 'group', 'bytes', 'month', 'day', 'time', 'path'])
 
         def convert_to_datetime(x):

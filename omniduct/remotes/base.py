@@ -177,7 +177,7 @@ class RemoteClient(FileSystemClient):
 
         host = port = None
         if remote_host is not None:
-            m = re.match('(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?', remote_host)
+            m = re.match(r'(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?', remote_host)
             assert m, "Host not valid: {}. Must be a string of form 'hostname(:port)'.".format(remote_host)
 
             host = m.group('host')

@@ -436,7 +436,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             self._host = naive_load_balancer(self._host, port=self._port)
 
         # If host has a port included in it, override the value of self._port
-        if self._host is not None and re.match('[^\:]+:[0-9]{1,5}', self._host):
+        if self._host is not None and re.match(r'[^\:]+:[0-9]{1,5}', self._host):
             self._host, self._port = self._host.split(':')
 
         # Ensure port is an integer value
