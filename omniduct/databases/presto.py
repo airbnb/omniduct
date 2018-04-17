@@ -4,6 +4,7 @@ import ast
 import logging
 import re
 import sys
+import time
 
 import pandas.io.sql
 import six
@@ -17,7 +18,7 @@ from .base import DatabaseClient
 
 class PrestoClient(DatabaseClient):
     """
-    This Duct connects to a Facebook Presto server instance using the `pyhive`
+    This Duct connects to a Facebook Presto server instance using the `prestodb`
     library.
 
     In addition to the standard `DatabaseClient` API, `PrestoClient` adds a
@@ -65,15 +66,16 @@ class PrestoClient(DatabaseClient):
     # Connection
 
     def _connect(self):
-        from pyhive import presto  # Imported here due to slow import performance in Python 3
-        from sqlalchemy import create_engine, MetaData
-        logging.getLogger('pyhive').setLevel(1000)  # Silence pyhive logging.
+        import prestodb
+        # from sqlalchemy import create_engine, MetaData
         logger.info('Connecting to Presto coordinator...')
-        self.__presto = presto.connect(self.host, port=self.port, username=self.username, password=self.password,
-                                       catalog=self.catalog, schema=self.schema,
-                                       poll_interval=1, source=self.source, **self.connection_options)
-        self._sqlalchemy_engine = create_engine('presto://{}:{}/{}/{}'.format(self.host, self.port, self.catalog, self.schema))
-        self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
+        self.__presto = prestodb.dbapi.Connection(
+            self.host, port=self.port, user=self.username,
+            catalog=self.catalog, schema=self.schema,
+            source=self.source, **self.connection_options
+        )
+        # self._sqlalchemy_engine = create_engine('presto://{}:{}/{}/{}'.format(self.host, self.port, self.catalog, self.schema))
+        # self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     def _is_connected(self):
         try:
@@ -99,21 +101,19 @@ class PrestoClient(DatabaseClient):
         log and present the user with useful debugging information. If that fails,
         the full traceback will be raised instead.
         """
-        from pyhive.exc import DatabaseError  # Imported here due to slow import performance in Python 3
+        from prestodb.exceptions import DatabaseError  # Imported here due to slow import performance in Python 3
         try:
             cursor = cursor or self.__presto.cursor()
             cursor.execute(statement)
-            status = cursor.poll()
             if not async:
                 logger.progress(0)
                 # status None means command executed successfully
                 # See https://github.com/dropbox/PyHive/blob/master/pyhive/presto.py#L234
-                while status is not None and status['stats']['state'] != "FINISHED":
-                    if status['stats'].get('totalSplits', 0) > 0:
-                        pct_complete = round(status['stats']['completedSplits'] / float(status['stats']['totalSplits']), 4)
-                        logger.progress(pct_complete * 100)
-                    status = cursor.poll()
+                while cursor.stats is not None and cursor.stats['state'] != "FINISHED":
+                    if cursor.stats.get('progressPercentage', None) is not None:
+                        logger.progress(cursor.stats['progressPercentage'])
                 logger.progress(100, complete=True)
+                time.sleep(0.1)
             return cursor
         except (DatabaseError, pandas.io.sql.DatabaseError) as e:
             # Attempt to parse database error, before ultimately reraising the same
@@ -154,8 +154,9 @@ class PrestoClient(DatabaseClient):
             schema (str): The schema into which the table should be pushed. If
                 not specified, the schema will be set to your username.
         """
-        return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False,
-                         if_exists=if_exists, schema=schema or self.username, **kwargs)
+        raise NotImplementedError
+        # return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False,
+        #                  if_exists=if_exists, schema=schema or self.username, **kwargs)
 
     def _cursor_empty(self, cursor):
         return False
