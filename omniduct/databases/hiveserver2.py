@@ -428,7 +428,15 @@ class HiveServer2Client(DatabaseClient):
         columns = []
         for col, dtype in df.dtypes.iteritems():
             col_sanitized = re.sub(r'\W', '', col.lower().replace(' ', '_'))
-            hive_type = dtype_overrides.get(col) or DTYPE_KIND_HIVE_TYPE[dtype.kind]
+            hive_type = dtype_overrides.get(col) or DTYPE_KIND_HIVE_TYPE.get(dtype.kind)
+            if hive_type is None:
+                hive_type = DTYPE_KIND_HIVE_TYPE['O']
+                logger.warning(
+                    'Unable to determine hive type for dataframe column {col} of pandas dtype {dtype}. '
+                    'Defaulting to hive type {hive_type}. If other column type is desired, '
+                    'please specify via `dtype_overrides`'
+                    .format(**locals())
+                )
             columns.append(
                 '  {column}  {type}'.format(column=col_sanitized, type=hive_type)
             )
