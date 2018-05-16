@@ -8,3 +8,6 @@ wrapt
 jinja2
 pandas>=0.17.1
 sqlparse
+mock
+requests
+pyfakefs
