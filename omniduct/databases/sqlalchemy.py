@@ -1,10 +1,10 @@
 from __future__ import absolute_import
-import pandas as pd
 
 from .base import DatabaseClient
+from .schemas import SchemasMixin
 
 
-class SQLAlchemyClient(DatabaseClient):
+class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase']
 
@@ -37,13 +37,17 @@ class SQLAlchemyClient(DatabaseClient):
 
     def _connect(self):
         import sqlalchemy
+
         self.engine = sqlalchemy.create_engine(self.db_uri)
+        self._sqlalchemy_metadata = sqlalchemy.MetaData(self.engine)
 
     def _is_connected(self):
         return self.engine is not None
 
     def _disconnect(self):
         self.engine = None
+        self._sqlalchemy_metadata = None
+        self._schemas = None
 
     def _execute(self, statement, query=True, cursor=None, **kwargs):
         if cursor:

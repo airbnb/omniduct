@@ -13,9 +13,10 @@ from omniduct.utils.debug import logger
 
 from .._version import __version__
 from .base import DatabaseClient
+from .schemas import SchemasMixin
 
 
-class PrestoClient(DatabaseClient):
+class PrestoClient(DatabaseClient, SchemasMixin):
     """
     This Duct connects to a Facebook Presto server instance using the `pyhive`
     library.
@@ -179,23 +180,3 @@ class PrestoClient(DatabaseClient):
 
     def _table_props(self, table, **kwargs):
         raise NotImplementedError
-
-    @property
-    def schemas(self):
-        """
-        This object has as attributes the schemas on the current catalog. These
-        schema objects in turn have the tables as SQLAlchemy `Table` objects.
-        This allows tab completion and exploration of Presto Databases.
-        """
-        from werkzeug import LocalProxy
-
-        def get_schemas():
-            if not getattr(self, '_schemas', None):
-                self.connect()
-                try:
-                    from .schemas import Schemas
-                    self._schemas = Schemas(self._sqlalchemy_metadata)
-                except ImportError:
-                    logger.warning('cannot import Schemas, perhaps sqlalchemy is not up to date')
-            return self._schemas
-        return LocalProxy(get_schemas)
