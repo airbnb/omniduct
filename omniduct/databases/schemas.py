@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import logging
 
 import pandas as pd
@@ -45,14 +46,45 @@ def get_columns(self, connection, table_name, schema=None, **kw):
 PrestoDialect.get_columns = get_columns
 
 
+class SchemasMixin(object):
+
+    @property
+    def schemas(self):
+        """
+        This object has as attributes the schemas on the current catalog. These
+        schema objects in turn have the tables as SQLAlchemy `Table` objects.
+        This allows tab completion and exploration of Databases.
+        """
+        from werkzeug import LocalProxy
+
+        def get_schemas():
+            if not getattr(self, '_schemas', None):
+                self.connect()
+                assert getattr(self, '_sqlalchemy_metadata', None) is not None, (
+                    "`{class_name}` instances do not provide the required sqlalchemy metadata "
+                    "for schema exploration.".format(self.__class__.__name__)
+                )
+                self._schemas = Schemas(self._sqlalchemy_metadata)
+            return self._schemas
+        return LocalProxy(get_schemas)
+
+
 # Extend Table to support returning pandas description of table
 class TableDesc(Table):
 
     def desc(self):
+        # TODO this SQL is not valid for all dialects
         return pd.read_sql('describe "{}"."{}"'.format(self.schema, self.name), self.bind)
 
     def head(self, n=10):
         return pd.read_sql('SELECT * FROM "{}"."{}" LIMIT {}'.format(self.schema, self.name, n), self.bind)
+
+    def __repr__(self):
+        df = pd.DataFrame()
+        for i, col in enumerate(self.columns):
+            df.loc[i, 'name'] = col.name
+            df.loc[i, 'type'] = col.type
+        return df.__repr__()
 
 
 # Define helpers to allow for table completion/etc

@@ -16,9 +16,10 @@ from omniduct.utils.debug import logger
 from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
+from .schemas import SchemasMixin
 
 
-class HiveServer2Client(DatabaseClient):
+class HiveServer2Client(DatabaseClient, SchemasMixin):
     """
     This Duct connects to an Apache HiveServer2 server instance using the
     `pyhive` or `impyla` libraries.
@@ -126,6 +127,7 @@ class HiveServer2Client(DatabaseClient):
         self.__hive = None
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
+        self._schemas = None
 
     def _execute(self, statement, cursor=None, async=False, poll_interval=1):
         """
