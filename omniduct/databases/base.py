@@ -10,6 +10,7 @@ from abc import abstractmethod
 import sqlparse
 from decorator import decorator
 from jinja2 import StrictUndefined, Template
+from concurrent.futures import ThreadPoolExecutor
 
 from . import cursor_formatters
 from omniduct.caches.base import cached_method
@@ -17,6 +18,7 @@ from omniduct.duct import Duct
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import MagicsProvider, process_line_arguments, process_line_cell_arguments
+
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -236,15 +238,35 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             The results of the query formatted as nominated.
         """
-        cursor = self.execute(statement, async=False, template=False, **kwargs)
+        async = kwargs.get('async', False)
+        cursor = self.execute(statement, template=False, **kwargs)
 
-        # Some DBAPI2 cursor implementations error if attempting to extract
-        # data from an empty cursor, and if so, we simply return None.
-        if self._cursor_empty(cursor):
-            return None
+        def finish(cursor):
+            if self._cursor_empty(cursor):
+                return None
+            # Some DBAPI2 cursor implementations error if attempting to extract
+            # data from an empty cursor, and if so, we simply return None.
+            formatter = self._get_formatter(format, cursor, **format_opts)
+            return formatter.dump()
 
-        formatter = self._get_formatter(format, cursor, **format_opts)
-        return formatter.dump()
+        if not async:
+            return finish(cursor)
+
+        from werkzeug.local import LocalProxy
+
+        class ResultProxy(LocalProxy):
+
+            def _get_future(self):
+                return super(ResultProxy, self)._get_current_object()
+
+            def _get_current_object(self):
+                future = self._get_future()
+                if not future.done():
+                    raise Exception('query is not yet done')
+                return future.result()
+
+        future = ThreadPoolExecutor(max_workers=1).submit(finish, cursor)
+        return ResultProxy(lambda: future)
 
     def stream(self, statement, format=None, format_opts={}, batch=None, **kwargs):
         """
