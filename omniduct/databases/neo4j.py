@@ -41,7 +41,7 @@ class Neo4jClient(DatabaseClient):
         self.__driver = None
 
     # Querying
-    def _execute(self, statement, cursor=None, async=False):
+    def _execute(self, statement, cursor=None, asynchronous=False):
         with self.__driver.session() as session:
             result = session.run(statement)
 

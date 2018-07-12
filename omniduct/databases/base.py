@@ -162,7 +162,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @render_statement
     @quirk_docs('_execute')
-    def execute(self, statement, cleanup=True, async=False, cursor=None, **kwargs):
+    def execute(self, statement, cleanup=True, asynchronous=False, cursor=None, **kwargs):
         """
         This method executes a given statement against the relevant database,
         returning the results as a standard DBAPI2 compatible cursor. Where
@@ -174,7 +174,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 (possibly templated).
             cleanup (bool): Whether statement should be cleaned up before
                 computing the hash used to cache results.
-            async (bool): Whether the cursor should be returned before the
+            asynchronous (bool): Whether the cursor should be returned before the
                 server-side query computation is complete and the relevant
                 results downloaded.
             cursor (DBAPI2 cursor):  Rather than creating a new cursor, execute
@@ -198,8 +198,8 @@ class DatabaseClient(Duct, MagicsProvider):
         assert len(statements) > 0, "No non-empty statements were provided."
 
         for statement in statements[:-1]:
-            cursor = self.connect()._execute(statement, cursor=cursor, async=False, **kwargs)
-        cursor = self.connect()._execute(statements[-1], cursor=cursor, async=async, **kwargs)
+            cursor = self.connect()._execute(statement, cursor=cursor, asynchronous=False, **kwargs)
+        cursor = self.connect()._execute(statements[-1], cursor=cursor, asynchronous=asynchronous, **kwargs)
 
         return cursor
 
@@ -236,7 +236,7 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             The results of the query formatted as nominated.
         """
-        cursor = self.execute(statement, async=False, template=False, **kwargs)
+        cursor = self.execute(statement, asynchronous=False, template=False, **kwargs)
 
         # Some DBAPI2 cursor implementations error if attempting to extract
         # data from an empty cursor, and if so, we simply return None.
@@ -268,7 +268,7 @@ class DatabaseClient(Duct, MagicsProvider):
             iterator: An iterator over objects of the nominated format or, if
                 batched, a list of such objects.
         """
-        cursor = self.execute(statement, async=False, **kwargs)
+        cursor = self.execute(statement, asynchronous=False, **kwargs)
         formatter = self._get_formatter(format, cursor, **format_opts)
 
         for row in formatter.stream(batch=batch):
@@ -510,7 +510,7 @@ class DatabaseClient(Duct, MagicsProvider):
     # Table properties
 
     @abstractmethod
-    def _execute(self, statement, cursor=None, async=False, **kwargs):
+    def _execute(self, statement, cursor=None, asynchronous=False, **kwargs):
         pass
 
     def _push(self, df, table, if_exists='fail', **kwargs):

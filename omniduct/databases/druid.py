@@ -39,7 +39,7 @@ class DruidClient(DatabaseClient):
         self.__druid = None
 
     # Querying
-    def _execute(self, statement, cursor=None, async=False):
+    def _execute(self, statement, cursor=None, asynchronous=False):
         cursor = cursor or self.__druid.cursor()
         cursor.execute(statement)
         return cursor
