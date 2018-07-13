@@ -2,6 +2,7 @@ language: python
 python:
   - "2.7"
   - "3.6"
+  # - "3.7"  # Not currently implemented in tox / travis
 
 before_install:
   - pip install pycodestyle wheel tox-travis

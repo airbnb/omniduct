@@ -140,7 +140,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         if self.driver == 'pyhive':
             from TCLIService.ttypes import TOperationState
-            cursor.execute(statement, async=True)
+            cursor.execute(statement, **{'async': True})
 
             if wait:
                 status = cursor.poll().operationState
