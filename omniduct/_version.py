@@ -24,6 +24,7 @@ __dependencies__ = [
     "jinja2",  # Templating support in databases
     "pandas>=0.17.1",  # Various results including database queries are returned as pandas dataframes
     "sqlparse",  # Neatening of SQL based queries (mainly to avoid missing the cache)
+    "sqlalchemy",  # Various integration endpoints in the database stack
 ]
 
 PY2 = sys.version_info[0] == 2
@@ -40,12 +41,7 @@ __optional_dependencies__ = {
 
     'presto': [
         'pyhive[presto]>=0.4',  # Primary client
-        'sqlalchemy',  # Schema traversal
         'werkzeug',  # Schema traversal
-    ],
-
-    'sqlalchemy': [
-        'sqlalchemy'  # Primary client
     ],
 
     'druid': [
