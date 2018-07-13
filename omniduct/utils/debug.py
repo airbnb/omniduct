@@ -112,26 +112,27 @@ class StatusLogger(object):
             return None
         return self.__scopes[-1]
 
-    def __get_progress_bar(self):
+    def __get_progress_bar(self, indeterminate=False):
         if self._progress_bar is None:
             if config.logging_level >= logging.INFO:
                 prefix = ": ".join(self.current_scopes) + ": "
             else:
                 prefix = "\t" * len(self.current_scopes)
-            self._progress_bar = progressbar.ProgressBar(widgets=[prefix, progressbar.widgets.Bar(), progressbar.widgets.Timer(format=' %(elapsed)s')],
+            self._progress_bar = progressbar.ProgressBar(widgets=[prefix,  progressbar.widgets.RotatingMarker() if indeterminate else progressbar.widgets.Bar(), progressbar.widgets.Timer(format=' %(elapsed)s')],
                                                          redirect_stderr=True,
-                                                         redirect_stdout=True).start()
+                                                         redirect_stdout=True,
+                                                         max_value=100).start()
 
         return self._progress_bar
 
-    def progress(self, progress, complete=False):
+    def progress(self, progress=None, complete=False, indeterminate=True):
         """
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
         """
         complete = complete or (self.current_scope_props is None)  # Only leave progress bar open if within a scope
         if config.logging_level <= logging.INFO:
-            self.__get_progress_bar().update(progress)
+            self.__get_progress_bar(indeterminate=indeterminate).update(progress)
             if complete:
                 self.__get_progress_bar().finish(end=None)
                 self._progress_bar = None
