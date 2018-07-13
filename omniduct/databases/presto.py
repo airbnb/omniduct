@@ -94,7 +94,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self._schemas = None
 
     # Querying
-    def _execute(self, statement, cursor=None, async=False):
+    def _execute(self, statement, cursor=None, wait=True):
         """
         If something goes wrong, `PrestoClient` will attempt to parse the error
         log and present the user with useful debugging information. If that fails,
@@ -105,7 +105,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             cursor = cursor or self.__presto.cursor()
             cursor.execute(statement)
             status = cursor.poll()
-            if not async:
+            if wait:
                 logger.progress(0)
                 # status None means command executed successfully
                 # See https://github.com/dropbox/PyHive/blob/master/pyhive/presto.py#L234

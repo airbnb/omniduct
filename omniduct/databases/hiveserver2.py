@@ -129,7 +129,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self._sqlalchemy_metadata = None
         self._schemas = None
 
-    def _execute(self, statement, cursor=None, async=False, poll_interval=1):
+    def _execute(self, statement, cursor=None, wait=True, poll_interval=1):
         """
         Additional Parameters:
             poll_interval (int): Default delay in seconds between consecutive
@@ -142,7 +142,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             from TCLIService.ttypes import TOperationState
             cursor.execute(statement, async=True)
 
-            if not async:
+            if wait:
                 status = cursor.poll().operationState
                 while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
                     log_offset = self._log_status(cursor, log_offset)
@@ -151,7 +151,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         elif self.driver == 'impyla':
             cursor.execute_async(statement)
-            if not async:
+            if wait:
                 while cursor.is_executing():
                     log_offset = self._log_status(cursor, log_offset)
                     time.sleep(poll_interval)
