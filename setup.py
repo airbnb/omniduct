@@ -8,6 +8,16 @@ version_info = {}
 with open('omniduct/_version.py') as version_file:
     exec(version_file.read(), version_info)
 
+# Extract long description from readme
+with open('README.md') as readme:
+    long_description = ""
+    while True:
+        line = readme.readline()
+        if line.startswith('`omniduct`'):
+            long_description = line
+            break
+    long_description += readme.read()
+
 setup(
     # Package metadata
     name="omniduct",
@@ -15,9 +25,14 @@ setup(
     author=version_info['__author__'],
     author_email=version_info['__author_email__'],
     url="https://github.com/airbnb/omniduct",
-    description="A toolkit providing a uniform interface for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc).",
+    description=(
+        "A toolkit providing a uniform interface for connecting to and "
+        "extracting data from a wide variety of (potentially remote) data "
+        "stores (including HDFS, Hive, Presto, MySQL, etc)."
+    ),
+    long_description=long_description,
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',

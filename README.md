@@ -1,7 +1,11 @@
 # Omniduct
+[![PyPI - Version](https://img.shields.io/pypi/v/omniduct.svg)](https://pypi.org/project/omniduct/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/omniduct.svg)
+![PyPI - Status](https://img.shields.io/pypi/status/omniduct.svg)
 [![Build Status](https://travis-ci.org/airbnb/omniduct.svg?branch=master)](https://travis-ci.org/airbnb/omniduct)
-[![Coverage Status](https://coveralls.io/repos/github/airbnb/omniduct/badge.svg?branch=master)](https://coveralls.io/github/airbnb/omniduct?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/omniduct/badge/?version=latest)](http://omniduct.readthedocs.io/en/latest/?badge=latest)
+[![Coverage Status](https://coveralls.io/repos/github/airbnb/omniduct/badge.svg?branch=master)](https://coveralls.io/github/airbnb/omniduct?branch=master)
+
 
 `omniduct` provides uniform interfaces for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc).
 
