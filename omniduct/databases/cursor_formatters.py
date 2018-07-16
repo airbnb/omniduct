@@ -1,9 +1,11 @@
 import csv
 import io
 import pickle
+from distutils.version import LooseVersion
 
 import pandas as pd
-from distutils.version import LooseVersion
+
+from omniduct.utils.debug import logger
 
 
 class CursorFormatter(object):

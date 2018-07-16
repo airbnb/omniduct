@@ -9,14 +9,17 @@ from abc import abstractmethod
 
 import sqlparse
 from decorator import decorator
+from IPython import get_ipython
 from jinja2 import StrictUndefined, Template
 
-from . import cursor_formatters
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.docs import quirk_docs
-from omniduct.utils.magics import MagicsProvider, process_line_arguments, process_line_cell_arguments
+from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
+                                   process_line_cell_arguments)
+
+from . import cursor_formatters
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -156,7 +159,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         if cleanup:
             statement = cls.statement_cleanup(statement)
-        if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(statement, unicode):
+        if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(statement, unicode):  # noqa: F821
             statement = statement.encode('utf8')
         return hashlib.sha256(statement).hexdigest()
 
@@ -654,12 +657,12 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_cell_magic("{}.{}".format(base_name, 'execute'))
         @process_line_cell_arguments
-        def query_magic(*args, **kwargs):
+        def execute_magic(*args, **kwargs):
             return statement_executor_magic('execute', *args, **kwargs)
 
         @register_line_cell_magic("{}.{}".format(base_name, 'stream'))
         @process_line_cell_arguments
-        def query_magic(*args, **kwargs):
+        def stream_magic(*args, **kwargs):
             return statement_executor_magic('stream', *args, **kwargs)
 
         @register_cell_magic("{}.{}".format(base_name, 'template'))

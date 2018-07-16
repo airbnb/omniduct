@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import json
-import logging
 import os
 import re
 import shutil
@@ -11,7 +10,6 @@ import time
 import pandas as pd
 from jinja2 import Template
 
-from omniduct.utils.config import config
 from omniduct.utils.debug import logger
 from omniduct.utils.processes import Timeout, run_in_subprocess
 
@@ -139,7 +137,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         log_offset = 0
 
         if self.driver == 'pyhive':
-            from TCLIService.ttypes import TOperationState
+            from TCLIService.ttypes import TOperationState  # noqa: F821
             cursor.execute(statement, **{'async': True})
 
             if wait:
@@ -166,6 +164,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return False
 
     def _cursor_wait(self, cursor, poll_interval=1):
+        from TCLIService.ttypes import TOperationState  # noqa: F821
         status = cursor.poll().operationState
         while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
             time.sleep(poll_interval)

@@ -2,10 +2,10 @@ import six
 import yaml
 
 from omniduct.duct import Duct
+from omniduct.errors import DuctProtocolUnknown
+from omniduct.utils.debug import logger
 from omniduct.utils.magics import MagicsProvider
 from omniduct.utils.proxies import NestedDictObjectProxy
-from omniduct.utils.debug import logger
-from omniduct.errors import DuctProtocolUnknown
 
 
 class DuctRegistry(object):

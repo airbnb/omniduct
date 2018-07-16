@@ -1,3 +1,5 @@
+# flake8: noqa
+
 from omniduct.duct import Duct
 from omniduct.registry import DuctRegistry
 from . import protocols

@@ -7,18 +7,19 @@ import tempfile
 from builtins import input
 from io import open
 
+import pandas as pd
+
+from omniduct.errors import DuctAuthenticationError
+from omniduct.filesystems.base import FileSystemFileDesc
+from omniduct.remotes.base import RemoteClient
+from omniduct.utils.debug import logger
+from omniduct.utils.processes import run_in_subprocess
+
 try:  # Python 3
     from shlex import quote as escape_path
 except ImportError:  # Python 2.7
     from pipes import quote as escape_path
 
-import pandas as pd
-
-from omniduct.filesystems.base import FileSystemFileDesc
-from omniduct.remotes.base import RemoteClient
-from omniduct.utils.debug import logger
-from omniduct.utils.processes import run_in_subprocess
-from omniduct.errors import DuctAuthenticationError
 
 SSH_ASKPASS = '{omniduct_dir}/utils/ssh_askpass'.format(omniduct_dir=os.path.dirname(__file__))
 SESSION_SSH_USERNAME = None

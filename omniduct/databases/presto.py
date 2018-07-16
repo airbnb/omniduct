@@ -9,9 +9,9 @@ import pandas.io.sql
 import six
 from future.utils import raise_with_traceback
 
+from omniduct._version import __version__
 from omniduct.utils.debug import logger
 
-from .._version import __version__
 from .base import DatabaseClient
 from .schemas import SchemasMixin
 

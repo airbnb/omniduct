@@ -1,8 +1,9 @@
 import io
 from abc import abstractmethod
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict, namedtuple
 
 import pandas as pd
+
 from omniduct.duct import Duct
 from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import MagicsProvider, process_line_arguments

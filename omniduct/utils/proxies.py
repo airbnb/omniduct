@@ -30,7 +30,6 @@ class NestedDictObjectProxy(ObjectProxy):
 
         def flat_to_nested(tree):
             out = {}
-            children = {}
             for k, v in tree.items():
                 add_nested(out, k, v)
             return out

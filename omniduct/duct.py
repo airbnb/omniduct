@@ -1,5 +1,4 @@
 import atexit
-import decorator
 import functools
 import getpass
 import inspect
@@ -11,14 +10,15 @@ from abc import ABCMeta, abstractmethod
 from builtins import input
 from enum import Enum
 
+import decorator
 import six
 from future.utils import raise_with_traceback, with_metaclass
 
-from omniduct.errors import DuctServerUnreachable, DuctProtocolUnknown
+from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.docs import quirk_docs
-from omniduct.utils.ports import naive_load_balancer, is_port_bound
+from omniduct.utils.ports import is_port_bound, naive_load_balancer
 
 
 class ProtocolRegisteringABCMeta(ABCMeta):

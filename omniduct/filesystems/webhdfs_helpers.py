@@ -2,11 +2,11 @@ import json
 import xml.dom.minidom
 
 import requests
+from six.moves import http_client
+
 from pywebhdfs import errors
 from pywebhdfs.webhdfs import (PyWebHdfsClient, _is_standby_exception,
                                _move_active_host_to_head)
-
-from six.moves import http_client
 
 
 class OmniductPyWebHdfsClient(PyWebHdfsClient):

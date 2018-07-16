@@ -6,8 +6,9 @@ import sys
 
 import six
 
-from ..utils.storage import ensure_path_exists
-from ..utils.debug import logger
+from omniduct.utils.debug import logger
+from omniduct.utils.storage import ensure_path_exists
+
 from .base import Cache
 
 
@@ -51,7 +52,7 @@ class LocalCache(Cache):
         Returns:
             str: The sha1 hash of the id_str.
         """
-        if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(id_str, unicode):
+        if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(id_str, unicode):  # noqa: F821
             id_str = id_str.encode('utf8')
         return hashlib.sha1(id_str).hexdigest()
 

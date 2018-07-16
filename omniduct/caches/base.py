@@ -8,9 +8,8 @@ from decorator import decorator
 
 from omniduct.duct import Duct
 from omniduct.utils.config import config
+from omniduct.utils.debug import logger
 from omniduct.utils.docs import quirk_docs
-
-from ..utils.debug import logger
 
 config.register('cache_fail_hard',
                 description='Raise exception if cache fails to save.',

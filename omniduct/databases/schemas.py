@@ -1,12 +1,11 @@
 from __future__ import absolute_import
-import logging
 
 import pandas as pd
-from sqlalchemy import (ARRAY, Boolean, Column, Float, Integer, MetaData,
-                        String, Table, inspect, types)
+import sqlalchemy
+from sqlalchemy import Table
+from sqlalchemy import types as sql_types
 
 from omniduct.utils.debug import logger
-
 
 try:
     from pyhive.sqlalchemy_presto import PrestoDialect
@@ -14,15 +13,15 @@ try:
     def get_columns(self, connection, table_name, schema=None, **kw):
         # Extend types supported by PrestoDialect as defined in PyHive
         type_map = {
-            'bigint': types.BigInteger,
-            'integer': types.Integer,
-            'boolean': types.Boolean,
-            'double': types.Float,
-            'varchar': types.String,
-            'timestamp': types.TIMESTAMP,
-            'date': types.DATE,
-            'array<bigint>': ARRAY(Integer),
-            'array<varchar>': ARRAY(String)
+            'bigint': sql_types.BigInteger,
+            'integer': sql_types.Integer,
+            'boolean': sql_types.Boolean,
+            'double': sql_types.Float,
+            'varchar': sql_types.String,
+            'timestamp': sql_types.TIMESTAMP,
+            'date': sql_types.DATE,
+            'array<bigint>': sql_types.ARRAY(sql_types.Integer),
+            'array<varchar>': sql_types.ARRAY(sql_types.String)
         }
 
         rows = self._get_table_columns(connection, table_name, schema)
@@ -32,7 +31,7 @@ try:
                 coltype = type_map[row.Type]
             except KeyError:
                 logger.warn("Did not recognize type '%s' of column '%s'" % (row.Type, row.Column))
-                coltype = types.NullType
+                coltype = sql_types.NullType
             result.append({
                 'name': row.Column,
                 'type': coltype,
@@ -93,7 +92,7 @@ class Schemas(object):
 
     def __init__(self, metadata):
         self._metadata = metadata
-        self._schema_names = inspect(self._metadata.bind).get_schema_names()
+        self._schema_names = sqlalchemy.inspect(self._metadata.bind).get_schema_names()
         self._schema_cache = {}
 
     def __dir__(self):
@@ -125,7 +124,7 @@ class Schema(object):
     def __init__(self, metadata, schema):
         self._metadata = metadata
         self._schema = schema
-        self._table_names = inspect(self._metadata.bind).get_table_names(schema)
+        self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(schema)
         self._table_cache = {}
 
     def __dir__(self):
