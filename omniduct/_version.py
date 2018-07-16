@@ -33,6 +33,10 @@ if os.name == 'posix' and PY2:
 
 __optional_dependencies__ = {
     # Databases
+    'druid': [
+        'pydruid>=0.4.0',  # Primary client
+    ],
+
     'hiveserver2': [
         'pyhive[hive]>=0.4',  # Primary client
         'impyla>=0.14.0',  # Primary client
@@ -44,8 +48,8 @@ __optional_dependencies__ = {
         'werkzeug',  # Schema traversal
     ],
 
-    'druid': [
-        'pydruid>=0.4.0',  # Primary client
+    'pyspark': [
+        'pyspark',  # Primary client
     ],
 
     # Filesystems
