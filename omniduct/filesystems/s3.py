@@ -179,7 +179,7 @@ class S3Client(FileSystemClient):
         body = obj.get()['Body'].read()
 
         if not binary:
-            body = body.decode()
+            body = body.decode('utf-8')
 
         return body
 

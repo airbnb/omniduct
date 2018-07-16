@@ -55,7 +55,7 @@ class RestClientBase(Duct):
     def request_json(self, endpoint, method='get', **kwargs):
         request = self.request(endpoint, method=method, **kwargs)
         if not request.status_code == 200:
-            raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode()))
+            raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
         return request.json()
 
     def _connect(self):

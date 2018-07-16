@@ -1,6 +1,7 @@
 import datetime
 import errno
 import os
+from io import open
 
 from .base import FileSystemClient, FileSystemFileDesc
 
@@ -96,4 +97,4 @@ class LocalFsClient(FileSystemClient):
     # File opening
 
     def _open(self, path, mode):
-        return open(path, mode=mode)
+        return open(path, mode=mode, encoding=None if 'b' in mode else 'utf-8')

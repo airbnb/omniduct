@@ -87,7 +87,7 @@ class ParamikoSSHClient(RemoteClient):
     # Path properties and helpers
 
     def _path_home(self):
-        return self.execute('echo ~', skip_cwd=True).stdout.decode().strip()
+        return self.execute('echo ~', skip_cwd=True).stdout.decode('utf-8').strip()
 
     def _path_separator(self):
         return '/'

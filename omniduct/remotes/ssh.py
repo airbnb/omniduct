@@ -5,6 +5,7 @@ import posixpath
 import re
 import tempfile
 from builtins import input
+from io import open
 
 try:  # Python 3
     from shlex import quote as escape_path
@@ -228,7 +229,7 @@ class SSHClient(RemoteClient):
     # Path properties and helpers
 
     def _path_home(self):
-        return self.execute('echo ~', skip_cwd=True).stdout.decode().strip()
+        return self.execute('echo ~', skip_cwd=True).stdout.decode('utf-8').strip()
 
     def _path_separator(self):
         return '/'
@@ -248,7 +249,7 @@ class SSHClient(RemoteClient):
 
     def _dir(self, path):
         # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
-        dir = pd.DataFrame(sorted([re.split(r'\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode().strip().split('\n')[1:]]),
+        dir = pd.DataFrame(sorted([re.split(r'\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode('utf-8').strip().split('\n')[1:]]),
                            columns=['file_mode', 'link_count', 'owner', 'group', 'bytes', 'month', 'day', 'time', 'path'])
 
         def convert_to_datetime(x):
@@ -296,7 +297,7 @@ class SSHClient(RemoteClient):
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         read = self.execute('cat {}'.format(path)).stdout
         if not binary:
-            read = read.decode()
+            read = read.decode('utf-8')
         return read
 
     def _file_append_(self, path, s, binary):
@@ -309,10 +310,10 @@ class SSHClient(RemoteClient):
             fd, tmp_path = tempfile.mkstemp(text=True)
         os.close(fd)
 
-        with open(tmp_path, 'w' + ('b' if binary else '')) as f:
+        with open(tmp_path, 'w' + ('b' if binary else ''), encoding=None if binary else 'utf-8') as f:
             f.write(s)
 
-        return self._copy_from_local(tmp_path, path, overwrite=True)
+        return self.upload(tmp_path, path, overwrite=True)
 
     # File transfer
 
@@ -440,6 +441,6 @@ class SSHClient(RemoteClient):
         if proc.returncode != 0:
             raise RuntimeError(
                 "Could not update host keys! Please handle this manually. The "
-                "error was:\n" + '\n'.join([proc.stdout.decode(), proc.stderr.decode()])
+                "error was:\n" + '\n'.join([proc.stdout.decode('utf-8'), proc.stderr.decode('utf-8')])
             )
         return proc.returncode == 0

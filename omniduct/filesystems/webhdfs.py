@@ -138,7 +138,7 @@ class WebHdfsClient(FileSystemClient):
 
         read = self.__webhdfs.read_file(path, offset=offset, length='null' if size < 0 else size)
         if not binary:
-            read = read.decode()
+            read = read.decode('utf-8')
         return read
 
     def _file_append_(self, path, s, binary):
