@@ -5,7 +5,7 @@ python:
   # - "3.7"  # Not currently implemented in tox / travis
 
 before_install:
-  - pip install pycodestyle wheel tox-travis
+  - pip install flake8 wheel tox-travis
 
 install:
   - pip install ".[all]"

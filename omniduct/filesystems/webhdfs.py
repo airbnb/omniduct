@@ -5,6 +5,12 @@ from functools import partial
 from .base import FileSystemClient, FileSystemFileDesc
 from .local import LocalFsClient
 
+# Python 2 compatibility imports
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
 
 class WebHdfsClient(FileSystemClient):
     """

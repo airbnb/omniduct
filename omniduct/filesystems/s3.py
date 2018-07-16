@@ -1,5 +1,11 @@
 from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
 
+# Python 2 compatibility imports
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
 
 class S3Client(FileSystemClient):
     """

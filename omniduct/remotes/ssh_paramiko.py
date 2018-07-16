@@ -9,10 +9,16 @@ from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
 from omniduct.utils.processes import SubprocessResults
 
+# Python 2 compatibility imports
 try:
     import SocketServer
 except ImportError:
     import socketserver as SocketServer
+
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
 
 __all__ = ['ParamikoSSHClient']
 

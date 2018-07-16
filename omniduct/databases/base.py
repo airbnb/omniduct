@@ -9,7 +9,6 @@ from abc import abstractmethod
 
 import sqlparse
 from decorator import decorator
-from IPython import get_ipython
 from jinja2 import StrictUndefined, Template
 
 from omniduct.caches.base import cached_method
@@ -608,6 +607,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
         Documentation for these magics is provided online.
         """
+        from IPython import get_ipython
         from IPython.core.magic import register_line_magic, register_cell_magic, register_line_cell_magic
 
         def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, context=None, **kwargs):
