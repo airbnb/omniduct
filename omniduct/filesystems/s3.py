@@ -180,11 +180,18 @@ class S3Client(FileSystemClient):
 
         if not binary:
             body = body.decode('utf-8')
-
+        if offset > 0:
+            body = body[offset:]
+        if size >= 0:
+            body = body[:size]
         return body
 
     def _file_append_(self, path, s, binary):
-        raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
+        raise NotImplementedError("Support for S3 append operation has yet to be implemented.")
 
     def _file_write_(self, path, s, binary):
-        raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
+        obj = self._resource.Object(self.bucket, path)
+        if not binary:
+            s = s.encode('utf-8')
+        obj.put(Body=s)
+        return True
