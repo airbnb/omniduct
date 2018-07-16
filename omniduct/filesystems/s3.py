@@ -1,7 +1,4 @@
-import re
-
-from .base import FileSystemClient, FileSystemFileDesc
-from ..utils.debug import logger
+from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
 
 
 class S3Client(FileSystemClient):
@@ -20,7 +17,7 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
-    def _init(self, bucket=None, aws_profile='default', path_separator='/'):
+    def _init(self, bucket=None, aws_profile='default', path_separator='/', skip_hadoop_artifacts=True):
         """
         bucket (str): The name of the Amazon S3 bucket to use.
         aws_profile (str): The name of configured AWS profile to use. This should
@@ -31,6 +28,8 @@ class S3Client(FileSystemClient):
             system, and so one is free to choose an arbitrary "directory"
             separator. This defaults to '/' for consistency with other
             filesystems.
+        skip_hadoop_artifacts (bool): Whether to skip hadoop artifacts like
+            '*_$folder$' when enumerating directories (default=True).
 
         Note: aws_profile, if specified, should be the name of a profile as
         specified in ~/.aws/credentials. Authentication is handled by the
@@ -40,6 +39,7 @@ class S3Client(FileSystemClient):
         assert bucket is not None, 'S3 Bucket must be specified using the `bucket` kwarg.'
         self.bucket = bucket
         self.aws_profile = aws_profile
+        self.skip_hadoop_artifacts = skip_hadoop_artifacts
         self.__path_separator = path_separator
         self._client = None
 
@@ -141,13 +141,15 @@ class S3Client(FileSystemClient):
                     type='directory',
                 )
             for prefix in response_data.get('Contents', []):
+                if self.skip_hadoop_artifacts and prefix['Key'].endswith('_$folder$'):
+                    continue
                 yield FileSystemFileDesc(
                     fs=self,
                     path=prefix['Key'],
                     name=prefix['Key'].split(self.path_separator)[-1],
                     type='file',
                     bytes=prefix['Size'],
-                    owner=prefix['Owner']['DisplayName'],
+                    owner=prefix['Owner']['DisplayName'] if 'Owner' in prefix else None,
                     last_modified=prefix['LastModified']
                 )
 
