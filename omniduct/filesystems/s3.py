@@ -1,3 +1,4 @@
+import logging
 from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
 
 # Python 2 compatibility imports
@@ -23,7 +24,8 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
-    def _init(self, bucket=None, aws_profile=None, path_separator='/', skip_hadoop_artifacts=True):
+    def _init(self, bucket=None, aws_profile=None, path_separator='/',
+              use_opinel=False, skip_hadoop_artifacts=True):
         """
         bucket (str): The name of the Amazon S3 bucket to use.
         aws_profile (str): The name of configured AWS profile to use. This should
@@ -34,6 +36,10 @@ class S3Client(FileSystemClient):
             system, and so one is free to choose an arbitrary "directory"
             separator. This defaults to '/' for consistency with other
             filesystems.
+        use_opinel (bool): Use Opinel to extract AWS credentials. This is mainly
+            useful if you have used opinel to set up MFA. Note: Opinel must be
+            installed manually alongside omniduct to take advantage of this
+            feature.
         skip_hadoop_artifacts (bool): Whether to skip hadoop artifacts like
             '*_$folder$' when enumerating directories (default=True).
 
@@ -45,6 +51,7 @@ class S3Client(FileSystemClient):
         assert bucket is not None, 'S3 Bucket must be specified using the `bucket` kwarg.'
         self.bucket = bucket
         self.aws_profile = aws_profile
+        self.use_opinel = use_opinel
         self.skip_hadoop_artifacts = skip_hadoop_artifacts
         self.__path_separator = path_separator
         self._client = None
@@ -55,19 +62,27 @@ class S3Client(FileSystemClient):
             boto3.Session(profile_name=self.aws_profile).region_name
         )
 
+        # Mask logging from botocore's vendored libraries
+        logging.getLogger('botocore.vendored').setLevel(100)
+
     def _connect(self):
-        from opinel.utils.credentials import read_creds
-
-        # Refresh access token, and attach credentials to current object for debugging
-        self._credentials = read_creds(self.aws_profile)
-
         import boto3
-        session = boto3.Session(
-            aws_access_key_id=self._credentials['AccessKeyId'],
-            aws_secret_access_key=self._credentials['SecretAccessKey'],
-            aws_session_token=self._credentials['SessionToken'],
-            profile_name=self.aws_profile,
-        )
+
+        if self.use_opinel:
+            from opinel.utils.credentials import read_creds
+
+            # Refresh access token, and attach credentials to current object for debugging
+            self._credentials = read_creds(self.aws_profile)
+
+            session = boto3.Session(
+                aws_access_key_id=self._credentials['AccessKeyId'],
+                aws_secret_access_key=self._credentials['SecretAccessKey'],
+                aws_session_token=self._credentials['SessionToken'],
+                profile_name=self.aws_profile,
+            )
+        else:
+            session = boto3.Session(profile_name=self.aws_profile)
+
         self._session = session
         self._client = session.client('s3')
         self._resource = session.resource('s3')

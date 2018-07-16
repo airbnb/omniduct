@@ -55,7 +55,6 @@ __optional_dependencies__ = {
     ],
 
     's3': [
-        'opinel',  # AWS credential management
         'boto3',  # AWS client library
     ],
 
