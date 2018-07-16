@@ -41,16 +41,13 @@ class S3Client(FileSystemClient):
         self.bucket = bucket
         self.aws_profile = aws_profile
         self.__path_separator = path_separator
+        self._client = None
 
-        self._setup_session()  # Ensure self.host is updated with correct AWS region
-
-    def _setup_session(self):
+        # Ensure self.host is updated with correct AWS region
         import boto3
-        s = boto3.Session(profile_name=self.aws_profile)
-        self._session = s
-        self._client = s.client('s3')
-        self._resource = s.resource('s3')
-        self.host = 'autoscaling.{}.amazonaws.com'.format(self._client.meta.region_name)
+        self.host = 'autoscaling.{}.amazonaws.com'.format(
+            boto3.Session(profile_name=self.aws_profile).region_name
+        )
 
     def _connect(self):
         from opinel.utils.credentials import read_creds
@@ -58,10 +55,20 @@ class S3Client(FileSystemClient):
         # Refresh access token, and attach credentials to current object for debugging
         self._credentials = read_creds(self.aws_profile)
 
-        # Update AWS session, client and resource objects
-        self._setup_session()
+        import boto3
+        session = boto3.Session(
+            aws_access_key_id=self._credentials['AccessKeyId'],
+            aws_secret_access_key=self._credentials['SecretAccessKey'],
+            aws_session_token=self._credentials['SessionToken'],
+            profile_name=self.aws_profile,
+        )
+        self._session = session
+        self._client = session.client('s3')
+        self._resource = session.resource('s3')
 
     def _is_connected(self):
+        if self._client is None:
+            return False
         # Check if still able to perform requests against AWS
         import botocore
         try:
@@ -144,7 +151,7 @@ class S3Client(FileSystemClient):
                     last_modified=prefix['LastModified']
                 )
 
-    # TODO: Interestingly, directly using Amazon S3 methods seems slower than generic approach. Hypothesis: keys is not async.
+    # TODO: Interestingly, directly using Amazon S3 methods seems slower than generic approach. Hypothesis: keys is not asynchronous.
     # def _find(self, path_prefix, **attrs):
     #     if len(set(attrs).difference(('name',))) > 0 or hasattr(attrs.get('name'), '__call__'):
     #         logger.warning('Falling back to recursive search, rather than using S3, since find requires filters on more than just name.')
