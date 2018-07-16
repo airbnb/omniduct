@@ -529,7 +529,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 copied into destination folder, and will throw an error if path
                 does not resolve to a directory.
             dest (str): The destination path on filesystem (`fs`). If not
-                specified, the file/folder is uploaded into the default path,
+                specified, the file/folder is downloaded into the default path,
                 usually one's home folder. If `dest` ends with '/',
                 and corresponds to a directory, the contents of source will be
                 copied instead of copying the entire folder. If `dest` is
