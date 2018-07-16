@@ -1,3 +1,4 @@
+import importlib
 import re
 
 import pkg_resources
@@ -15,17 +16,29 @@ def check_dependencies(protocols, message=None):
         dependencies.extend(__optional_dependencies__.get(protocol, []))
     missing_deps = []
     warning_deps = {}
+
     for dep in dependencies:
+        m = re.match('^[a-z_][a-z0-9]*', dep)
+        if not m:
+            logger.warning('Invalid dependency requested: {}'.format(dep))
+
+        package_name = m.group(0)
+        accept_any_version = package_name == dep
+
         try:
             pkg_resources.get_distribution(dep)
         except VersionConflict:
-            m = re.match('^[a-z_][a-z0-9]*', dep)
-            if m:
-                warning_deps[dep] = "{}=={}".format(m.group(0), pkg_resources.get_distribution(m.group(0)).version)
-            else:
-                logger.warning("Could not find distribution for '{}'.".format(m.group(0)))
+            warning_deps[dep] = "{}=={}".format(package_name, pkg_resources.get_distribution(m.group(0)).version)
         except:
-            missing_deps.append(dep)
+            # Some packages may be available, but not installed. If so, we
+            # should accept them with warnings (if version specified in dep).
+            try:
+                importlib.import_module(package_name)
+                if not accept_any_version:
+                    warning_deps.append('{}==<not installed>'.format(package_name))
+            except:  # ImportError in python 2, ModuleNotFoundError in Python 3
+                missing_deps.append(dep)
+
     if warning_deps:
         message = "You may have some outdated packages:\n"
         for key in sorted(warning_deps):
