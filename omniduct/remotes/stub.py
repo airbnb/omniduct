@@ -1,4 +1,4 @@
-from .base import RemoteClient
+from omniduct.remotes.base import RemoteClient
 
 
 class StubFsClient(RemoteClient):

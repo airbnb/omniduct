@@ -1,4 +1,4 @@
-from .base import DatabaseClient
+from omniduct.databases.base import DatabaseClient
 
 
 class StubDatabaseClient(DatabaseClient):

@@ -1,4 +1,4 @@
-from .base import FileSystemClient
+from omniduct.filesystems.base import FileSystemClient
 
 
 class StubFsClient(FileSystemClient):
