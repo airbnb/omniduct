@@ -2,7 +2,7 @@ from omniduct.databases.base import DatabaseClient
 from omniduct.databases.hiveserver2 import HiveServer2Client
 
 
-class PySparkDatabaseClient(DatabaseClient):
+class PySparkClient(DatabaseClient):
 
     PROTOCOLS = ['pyspark']
     DEFAULT_PORT = None
