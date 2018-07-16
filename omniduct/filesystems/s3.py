@@ -23,7 +23,7 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
-    def _init(self, bucket=None, aws_profile='default', path_separator='/', skip_hadoop_artifacts=True):
+    def _init(self, bucket=None, aws_profile=None, path_separator='/', skip_hadoop_artifacts=True):
         """
         bucket (str): The name of the Amazon S3 bucket to use.
         aws_profile (str): The name of configured AWS profile to use. This should
