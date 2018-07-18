@@ -124,7 +124,7 @@ class StatusLogger(object):
 
         return self._progress_bar
 
-    def progress(self, progress=None, complete=False, indeterminate=True):
+    def progress(self, progress=None, complete=False, indeterminate=False):
         """
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
