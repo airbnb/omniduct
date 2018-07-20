@@ -188,3 +188,10 @@ class HiveCursorFormatter(CsvCursorFormatter):
     # Convert null values to '\N'.
     def prepare_row(self, row):
         return [r'\N' if v is None else str(v).replace('\t', r'\t') for v in row]
+
+
+class SingletonCursorFormatter(RawCursorFormatter):
+
+    def format_dump(self, data):
+        assert len(data) == 1, 'singleton cursor formatter expects data of length 1'
+        return data[0]
