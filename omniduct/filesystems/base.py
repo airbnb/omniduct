@@ -729,6 +729,10 @@ class FileSystemFile(object):
     def isatty(self):
         return self.__io_buffer.isatty()
 
+    @property
+    def newlines(self):
+        return '\n'  # TODO: Support non-Unix newlines?
+
     def read(self, size=-1):
         if not self.readable:
             raise io.UnsupportedOperation("File not open for reading.")
@@ -760,7 +764,11 @@ class FileSystemFile(object):
         return self
 
     def __next__(self):
-        return self.readline()
+        line = self.readline()
+        if line:
+            return line
+        else:
+            raise StopIteration
 
     next = __next__  # Python 2
 
