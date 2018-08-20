@@ -31,7 +31,7 @@ class SubprocessResults(object):
             setattr(self, key, value)
 
 
-def run_in_subprocess(cmd, check_output=False, ** kwargs):
+def run_in_subprocess(cmd, check_output=False, **kwargs):
     """
     Execute command using default subprocess configuration.
 

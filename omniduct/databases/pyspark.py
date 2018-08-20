@@ -7,6 +7,9 @@ class PySparkClient(DatabaseClient):
     PROTOCOLS = ['pyspark']
     DEFAULT_PORT = None
     SUPPORTS_SESSION_PROPERTIES = True
+    NAMESPACE_NAMES = ['schema', 'table']
+    NAMESPACE_QUOTECHAR = '`'
+    NAMESPACE_SEPARATOR = '.'
 
     def _init(self, app_name='omniduct', config=None, master=None, enable_hive_support=False):
         """
@@ -62,8 +65,8 @@ class PySparkClient(DatabaseClient):
         assert wait is True, "This Spark backend does not support asynchronous operations."
         return SparkCursor(self._spark_session.sql(statement))
 
-    def _table_list(self, **kwargs):
-        return HiveServer2Client._table_list(self, **kwargs)
+    def _table_list(self, namespace, **kwargs):
+        return HiveServer2Client._table_list(self, namespace, **kwargs)
 
     def _table_exists(self, table, **kwargs):
         return HiveServer2Client._table_exists(self, table, **kwargs)

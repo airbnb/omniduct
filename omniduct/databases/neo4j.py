@@ -50,7 +50,7 @@ class Neo4jClient(DatabaseClient):
         result.fetchall = result.records
         return result
 
-    def _table_exists(self, table, schema=None):
+    def _table_exists(self, table, **kwargs):
         raise Exception('tables do not apply to the Neo4J graph database')
 
     def _table_desc(self, table, **kwargs):
@@ -59,7 +59,7 @@ class Neo4jClient(DatabaseClient):
     def _table_head(self, table, n=10, **kwargs):
         raise Exception('tables do not apply to the Neo4J graph database')
 
-    def _table_list(self, table, schema=None):
+    def _table_list(self, namespace, **kwargs):
         raise Exception('tables do not apply to the Neo4J graph database')
 
     def _table_props(self, table, **kwargs):

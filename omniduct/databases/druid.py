@@ -12,6 +12,9 @@ class DruidClient(DatabaseClient):
 
     PROTOCOLS = ['druid']
     DEFAULT_PORT = 80
+    NAMESPACE_NAMES = ['table']
+    NAMESPACE_QUOTECHAR = '"'
+    NAMESPACE_SEPARATOR = '.'
 
     def _init(self):
         self.__druid = None
@@ -39,17 +42,24 @@ class DruidClient(DatabaseClient):
         self.__druid = None
 
     # Querying
-    def _execute(self, statement, cursor=None, wait=True):
+    def _execute(self, statement, cursor, wait, session_properties):
         cursor = cursor or self.__druid.cursor()
         cursor.execute(statement)
         return cursor
 
-    def _table_list(self, schema=None, like=None, **kwargs):
+    def _table_list(self, namespace, like=None, **kwargs):
         cmd = "SELECT * FROM INFORMATION_SCHEMA.TABLES"
         return self.query(cmd, **kwargs)
 
-    def _table_exists(self, table, schema=None):
-        return (self.table_list(renew=True, schema=schema)['TABLE_NAME'] == table).any()
+    def _table_exists(self, table, **kwargs):
+        logger.disabled = True
+        try:
+            self.table_desc(table, **kwargs)
+            return True
+        except:
+            return False
+        finally:
+            logger.disabled = False
 
     def _table_desc(self, table, **kwargs):
         query = ("""

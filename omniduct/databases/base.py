@@ -19,6 +19,7 @@ from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
                                    process_line_cell_arguments)
 
 from . import _cursor_formatters
+from ._namespaces import ParsedNamespaces
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -72,6 +73,9 @@ class DatabaseClient(Duct, MagicsProvider):
     }
     DEFAULT_CURSOR_FORMATTER = 'pandas'
     SUPPORTS_SESSION_PROPERTIES = False
+    NAMESPACE_NAMES = ['database', 'table']
+    NAMESPACE_QUOTECHAR = '"'
+    NAMESPACE_SEPARATOR = '.'
 
     @quirk_docs('_init', mro=True)
     def __init__(self, session_properties=None, templates=None, template_context=None, **kwargs):
@@ -573,7 +577,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 `QueryClient._push`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
-        self.connect()._push(df, table, if_exists=if_exists, **kwargs)
+        self.connect()._push(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
 
     # Table properties
 
@@ -587,63 +591,74 @@ class DatabaseClient(Duct, MagicsProvider):
     def _cursor_empty(self, cursor):
         return False
 
+    def _parse_namespaces(self, name, level=0):
+        return ParsedNamespaces.from_name(
+            name,
+            self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
+            quote_char=self.NAMESPACE_QUOTECHAR,
+            separator=self.NAMESPACE_SEPARATOR
+        )
+
     @quirk_docs('_table_list')
-    def table_list(self, **kwargs):
+    def table_list(self, namespace=None, renew=True, **kwargs):
         """
         Return a list of table names in the data source as a DataFrame. Additional kwargs are
         passed to `QueryClient._table_list`.
+
+        Parameters:
+            namespace (str): The namespace in which to look for tables.
         """
-        return self._table_list(**kwargs)
+        return self._table_list(self._parse_namespaces(namespace, level=1), renew=renew, **kwargs)
 
     @abstractmethod
-    def _table_list(self, **kwargs):
+    def _table_list(self, namespace, **kwargs):
         pass
 
     @quirk_docs('_table_exists')
-    def table_exists(self, table, **kwargs):
+    def table_exists(self, table, renew=True, **kwargs):
         """
         Return boolean if table exists in schema
         """
-        return self._table_exists(table=table, **kwargs)
+        return self._table_exists(table=self._parse_namespaces(table), renew=renew, **kwargs)
 
     @abstractmethod
     def _table_exists(self, table, **kwargs):
         pass
 
     @quirk_docs('_table_desc')
-    def table_desc(self, table, **kwargs):
+    def table_desc(self, table, renew=True, **kwargs):
         """
         Describe a table in the data source. Additional kwargs are
         passed to `QueryClient._table_desc`.
 
         Returns a pandas dataframe of table fields and descriptors.
         """
-        return self._table_desc(table, **kwargs)
+        return self._table_desc(table=self._parse_namespaces(table), renew=renew, **kwargs)
 
     @abstractmethod
     def _table_desc(self, table, **kwargs):
         pass
 
     @quirk_docs('_table_head')
-    def table_head(self, table, n=10, **kwargs):
+    def table_head(self, table, n=10, renew=True, **kwargs):
         """
         Show a sample of the data in `table` of the data source. `n` is the number of records
         to show in this sample. The additional `kwargs` are passed on to `QueryClient._table_head`.
 
         Returns a pandas DataFrame.
         """
-        return self._table_head(table, n=n, **kwargs)
+        return self._table_head(table=self._parse_namespaces(table), n=n, renew=renew, **kwargs)
 
     @abstractmethod
     def _table_head(self, table, n=10, **kwargs):
         pass
 
     @quirk_docs('_table_props')
-    def table_props(self, table, **kwargs):
+    def table_props(self, table, renew=True, **kwargs):
         """
         Return a dataframe of table properties for `table`.
         """
-        return self._table_props(table, **kwargs)
+        return self._table_props(table=self._parse_namespaces(table), renew=renew, **kwargs)
 
     @abstractmethod
     def _table_props(self, table, **kwargs):

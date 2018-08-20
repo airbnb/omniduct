@@ -35,6 +35,9 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     PROTOCOLS = ['presto']
     DEFAULT_PORT = 3506
     SUPPORTS_SESSION_PROPERTIES = True
+    NAMESPACE_NAMES = ['catalog', 'schema', 'table']
+    NAMESPACE_QUOTECHAR = '"'
+    NAMESPACE_SEPARATOR = '.'
 
     def _init(self, catalog='default', schema='default', server_protocol='http', source=None):
         """
@@ -162,16 +165,25 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     def _cursor_empty(self, cursor):
         return False
 
-    def _table_list(self, schema=None, like=None, **kwargs):
+    def _table_list(self, namespace, like=None, **kwargs):
         cmd = "SHOW TABLES "
-        if schema is not None:
-            cmd = cmd + " FROM " + schema
+        if namespace:
+            cmd = cmd + " FROM " + namespace.name
         if like is not None:
             cmd = cmd + " LIKE " + like + "'"
         return self.query(cmd, **kwargs)
 
-    def _table_exists(self, table, schema=None):
-        return (self.table_list(renew=True, schema=schema)['Table'] == table).any()
+    def _table_exists(self, table, **kwargs):
+        from pyhive.exc import DatabaseError
+
+        logger.disabled = True
+        try:
+            self.table_desc(table, **kwargs)
+            return True
+        except DatabaseError:
+            return False
+        finally:
+            logger.disabled = False
 
     def _table_desc(self, table, **kwargs):
         return self.query("DESCRIBE {0}".format(table), **kwargs)

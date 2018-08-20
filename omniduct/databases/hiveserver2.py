@@ -46,6 +46,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
     SUPPORTS_SESSION_PROPERTIES = True
+    NAMESPACE_NAMES = ['schema', 'table']
+    NAMESPACE_QUOTECHAR = '`'
+    NAMESPACE_SEPARATOR = '.'
 
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
               push_using_hive_cli=False, default_table_props=None, **connection_options):
@@ -347,13 +350,20 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             partition="into {} of ".format(partition_clause) if partition_clause else ""
         ))
 
-    def _table_list(self, schema=None, like='*', **kwargs):
-        schema = schema or self.schema or 'default'
+    def _table_list(self, namespace, like='*', **kwargs):
+        schema = namespace.name or self.schema or 'default'
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
 
-    def _table_exists(self, table, schema=None):
-        return (self.table_list(renew=True, schema=schema)['tab_name'] == table).any()
+    def _table_exists(self, table, **kwargs):
+        logger.disabled = True
+        try:
+            self.table_desc(table, **kwargs)
+            return True
+        except:
+            return False
+        finally:
+            logger.disabled = False
 
     def _table_desc(self, table, **kwargs):
         records = self.query("DESCRIBE {0}".format(table), **kwargs)
@@ -376,7 +386,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
     def _table_props(self, table, **kwargs):
-        return self.query('SHOW TBLPROPERTIES `{0}`'.format(table), **kwargs)
+        return self.query('SHOW TBLPROPERTIES {0}'.format(table), **kwargs)
 
     def _run_in_hivecli(self, cmd):
         """Run a query using hive cli in a subprocess."""

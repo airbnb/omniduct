@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from omniduct.utils.debug import logger
+
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
 
@@ -7,6 +9,9 @@ from ._schemas import SchemasMixin
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase']
+    NAMESPACE_NAMES = ['database', 'table']
+    NAMESPACE_QUOTECHAR = '"'  # TODO: Apply overrides depending on protocol?
+    NAMESPACE_SEPARATOR = '.'
 
     def _init(self, dialect=None, driver=None, database=''):
 
@@ -63,8 +68,15 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _table_list(self, **kwargs):
         return self.query("SHOW TABLES", **kwargs)
 
-    def _table_exists(self, table, schema=None):
-        return (self.table_list(renew=True, schema=schema)['Table'] == table).any()
+    def _table_exists(self, table, **kwargs):
+        logger.disabled = True
+        try:
+            self.table_desc(table, **kwargs)
+            return True
+        except:
+            return False
+        finally:
+            logger.disabled = False
 
     def _table_desc(self, table, **kwargs):
         return self.query("DESCRIBE {0}".format(table), **kwargs)
