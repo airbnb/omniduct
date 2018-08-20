@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from .base import DatabaseClient
-from .schemas import SchemasMixin
+from ._schemas import SchemasMixin
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):

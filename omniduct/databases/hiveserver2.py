@@ -14,7 +14,7 @@ from omniduct.utils.debug import logger
 from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
-from .schemas import SchemasMixin
+from ._schemas import SchemasMixin
 
 
 class HiveServer2Client(DatabaseClient, SchemasMixin):

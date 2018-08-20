@@ -43,7 +43,7 @@ class WebHdfsClient(FileSystemClient):
         self.namenodes = namenodes
 
         if auto_conf:
-            from .webhdfs_helpers import CdhHdfsConfParser
+            from ._webhdfs_helpers import CdhHdfsConfParser
 
             assert auto_conf_cluster is not None, "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
 
@@ -59,7 +59,7 @@ class WebHdfsClient(FileSystemClient):
         self.prepared_fields += ('namenodes',)
 
     def _connect(self):
-        from .webhdfs_helpers import OmniductPyWebHdfsClient
+        from ._webhdfs_helpers import OmniductPyWebHdfsClient
         self.__webhdfs = OmniductPyWebHdfsClient(
             host=self._host,
             port=self._port,

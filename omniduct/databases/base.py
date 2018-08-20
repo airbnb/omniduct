@@ -18,7 +18,7 @@ from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
                                    process_line_cell_arguments)
 
-from . import cursor_formatters
+from . import _cursor_formatters
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -63,12 +63,12 @@ class DatabaseClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     CURSOR_FORMATTERS = {
-        'pandas': cursor_formatters.PandasCursorFormatter,
-        'hive': cursor_formatters.HiveCursorFormatter,
-        'csv': cursor_formatters.CsvCursorFormatter,
-        'tuple': cursor_formatters.TupleCursorFormatter,
-        'dict': cursor_formatters.DictCursorFormatter,
-        'raw': cursor_formatters.RawCursorFormatter,
+        'pandas': _cursor_formatters.PandasCursorFormatter,
+        'hive': _cursor_formatters.HiveCursorFormatter,
+        'csv': _cursor_formatters.CsvCursorFormatter,
+        'tuple': _cursor_formatters.TupleCursorFormatter,
+        'dict': _cursor_formatters.DictCursorFormatter,
+        'raw': _cursor_formatters.RawCursorFormatter,
     }
     DEFAULT_CURSOR_FORMATTER = 'pandas'
     SUPPORTS_SESSION_PROPERTIES = False
@@ -341,7 +341,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     def _get_formatter(self, formatter, cursor, **kwargs):
         formatter = formatter or self.DEFAULT_CURSOR_FORMATTER
-        if not (inspect.isclass(formatter) and issubclass(formatter, cursor_formatters.CursorFormatter)):
+        if not (inspect.isclass(formatter) and issubclass(formatter, _cursor_formatters.CursorFormatter)):
             assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
             formatter = self.CURSOR_FORMATTERS[formatter]
         return formatter(cursor, **kwargs)

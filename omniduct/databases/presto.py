@@ -13,7 +13,7 @@ from omniduct._version import __version__
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
-from .schemas import SchemasMixin
+from ._schemas import SchemasMixin
 
 
 class PrestoClient(DatabaseClient, SchemasMixin):
