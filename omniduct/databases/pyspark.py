@@ -65,6 +65,9 @@ class PySparkClient(DatabaseClient):
         assert wait is True, "This Spark backend does not support asynchronous operations."
         return SparkCursor(self._spark_session.sql(statement))
 
+    def _query_to_table(self, statement, table, if_exists, **kwargs):
+        return HiveServer2Client._query_to_table(self, statement, table, if_exists, **kwargs)
+
     def _table_list(self, namespace, **kwargs):
         return HiveServer2Client._table_list(self, namespace, **kwargs)
 

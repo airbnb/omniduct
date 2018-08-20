@@ -554,14 +554,33 @@ class DatabaseClient(Duct, MagicsProvider):
         statement = self.template_render(name, context, by_name=True)
         return self.query(statement, **kwargs)
 
-    # Uploading data to data store
-    @logging_scope('Push', timed=True)
-    @quirk_docs('_push')
-    def push(self, df, table, if_exists='fail', **kwargs):
+    # Uploading/querying data into data store
+    @logging_scope('Query [CTAS]', timed=True)
+    @quirk_docs('_query_to_table')
+    def query_to_table(self, statement, table, if_exists='fail', **kwargs):
         """
-        Todo:
-            Review the naming of this method.
+        This method executes the provided statement and then saves the output
+        into the nominated table.
 
+        Parameters:
+            statement: The statement to be executed.
+            table (str): The name of the table into which the dataframe should
+                be uploaded.
+            if_exists (str): if nominated table already exists: 'fail' to do
+                nothing, 'replace' to drop, recreate and insert data into new
+                table, and 'append' to add data from this table into the
+                existing table.
+            **kwargs (dict): Additional keyword arguments to pass onto
+                `DatabaseClient._table_create`.
+        """
+        assert if_exists in {'fail', 'replace', 'append'}
+        table = self._parse_namespaces(table)
+        return self._query_to_table(statement, table, if_exists=if_exists, **kwargs)
+
+    @logging_scope('Dataframe Upload', timed=True)
+    @quirk_docs('_dataframe_to_table')
+    def dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
+        """
         This method uploads a local dataframe to the database, creating,
         overwriting or appending to the nominated table.
 
@@ -574,10 +593,10 @@ class DatabaseClient(Duct, MagicsProvider):
                 table, and 'append' to add data from this table into the
                 existing table.
             **kwargs (dict): Additional keyword arguments to pass onto
-                `QueryClient._push`.
+                `DatabaseClient._dataframe_to_table`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
-        self.connect()._push(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
+        self.connect()._dataframe_to_table(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
 
     # Table properties
 
@@ -585,7 +604,10 @@ class DatabaseClient(Duct, MagicsProvider):
     def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         pass
 
-    def _push(self, df, table, if_exists='fail', **kwargs):
+    def _query_to_table(self, statement, table, if_exists, **kwargs):
+        raise NotImplementedError
+
+    def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
         raise NotImplementedError
 
     def _cursor_empty(self, cursor):
@@ -603,7 +625,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def table_list(self, namespace=None, renew=True, **kwargs):
         """
         Return a list of table names in the data source as a DataFrame. Additional kwargs are
-        passed to `QueryClient._table_list`.
+        passed to `DatabaseClient._table_list`.
 
         Parameters:
             namespace (str): The namespace in which to look for tables.
@@ -629,7 +651,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def table_desc(self, table, renew=True, **kwargs):
         """
         Describe a table in the data source. Additional kwargs are
-        passed to `QueryClient._table_desc`.
+        passed to `DatabaseClient._table_desc`.
 
         Returns a pandas dataframe of table fields and descriptors.
         """
@@ -643,7 +665,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def table_head(self, table, n=10, renew=True, **kwargs):
         """
         Show a sample of the data in `table` of the data source. `n` is the number of records
-        to show in this sample. The additional `kwargs` are passed on to `QueryClient._table_head`.
+        to show in this sample. The additional `kwargs` are passed on to `DatabaseClient._table_head`.
 
         Returns a pandas DataFrame.
         """

@@ -200,8 +200,26 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         return len(log)
 
-    def _push(self, df, table, if_exists='fail', schema=None, use_hive_cli=None,
-              partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs):
+    def _query_to_table(self, statement, table, if_exists, **kwargs):
+        statements = []
+
+        if if_exists == 'fail' and self.table_exists(table):
+            raise RuntimeError("Table {} already exists!".format(table))
+        elif if_exists == 'replace':
+            statements.append('DROP TABLE IF EXISTS {};'.format(table))
+        elif if_exists == 'append':
+            raise NotImplementedError("Append operations have not been implemented for {}.".format(self.__class__.__name__))
+
+        statement = "CREATE TABLE {table} AS ({statement})".format(
+            table=table,
+            statement=statement
+        )
+        return self.execute(statement, **kwargs)
+
+    def _dataframe_to_table(
+        self, df, table, if_exists='fail', schema=None, use_hive_cli=None,
+        partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs
+    ):
         """
         If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
         `True`, a `CREATE TABLE` statement will be automatically generated based
