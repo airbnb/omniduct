@@ -1,6 +1,7 @@
 import csv
 import io
 import pickle
+import six
 from distutils.version import LooseVersion
 
 import pandas as pd
@@ -149,7 +150,7 @@ class CsvCursorFormatter(CursorFormatter):
     }
 
     def init(self, include_header=True):
-        self.output = io.StringIO()
+        self.output = io.StringIO() if six.PY3 else io.BytesIO()
         self.include_header = include_header
         self.writer = csv.writer(self.output, **self.FORMAT_PARAMS)
 
