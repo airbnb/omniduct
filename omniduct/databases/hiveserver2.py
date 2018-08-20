@@ -45,6 +45,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     PROTOCOLS = ['hiveserver2']
     DEFAULT_PORT = 3623
+    SUPPORTS_SESSION_PROPERTIES = True
 
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
               push_using_hive_cli=False, default_table_props=None, **connection_options):
@@ -127,7 +128,15 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self._sqlalchemy_metadata = None
         self._schemas = None
 
-    def _execute(self, statement, cursor=None, wait=True, poll_interval=1):
+    def _statement_prepare(self, statement, session_properties, **kwargs):
+        return (
+            "\n".join(
+                "SET {key} = {value};".format(key=key, value=value)
+                for key, value in session_properties.items()
+            ) + statement
+        )
+
+    def _execute(self, statement, cursor, wait, session_properties, poll_interval=1):
         """
         Additional Parameters:
             poll_interval (int): Default delay in seconds between consecutive

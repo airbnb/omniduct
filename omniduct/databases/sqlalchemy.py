@@ -49,7 +49,8 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         self._sqlalchemy_metadata = None
         self._schemas = None
 
-    def _execute(self, statement, query=True, cursor=None, **kwargs):
+    def _execute(self, statement, cursor, wait, session_properties, query=True, **kwargs):
+        assert wait, "`SQLAlchemyClient` does not support asynchronous operations."
         if cursor:
             cursor.execute(statement)
         else:

@@ -34,20 +34,21 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     PROTOCOLS = ['presto']
     DEFAULT_PORT = 3506
+    SUPPORTS_SESSION_PROPERTIES = True
 
-    def _init(self, catalog='default', schema='default', source=None, **connection_options):
+    def _init(self, catalog='default', schema='default', server_protocol='http', source=None):
         """
         catalog (str): The default catalog to use in database queries.
         schema (str): The default schema/database to use in database queries.
+        server_protocol (str): The protocol over which to connect to the Presto REST
+            service ('http' or 'https'). (default='http')
         source (str): The source of this query (by default "omniduct <version>").
             If manually specified, result will be: "<source> / omniduct <version>".
-        connection_options (dict): Additional options to pass on to
-            `pyhive.presto.connect(...)`.
         """
         self.catalog = catalog
         self.schema = schema
+        self.server_protocol = server_protocol
         self.source = source
-        self.connection_options = connection_options
         self.__presto = None
         self.connection_fields += ('catalog', 'schema')
 
@@ -66,13 +67,9 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     # Connection
 
     def _connect(self):
-        from pyhive import presto  # Imported here due to slow import performance in Python 3
         from sqlalchemy import create_engine, MetaData
         logging.getLogger('pyhive').setLevel(1000)  # Silence pyhive logging.
         logger.info('Connecting to Presto coordinator...')
-        self.__presto = presto.connect(self.host, port=self.port, username=self.username, password=self.password,
-                                       catalog=self.catalog, schema=self.schema,
-                                       poll_interval=1, source=self.source, **self.connection_options)
         self._sqlalchemy_engine = create_engine('presto://{}:{}/{}/{}'.format(self.host, self.port, self.catalog, self.schema))
         self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
@@ -88,21 +85,25 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             self.__presto.close()
         except:
             pass
-        self.__presto = None
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
         self._schemas = None
 
     # Querying
-    def _execute(self, statement, cursor=None, wait=True):
+    def _execute(self, statement, cursor, wait, session_properties):
         """
         If something goes wrong, `PrestoClient` will attempt to parse the error
         log and present the user with useful debugging information. If that fails,
         the full traceback will be raised instead.
         """
+        from pyhive import presto  # Imported here due to slow import performance in Python 3
         from pyhive.exc import DatabaseError  # Imported here due to slow import performance in Python 3
         try:
-            cursor = cursor or self.__presto.cursor()
+            cursor = cursor or presto.Cursor(
+                host=self.host, port=self.port, username=self.username, password=self.password,
+                catalog=self.catalog, schema=self.schema, session_props=session_properties,
+                poll_interval=1, source=self.source, protocol=self.server_protocol
+            )
             cursor.execute(statement)
             status = cursor.poll()
             if wait:
@@ -124,7 +125,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             try:
                 message = e.args[0]
                 if isinstance(message, six.string_types):
-                    message = ast.literal_eval(re.match("[^{]*({.*})[^}]*$", e.message).group(1))
+                    message = ast.literal_eval(re.match("[^{]*({.*})[^}]*$", message).group(1))
 
                 linenumber = message['errorLocation']['lineNumber'] - 1
                 splt = statement.splitlines()

@@ -22,7 +22,7 @@ class StubDatabaseClient(DatabaseClient):
 
     # Database operations
 
-    def _execute(self, statement, cursor=None, wait=True, **kwargs):
+    def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         raise NotImplementedError
 
     def _table_list(self, **kwargs):

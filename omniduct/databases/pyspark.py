@@ -6,6 +6,7 @@ class PySparkClient(DatabaseClient):
 
     PROTOCOLS = ['pyspark']
     DEFAULT_PORT = None
+    SUPPORTS_SESSION_PROPERTIES = True
 
     def _init(self, app_name='omniduct', config=None, master=None, enable_hive_support=False):
         """
@@ -49,8 +50,15 @@ class PySparkClient(DatabaseClient):
         self._spark_session.sparkContext.stop()
 
     # Database operations
+    def _statement_prepare(self, statement, session_properties):
+        return (
+            "\n".join(
+                "SET {key} = {value};".format(key=key, value=value)
+                for key, value in session_properties.items()
+            ) + statement
+        )
 
-    def _execute(self, statement, cursor=None, wait=True, **kwargs):
+    def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         assert wait is True, "This Spark backend does not support asynchronous operations."
         return SparkCursor(self._spark_session.sql(statement))
 

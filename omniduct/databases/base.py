@@ -71,10 +71,13 @@ class DatabaseClient(Duct, MagicsProvider):
         'raw': cursor_formatters.RawCursorFormatter,
     }
     DEFAULT_CURSOR_FORMATTER = 'pandas'
+    SUPPORTS_SESSION_PROPERTIES = False
 
     @quirk_docs('_init', mro=True)
-    def __init__(self, **kwargs):
+    def __init__(self, session_properties=None, templates=None, template_context=None, **kwargs):
         """
+        session_properties (dict): A mapping of default session properties
+            to values. Interpretation is left up to implementations.
         templates (dict): A dictionary of name to template mappings. Additional
             templates can be added using `.template_add`.
         template_context (dict): The default template context to use when
@@ -82,8 +85,9 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
-        self._templates = kwargs.pop('templates', {})
-        self._template_context = kwargs.pop('template_context', {})
+        self.session_properties = session_properties or {}
+        self._templates = templates or {}
+        self._template_context = template_context or {}
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
 
@@ -93,6 +97,41 @@ class DatabaseClient(Duct, MagicsProvider):
     def _init(self):
         pass
 
+    # Session property management and configuration
+    @property
+    def session_properties(self):
+        """The default session properties used in statement executions."""
+        return self._session_properties
+
+    @session_properties.setter
+    def session_properties(self, properties):
+        self._session_properties = self._get_session_properties(default=properties)
+
+    def _get_session_properties(self, overrides=None, default=None):
+        """
+        Retrieve default session properties with optional overrides.
+
+        Properties with a value of None will be skipped, in order to allow
+        overrides to remove default properties.
+
+        Parameters:
+            overrides (dict, None): A dictionary of session property overrides.
+            default (dict, None): A dictionary of default session properties, if
+                it is necessary to override `self.session_properties`.
+        """
+        if (default or overrides) and not self.SUPPORTS_SESSION_PROPERTIES:
+            raise RuntimeError("Session properties are not supported by this backend.")
+
+        props = (default if default is not None else self.session_properties).copy()
+        props.update(overrides or {})
+
+        # Remove any properties with value set to None.
+        for key, value in props.items():
+            if value is None:
+                del props[key]
+
+        return props
+
     def __call__(self, query, **kwargs):
         """
         Allow use of `DatabaseClient(...)` as a short-hand for
@@ -101,8 +140,27 @@ class DatabaseClient(Duct, MagicsProvider):
         return self.query(query, **kwargs)
 
     # Querying
-    @classmethod
-    def statements_split(cls, statements):
+    def _statement_prepare(self, statement, session_properties, **kwargs):
+        """
+        This method prepares the statement into its final form to be executed
+        by `self._execute`. This can be used to insert session properties or
+        transform the statement in any way.
+
+        Parameters:
+            statement (str): The statement to be executed.
+            session_properties (dict): A mutable dictionary of session properties
+                and their values (this method can mutate it depending on statement
+                contents).
+            **kwargs (dict): Any additional keyword arguments passed through to
+                `self.execute` (will match the extra keyword arguments added to
+                `self._execute`).
+
+        Returns:
+            statement (str): The statement to be executed (potentially transformed).
+        """
+        return statement
+
+    def _statement_split(self, statements):
         """
         This classmethod converts a single string containing one or more SQL
         statements into an iterator of strings, each corresponding to one SQL
@@ -123,25 +181,6 @@ class DatabaseClient(Duct, MagicsProvider):
                 yield statement
 
     @classmethod
-    def statement_cleanup(cls, statement):
-        """
-        This classmethod takes an SQL statement and reformats it by consistently
-        removing comments and replacing all whitespace. It is used by the
-        `query` method to avoid functionally identical queries hitting different
-        cache kets. If the statement's language is not to be SQL, this method
-        should be overloaded appropriately.
-
-        Parameters:
-            statement (str): The statement to be reformatted/cleaned-up.
-
-        Returns:
-            str: The new statement, consistently reformatted.
-        """
-        statement = sqlparse.format(statement, strip_comments=True, reindent=True)
-        statement = os.linesep.join([line for line in statement.splitlines() if line])
-        return statement
-
-    @classmethod
     def statement_hash(cls, statement, cleanup=True):
         """
         This classmethod is used to determine the hash used to identify query
@@ -158,13 +197,35 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         if cleanup:
             statement = cls.statement_cleanup(statement)
-        if sys.version_info.major == 3 or sys.version_info.major == 2 and isinstance(statement, unicode):  # noqa: F821
+        if (
+            sys.version_info.major == 3
+            or sys.version_info.major == 2 and isinstance(statement, unicode)  # noqa: F821
+        ):
             statement = statement.encode('utf8')
         return hashlib.sha256(statement).hexdigest()
 
+    @classmethod
+    def statement_cleanup(cls, statement):
+        """
+        This classmethod takes an SQL statement and reformats it by consistently
+        removing comments and replacing all whitespace. It is used by the
+        `query` method to avoid functionally identical queries hitting different
+        cache keys. If the statement's language is not to be SQL, this method
+        should be overloaded appropriately.
+
+        Parameters:
+            statement (str): The statement to be reformatted/cleaned-up.
+
+        Returns:
+            str: The new statement, consistently reformatted.
+        """
+        statement = sqlparse.format(statement, strip_comments=True, reindent=True)
+        statement = os.linesep.join([line for line in statement.splitlines() if line])
+        return statement
+
     @render_statement
     @quirk_docs('_execute')
-    def execute(self, statement, cleanup=True, wait=True, cursor=None, **kwargs):
+    def execute(self, statement, wait=True, cursor=None, session_properties=None, **kwargs):
         """
         This method executes a given statement against the relevant database,
         returning the results as a standard DBAPI2 compatible cursor. Where
@@ -174,13 +235,14 @@ class DatabaseClient(Duct, MagicsProvider):
         Parameters:
             statement (str): The statement to be executed by the query client
                 (possibly templated).
-            cleanup (bool): Whether statement should be cleaned up before
-                computing the hash used to cache results.
             wait (bool): Whether the cursor should be returned before the
                 server-side query computation is complete and the relevant
                 results downloaded.
             cursor (DBAPI2 cursor):  Rather than creating a new cursor, execute
                 the statement against the provided cursor.
+            session_properties (dict): Additional session properties and/or
+                overrides to use for this query. Setting a session property
+                value to `None` will cause it to be omitted.
             **kwargs (dict): Extra keyword arguments to be passed on to
                 `_execute`, as implemented by subclasses.
             template (bool): Whether the statement should be treated as a Jinja2
@@ -193,15 +255,16 @@ class DatabaseClient(Duct, MagicsProvider):
             DBAPI2 cursor: A DBAPI2 compatible cursor instance.
         """
 
-        self.connect()
+        session_properties = self._get_session_properties(overrides=session_properties)
 
-        statements = self.statements_split(statement)
-        statements = [self.statement_cleanup(stmt) if cleanup else stmt for stmt in statements]
+        statements = list(self._statement_split(
+            self._statement_prepare(statement, session_properties=session_properties, **kwargs)
+        ))
         assert len(statements) > 0, "No non-empty statements were provided."
 
         for statement in statements[:-1]:
-            cursor = self.connect()._execute(statement, cursor=cursor, wait=True, **kwargs)
-        cursor = self.connect()._execute(statements[-1], cursor=cursor, wait=wait, **kwargs)
+            cursor = self.connect()._execute(statement, cursor=cursor, wait=True, session_properties=session_properties, **kwargs)
+        cursor = self.connect()._execute(statements[-1], cursor=cursor, wait=wait, session_properties=session_properties, **kwargs)
 
         return cursor
 
@@ -512,7 +575,7 @@ class DatabaseClient(Duct, MagicsProvider):
     # Table properties
 
     @abstractmethod
-    def _execute(self, statement, cursor=None, wait=True, **kwargs):
+    def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         pass
 
     def _push(self, df, table, if_exists='fail', **kwargs):
