@@ -271,7 +271,7 @@ class DatabaseClient(Duct, MagicsProvider):
     @logging_scope("Query", timed=True)
     @render_statement
     @cached_method(
-        id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.get('cleanup', True))),
+        id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.pop('cleanup', True))),
         format=lambda self, kwargs: kwargs['format'] if kwargs['format'] is not None else self.DEFAULT_CURSOR_FORMATTER,
         serializer=cache_serializer,
         deserializer=cache_deserializer
@@ -296,6 +296,9 @@ class DatabaseClient(Duct, MagicsProvider):
                 (if present). [Used by `cached_method` decorator.]
             renew (bool): True or False (default). If cache is being used, renew
                 it before returning stored value. [Used by `cached_method`
+                decorator.]
+            cleanup (bool): Whether statement should be cleaned up before
+                computing the hash used to cache results. [Used by `cached_method`
                 decorator.]
 
         Returns:
