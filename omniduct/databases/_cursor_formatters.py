@@ -42,9 +42,10 @@ class CursorFormatter(object):
                         return
                     yield self.format_dump(b)
             else:
-                for row in self.cursor:
-                    row = self.prepare_row(row)
+                row = self.cursor.fetchone()
+                while row is not None:
                     yield self.format_row(row)
+                    row = self.cursor.fetchone()
         finally:
             self.cursor.close()
 

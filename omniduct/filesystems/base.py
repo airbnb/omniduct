@@ -564,7 +564,7 @@ class FileSystemClient(Duct, MagicsProvider):
             target_prefix = (
                 source if source.endswith(self.path_separator) else source + self.path_separator
             )
-            targets.append(source, dest, True)
+            targets.append((source, dest, True))
 
             for path, dirs, files in self.walk(source):
                 for dir in dirs:
@@ -587,14 +587,13 @@ class FileSystemClient(Duct, MagicsProvider):
         for target in targets:
             if target[2] and not fs.isdir(target[1]):
                 fs.mkdir(target[1])
-            else:
+            elif not target[2]:
                 self.connect()._download(target[0], target[1], overwrite, fs)
 
     def _download(self, source, dest, overwrite, fs):
         if not overwrite and fs.exists(dest):
             raise RuntimeError("File already exists on filesystem.")
         with fs.open(dest, 'wb') as f:
-            assert f.binary_mode is True, dest
             f.write(self._file_read(source, binary=True))
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
