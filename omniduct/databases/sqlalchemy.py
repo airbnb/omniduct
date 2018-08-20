@@ -98,6 +98,9 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         finally:
             logger.disabled = False
 
+    def _table_drop(self, table, **kwargs):
+        return self.execute("DROP TABLE {table}".format(table=table))
+
     def _table_desc(self, table, **kwargs):
         return self.query("DESCRIBE {0}".format(table), **kwargs)
 

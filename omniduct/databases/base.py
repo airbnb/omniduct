@@ -647,6 +647,17 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_exists(self, table, **kwargs):
         pass
 
+    @quirk_docs('_table_drop')
+    def table_drop(self, table, **kwargs):
+        """
+        Remove a table from the database.
+        """
+        return self._table_drop(table=self._parse_namespaces(table), **kwargs)
+
+    @abstractmethod
+    def _table_drop(self, table, **kwargs):
+        pass
+
     @quirk_docs('_table_desc')
     def table_desc(self, table, renew=True, **kwargs):
         """

@@ -61,6 +61,9 @@ class DruidClient(DatabaseClient):
         finally:
             logger.disabled = False
 
+    def _table_drop(self, table, **kwargs):
+        raise NotImplementedError
+
     def _table_desc(self, table, **kwargs):
         query = ("""
             SELECT

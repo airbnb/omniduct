@@ -53,6 +53,9 @@ class Neo4jClient(DatabaseClient):
     def _table_exists(self, table, **kwargs):
         raise Exception('tables do not apply to the Neo4J graph database')
 
+    def _table_drop(self, table, **kwargs):
+        raise Exception('tables do not apply to the Neo4J graph database')
+
     def _table_desc(self, table, **kwargs):
         raise Exception('tables do not apply to the Neo4J graph database')
 

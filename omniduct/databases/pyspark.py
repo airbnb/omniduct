@@ -74,6 +74,9 @@ class PySparkClient(DatabaseClient):
     def _table_exists(self, table, **kwargs):
         return HiveServer2Client._table_exists(self, table, **kwargs)
 
+    def _table_drop(self, table, **kwargs):
+        return HiveServer2Client._table_drop(self, table, **kwargs)
+
     def _table_desc(self, table, **kwargs):
         return HiveServer2Client._table_desc(self, table, **kwargs)
 
