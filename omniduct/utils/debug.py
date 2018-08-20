@@ -48,6 +48,14 @@ class StatusLogger(object):
 
         self._progress_bar = None
 
+    @property
+    def disabled(self):
+        return self.__get_logger_instance().disabled
+
+    @disabled.setter
+    def disabled(self, disabled):
+        self.__get_logger_instance().disabled = disabled
+
     def _scope_enter(self, name, timed=False, extra=None):
         if config.logging_level < logging.INFO:
             print("\t" * len(self.__scopes) + "Entering manual scope: {}".format(name), file=sys.stderr)
