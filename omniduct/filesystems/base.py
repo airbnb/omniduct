@@ -92,9 +92,9 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         This method generates a new path that is the composition of base `path`
         with any additional path components. If any component starts with
-        `self.path_separator` or `self.path_home`, then all previous path
+        `self.path_separator` or '~', then all previous path
         components are discarded, and the effective base path becomes that
-        component. Note that this method does *not* simplify paths components
+        component (with '~' expanding to `self.path_home`). Note that this method does *not* simplify paths components
         like '..'.
 
         Parameters:
@@ -107,7 +107,9 @@ class FileSystemClient(Duct, MagicsProvider):
             in order, to the base path.
         """
         for component in components:
-            if component.startswith(self.path_separator) or component.startswith(self.path_home):  # It may be that some filesystems use special characters to denote home, like '~'
+            if component.startswith('~'):
+                path = self.path_home + component[1:]
+            elif component.startswith(self.path_separator):
                 path = component
             else:
                 path = '{}{}{}'.format(path, self.path_separator if not path.endswith(self.path_separator) else '', component)
@@ -444,10 +446,10 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             FileSystemFile or file-like: An opened file-like object.
         """
-        return self.connect()._open(path, mode=mode)
+        return self.connect()._open(self._path(path), mode=mode)
 
     def _open(self, path, mode):
-        return FileSystemFile(self, self._path(path), mode)
+        return FileSystemFile(self, path, mode)
 
     @quirk_docs('_file_read_')
     def _file_read(self, path, size=-1, offset=0, binary=False):
@@ -671,6 +673,10 @@ class FileSystemFile(object):
             self.__io_buffer.write(self.fs._file_read(self.path, binary=self.binary_mode))
             if not self.appending:
                 self.__io_buffer.seek(0)
+
+    @property
+    def name(self):
+        return self.path
 
     @property
     def mode(self):
