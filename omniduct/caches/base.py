@@ -99,8 +99,7 @@ class Cache(Duct):
     # Data insertion and retrieval
 
     def set(self, key, value, namespace=None, serializer=PickleSerializer, expires=None, metadata=None):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         # try:
         self.set_metadata(key, metadata, namespace=namespace, replace=True)
         with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='wb', create=True) as fh:
@@ -109,8 +108,7 @@ class Cache(Duct):
         #     self.unset(key, namespace=namespace)
 
     def set_metadata(self, key, metadata, namespace=None, replace=False):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         if replace:
             orig_metadata = {'created': datetime.datetime.utcnow()}
         else:
@@ -122,8 +120,7 @@ class Cache(Duct):
             yaml.safe_dump(orig_metadata, fh, default_flow_style=False)
 
     def get(self, key, namespace=None, serializer=PickleSerializer):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         try:
             with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='rb', create=False) as fh:
                 return serializer.deserialize(fh)
@@ -131,8 +128,7 @@ class Cache(Duct):
             self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})
 
     def get_metadata(self, key, namespace=None):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         try:
             with self._get_stream_for_key(namespace, key, 'metadata', mode='r', create=True) as fh:
                 return yaml.safe_load(fh)
@@ -140,8 +136,7 @@ class Cache(Duct):
             return {}
 
     def unset(self, key, namespace=None):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         self._remove_key(namespace, key)
 
     def unset_all(self, namespace):
@@ -163,8 +158,7 @@ class Cache(Duct):
         return self._get_keys(namespace)
 
     def has_key(self, key, namespace=None):
-        namespace = self._namespace(namespace)
-        key = self._key(key)
+        namespace, key = self._namespace(namespace), self._key(key)
         return self._has_key(namespace, key)
 
     # Cache maintenance
