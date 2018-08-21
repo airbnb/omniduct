@@ -103,7 +103,7 @@ class Cache(Duct):
         key = self._key(key)
         # try:
         self.set_metadata(key, metadata, namespace=namespace, replace=True)
-        with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension()), mode='wb', create=True) as fh:
+        with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='wb', create=True) as fh:
             return serializer.serialize(value, fh)
         # except:
         #     self.unset(key, namespace=namespace)
@@ -125,7 +125,7 @@ class Cache(Duct):
         namespace = self._namespace(namespace)
         key = self._key(key)
         try:
-            with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension()), mode='rb', create=False) as fh:
+            with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='rb', create=False) as fh:
                 return serializer.deserialize(fh)
         finally:
             self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})

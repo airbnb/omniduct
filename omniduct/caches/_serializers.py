@@ -3,6 +3,7 @@ import pickle
 
 class Serializer(object):
 
+    @property
     def file_extension(self):
         return ".{}".format(self.__class__.__name__.lower())
 
@@ -15,6 +16,7 @@ class Serializer(object):
 
 class PickleSerializer(Serializer):
 
+    @property
     def file_extension(self):
         return ".pickle"
 

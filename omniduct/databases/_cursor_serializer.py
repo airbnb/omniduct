@@ -5,13 +5,13 @@ from omniduct.caches._serializers import Serializer
 
 class CursorSerializer(Serializer):
 
+    @property
     def file_extension(self):
         return ".pickled_cursor"
 
     def serialize(self, cursor, fh):
         description = cursor.description
         rows = cursor.fetchall()
-        print((description, rows))
         return pickle.dump((description, rows), fh)
 
     def deserialize(self, fh):
