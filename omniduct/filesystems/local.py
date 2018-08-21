@@ -1,6 +1,7 @@
 import datetime
 import errno
 import os
+import shutil
 from io import open
 
 from .base import FileSystemClient, FileSystemFileDesc
@@ -87,12 +88,18 @@ class LocalFsClient(FileSystemClient):
 
     def _mkdir(self, path, recursive):
         try:
-            os.makedirs(path) if recursive else os.makedir(path)
+            os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
             if exc.errno == errno.EEXIST and os.path.isdir(path):
                 pass
             else:
                 raise
+
+    def _remove(self, path, recursive):
+        if recursive and self.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.unlink(path)
 
     # File opening
 

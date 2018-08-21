@@ -136,6 +136,9 @@ class WebHdfsClient(FileSystemClient):
     def _mkdir(self, path, recursive):
         raise NotImplementedError
 
+    def _remove(self, path, recursive):
+        raise NotImplementedError
+
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):

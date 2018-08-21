@@ -137,6 +137,9 @@ class ParamikoSSHClient(RemoteClient):
     def _mkdir(self, path, recursive):
         assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
+    def _remove(self, path, recursive):
+        assert self.execute('rm -f ' + ('-r ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to remove file(s) at: `{}`".format(path)
+
     # File handling
 
     def _open(self, path, mode):

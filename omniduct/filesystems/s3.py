@@ -192,6 +192,9 @@ class S3Client(FileSystemClient):
     def _mkdir(self, path, recursive):
         raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
 
+    def _remove(self, path, recursive):
+        raise NotImplementedError("Support for S3 deletion operations has yet to be implemented.")
+
     # File handling
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
