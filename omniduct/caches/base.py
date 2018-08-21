@@ -1,74 +1,74 @@
-import inspect
-import pickle
-import sys
+import datetime
 from abc import abstractmethod
 
-import six
+import yaml
 from decorator import decorator
 
 from omniduct.duct import Duct
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
+from omniduct.utils.decorators import function_args_as_kwargs
 from omniduct.utils.docs import quirk_docs
+
+from ._serializers import PickleSerializer
 
 config.register('cache_fail_hard',
                 description='Raise exception if cache fails to save.',
                 default=False)
 
 
-def cached_method(id_str,
-                  cache=lambda self: self.cache,
-                  id_duct=lambda self, kwargs: "{}.{}".format(self.__class__.__name__, self.name),
-                  use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
-                  renew=lambda self, kwargs: kwargs.pop('renew', False),
-                  format=lambda self, kwargs: None,
-                  serializer=lambda format: pickle.dump,  # Serializers accept obj, file handle and format.
-                  deserializer=lambda format: pickle.load):  # Deserializers accept file handle and format.
+def cached_method(
+        key,
+        namespace=lambda self, kwargs: "{}.{}".format(self.__class__.__name__, self.name),
+        cache=lambda self, kwargs: self.cache,
+        use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
+        renew=lambda self, kwargs: kwargs.pop('renew', False),
+        serializer=lambda self, kwargs: PickleSerializer,
+        metadata=lambda self, kwargs: None
+):
     @decorator
     def wrapped(method, self, *args, **kwargs):
-        if six.PY3 and not hasattr(sys, 'pypy_version_info'):
-            arguments = inspect.signature(method).parameters.keys()
-        else:
-            arguments = inspect.getargspec(method).args
-        kwargs.update(dict(zip(list(arguments)[1:], args)))
+        kwargs = function_args_as_kwargs(method, self, *args, **kwargs)
+        kwargs.pop('self')
 
-        _cache = cache(self)
+        _key = key(self, kwargs)
+        _namespace = namespace(self, kwargs)
+        _cache = cache(self, kwargs)
         _use_cache = use_cache(self, kwargs)
         _renew = renew(self, kwargs)
-        _format = format(self, kwargs)
+        _serializer = serializer(self, kwargs)
+        _metadata = metadata(self, kwargs)
 
         if _cache is None or not _use_cache:
             return method(self, **kwargs)
 
-        _id_duct = id_duct(self, kwargs)
-        _id_str = id_str(self, kwargs)
-
-        if _renew or not _cache.has_key(_id_duct, _id_str):  # noqa: has_key is not of a dictionary here
+        if _renew or not _cache.has_key(_key, namespace=_namespace):  # noqa: has_key is not of a dictionary here
             value = method(self, **kwargs)
             try:
                 _cache.set(
-                    id_duct=_id_duct,
-                    id_str=_id_str,
+                    _key,
                     value=value,
-                    serializer=serializer(_format)
+                    namespace=_namespace,
+                    serializer=_serializer,
+                    metadata=_metadata
                 )
             except Exception:  # Remove any lingering (perhaps partial) cache files
-                _cache.clear(
-                    id_duct=_id_duct,
-                    id_str=_id_str
+                _cache.unset(
+                    _key,
+                    namespace=_namespace
                 )
                 logger.warning("Failed to save results to cache. If needed, please save them manually.")
                 if config.cache_fail_hard:
                     raise
+        else:
+            logger.caveat('Loaded from cache')
 
-            return value
-
-        logger.caveat('Loaded from cache')
-
+        # Return from cache every time, just in case serialization operation was
+        # destructive (e.g. reading from cursors)
         return _cache.get(
-            id_duct=_id_duct,
-            id_str=_id_str,
-            deserializer=deserializer(_format)
+            _key,
+            namespace=_namespace,
+            serializer=_serializer
         )
     return wrapped
 
@@ -78,9 +78,6 @@ class Cache(Duct):
     `Cache` is an abstract subclass of `Duct` that provides a common
     API for all cache clients, which in turn will be subclasses of this
     class.
-
-    Note: This will likely be refactored soon to be more powerful, including the
-    ability to manage the resource usage of the cache.
     """
 
     DUCT_TYPE = Duct.Type.CACHE
@@ -99,26 +96,115 @@ class Cache(Duct):
     def _init(self):
         pass
 
-    @abstractmethod
-    def clear(self, id_duct, id_str):
+    # Data insertion and retrieval
+
+    def set(self, key, value, namespace=None, serializer=PickleSerializer, expires=None, metadata=None):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        # try:
+        self.set_metadata(key, metadata, namespace=namespace, replace=True)
+        with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension()), mode='wb', create=True) as fh:
+            return serializer.serialize(value, fh)
+        # except:
+        #     self.unset(key, namespace=namespace)
+
+    def set_metadata(self, key, metadata, namespace=None, replace=False):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        if replace:
+            orig_metadata = {'created': datetime.datetime.utcnow()}
+        else:
+            orig_metadata = self.get_metadata(key, namespace=namespace)
+
+        orig_metadata.update(metadata or {})
+
+        with self._get_stream_for_key(namespace, key, 'metadata', mode='w', create=True) as fh:
+            yaml.safe_dump(orig_metadata, fh, default_flow_style=False)
+
+    def get(self, key, namespace=None, serializer=PickleSerializer):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        try:
+            with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension()), mode='rb', create=False) as fh:
+                return serializer.deserialize(fh)
+        finally:
+            self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})
+
+    def get_metadata(self, key, namespace=None):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        try:
+            with self._get_stream_for_key(namespace, key, 'metadata', mode='r', create=True) as fh:
+                return yaml.safe_load(fh)
+        except:
+            return {}
+
+    def unset(self, key, namespace=None):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        self._remove_key(namespace, key)
+
+    def unset_all(self, namespace):
+        namespace = self._namespace(namespace)
+        self._remove_namespace(namespace)
+
+    # Top-level descriptions
+
+    @property
+    def namespaces(self):
+        return self._get_namespaces()
+
+    def has_namespace(self, namespace):
+        namespace = self._namespace(namespace)
+        return self._has_namespace(namespace)
+
+    def keys(self, namespace=None):
+        namespace = self._namespace(namespace)
+        return self._get_keys(namespace)
+
+    def has_key(self, key, namespace=None):
+        namespace = self._namespace(namespace)
+        key = self._key(key)
+        return self._has_key(namespace, key)
+
+    # Cache maintenance
+
+    def cleanup(self):
         pass
 
-    @abstractmethod
-    def clear_all(self, id_duct=None):
+    def get_resource_usage(self):
         pass
 
-    @abstractmethod
-    def get(self, id_duct, id_str, deserializer=pickle.load):
-        pass
+    # Methods for subclasses to implement
+
+    def _namespace(self, namespace):
+        return namespace
+
+    def _key(self, key):
+        return key
 
     @abstractmethod
-    def has_key(self, id_duct, id_str):
-        pass
+    def _get_namespaces(self):
+        raise NotImplementedError
+
+    def _has_namespace(self, namespace):
+        return namespace in self._get_namespaces()
 
     @abstractmethod
-    def keys(self, id_duct):
-        pass
+    def _remove_namespace(self, namespace):
+        raise NotImplementedError
 
     @abstractmethod
-    def set(self, id_duct, id_str, value, serializer=pickle.dump):
+    def _get_keys(self, namespace):
+        raise NotImplementedError
+
+    def _has_key(self, namespace, key):
+        return key in self._get_keys(namespace=namespace)
+
+    @abstractmethod
+    def _remove_key(self, namespace, key):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_stream_for_key(self, namespace, key, stream_name, mode, create):
         pass

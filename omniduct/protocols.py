@@ -1,6 +1,6 @@
 # flake8: noqa
 
-from .caches.local import LocalCache
+from .caches.filesystem import FileSystemCache
 from .databases.druid import DruidClient
 from .databases.hiveserver2 import HiveServer2Client
 from .databases.neo4j import Neo4jClient

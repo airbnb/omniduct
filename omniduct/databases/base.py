@@ -19,17 +19,10 @@ from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
                                    process_line_cell_arguments)
 
 from . import _cursor_formatters
+from ._cursor_serializer import CursorSerializer
 from ._namespaces import ParsedNamespaces
 
 logging.getLogger('requests').setLevel(logging.WARNING)
-
-
-def cache_serializer(format):
-    return DatabaseClient.CURSOR_FORMATTERS[format].serialize
-
-
-def cache_deserializer(format):
-    return DatabaseClient.CURSOR_FORMATTERS[format].deserialize
 
 
 @decorator
@@ -228,6 +221,12 @@ class DatabaseClient(Duct, MagicsProvider):
         return statement
 
     @render_statement
+    @cached_method(
+        key=lambda self, kwargs: self.statement_hash(kwargs['statement'], cleanup=kwargs.pop('cleanup', True)),
+        serializer=lambda self, kwargs: CursorSerializer(),
+        use_cache=lambda self, kwargs: kwargs.pop('use_cache', False),
+        metadata=lambda self, kwargs: {'statement': kwargs['statement'], 'session_properties': kwargs['session_properties']}
+    )
     @quirk_docs('_execute')
     def execute(self, statement, wait=True, cursor=None, session_properties=None, **kwargs):
         """
@@ -254,6 +253,14 @@ class DatabaseClient(Duct, MagicsProvider):
             context (dict): The context in which the template should be
                 evaluated (a dictionary of parameters to values). [Used by
                 `render_statement` decorator.]
+            use_cache (bool): True or False (default). Whether to use the cache
+                (if present). [Used by `cached_method` decorator.]
+            renew (bool): True or False (default). If cache is being used, renew
+                it before returning stored value. [Used by `cached_method`
+                decorator.]
+            cleanup (bool): Whether statement should be cleaned up before
+                computing the hash used to cache results. [Used by `cached_method`
+                decorator.]
 
         Returns:
             DBAPI2 cursor: A DBAPI2 compatible cursor instance.
@@ -274,13 +281,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope("Query", timed=True)
     @render_statement
-    @cached_method(
-        id_str=lambda self, kwargs: "{}:\n{}".format(kwargs['format'], self.statement_hash(kwargs['statement'], cleanup=kwargs.pop('cleanup', True))),
-        format=lambda self, kwargs: kwargs['format'] if kwargs['format'] is not None else self.DEFAULT_CURSOR_FORMATTER,
-        serializer=cache_serializer,
-        deserializer=cache_deserializer
-    )
-    def query(self, statement, format=None, format_opts={}, **kwargs):
+    def query(self, statement, format=None, format_opts={}, use_cache=True, **kwargs):
         """
         This method executes a statement against the database using
         `DatabaseClient.execute()`, and then collects the results before
@@ -294,21 +295,16 @@ class DatabaseClient(Duct, MagicsProvider):
                 'hive', 'csv', 'tuple' or 'dict'. Defaults to
                 `self.DEFAULT_CURSOR_FORMATTER`.
             format_opts (dict): A dictionary of format-specific options.
+            use_cache (bool): Whether to cache the cursor returned by
+                `DatabaseClient.execute()` (overrides the default of False
+                for `.execute()`). (default=True)
             **kwargs (dict): Additional arguments to pass on to
                 `DatabaseClient.execute()`.
-            use_cache (bool): True (default) or False. Whether to use the cache
-                (if present). [Used by `cached_method` decorator.]
-            renew (bool): True or False (default). If cache is being used, renew
-                it before returning stored value. [Used by `cached_method`
-                decorator.]
-            cleanup (bool): Whether statement should be cleaned up before
-                computing the hash used to cache results. [Used by `cached_method`
-                decorator.]
 
         Returns:
             The results of the query formatted as nominated.
         """
-        cursor = self.execute(statement, wait=True, template=False, **kwargs)
+        cursor = self.execute(statement, wait=True, template=False, use_cache=use_cache, **kwargs)
 
         # Some DBAPI2 cursor implementations error if attempting to extract
         # data from an empty cursor, and if so, we simply return None.
