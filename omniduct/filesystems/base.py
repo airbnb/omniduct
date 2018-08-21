@@ -442,7 +442,7 @@ class FileSystemClient(Duct, MagicsProvider):
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
         if not self.exists(path):
-            raise FileNotFoundError("No file(s) exist at path '{}'.".format(path))
+            raise IOError("No file(s) exist at path '{}'.".format(path))
         if self.isdir(path) and not recursive:
             raise IOError("Attempt to remove directory '{}' without passing `recursive=True`.".format(path))
         return self.connect()._remove(self._path(path), recursive)
