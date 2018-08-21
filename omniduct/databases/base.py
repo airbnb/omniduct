@@ -222,10 +222,16 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @render_statement
     @cached_method(
-        key=lambda self, kwargs: self.statement_hash(kwargs['statement'], cleanup=kwargs.pop('cleanup', True)),
+        key=lambda self, kwargs: self.statement_hash(
+            statement=kwargs['statement'],
+            cleanup=kwargs.pop('cleanup', True)
+        ),
         serializer=lambda self, kwargs: CursorSerializer(),
         use_cache=lambda self, kwargs: kwargs.pop('use_cache', False),
-        metadata=lambda self, kwargs: {'statement': kwargs['statement'], 'session_properties': kwargs['session_properties']}
+        metadata=lambda self, kwargs: {
+            'statement': kwargs['statement'],
+            'session_properties': kwargs['session_properties']
+        }
     )
     @quirk_docs('_execute')
     def execute(self, statement, wait=True, cursor=None, session_properties=None, **kwargs):
