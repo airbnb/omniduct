@@ -1,3 +1,5 @@
+import yaml
+
 from omniduct.filesystems.local import LocalFsClient
 
 from .base import Cache
@@ -16,6 +18,41 @@ class FileSystemCache(Cache):
         """
         self.fs = fs or LocalFsClient()
         self.path = path
+        # Currently config is not used, but will be in future versions
+        self._config = self._prepare_cache()
+
+    def _prepare_cache(self):
+        config_path = self.fs.path_join(self.path, 'config')
+        if self.fs.exists(config_path):
+            with self.fs.open(config_path) as fh:
+                try:
+                    return yaml.safe_load(fh)
+                except yaml.error.YAMLError:
+                    raise RuntimeError(
+                        "Path nominated for cache ('{}') has a corrupt "
+                        "configuration. Please manually empty or delete this "
+                        "path cache, and try again.".format(self.path)
+                    )
+
+        # Cache needs initialising
+        if self.fs.exists(self.path):
+            if not self.fs.isdir(self.path):
+                raise RuntimeError(
+                    "Path nominated for cache ('{}') is not a directory.".format(self.path)
+                )
+            elif self.fs.listdir(self.path):
+                raise RuntimeError(
+                    "Cache directory ({}) needs to be initialised, and is not "
+                    "empty. Please manually delete and/or empty this path, and "
+                    "try again.".format(self.path)
+                )
+        else:  # Create cache directory
+            self.fs.mkdir(self.path, recursive=True)
+
+        # Write config file to mark cache as initialised
+        with self.fs.open(config_path, 'w') as fh:
+            yaml.safe_dump({'version': 1}, fh, default_flow_style=False)
+        return {'version': 1}
 
     def _connect(self):
         self.fs.connect()
