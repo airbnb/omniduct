@@ -21,7 +21,9 @@ config.register('cache_fail_hard',
 
 def cached_method(
         key,
-        namespace=lambda self, kwargs: "{}.{}".format(self.__class__.__name__, self.name),
+        namespace=lambda self, kwargs: (
+            self.cache_namespace or "{}.{}".format(self.__class__.__name__, self.name)
+        ),
         cache=lambda self, kwargs: self.cache,
         use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
         renew=lambda self, kwargs: kwargs.pop('renew', False),

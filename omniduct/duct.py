@@ -251,7 +251,8 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     PROTOCOLS = None
 
     def __init__(self, protocol=None, name=None, registry=None, remote=None,
-                 host=None, port=None, username=None, password=None, cache=None):
+                 host=None, port=None, username=None, password=None, cache=None,
+                 cache_namespace=None):
         """
         protocol (str, None): Name of protocol (used by Duct registries to inform
             Duct instances of how they were instantiated).
@@ -269,6 +270,8 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             If True, then users will be prompted at runtime for credentials.
         cache(Cache, None): The cache client to be attached to this instance.
             Cache will only used by specific methods as configured by the client.
+        cache_namespace(str, None): The namespace to use by default when writing
+            to the cache.
         """
 
         check_dependencies(self.PROTOCOLS)
@@ -282,6 +285,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
         self.username = username
         self.password = password
         self.cache = cache
+        self.cache_namespace = cache_namespace
 
         self.connection_fields = ('host', 'port', 'remote', 'username', 'password')
         self.prepared_fields = ('_host', '_port', '_username', '_password')
