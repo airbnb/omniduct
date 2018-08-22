@@ -25,7 +25,7 @@ def cached_method(
         cache=lambda self, kwargs: self.cache,
         use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
         renew=lambda self, kwargs: kwargs.pop('renew', False),
-        serializer=lambda self, kwargs: PickleSerializer,
+        serializer=lambda self, kwargs: PickleSerializer(),
         metadata=lambda self, kwargs: None
 ):
     @decorator

@@ -573,7 +573,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 table, and 'append' to add data from this table into the
                 existing table.
             **kwargs (dict): Additional keyword arguments to pass onto
-                `DatabaseClient._table_create`.
+                `DatabaseClient._query_to_table`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
         table = self._parse_namespaces(table)
