@@ -1,10 +1,6 @@
 import csv
 import io
-import pickle
 import six
-from distutils.version import LooseVersion
-
-import pandas as pd
 
 from omniduct.utils.debug import logger
 
@@ -59,14 +55,6 @@ class CursorFormatter(object):
     def format_row(self, row):
         raise NotImplementedError("{} does not support formatting streaming data.".format(self.__class__.__name__))
 
-    @classmethod
-    def serialize(cls, formatted_data, fh):
-        return pickle.dump(formatted_data, fh)
-
-    @classmethod
-    def deserialize(cls, fh):
-        return pickle.load(fh)
-
 
 class PandasCursorFormatter(CursorFormatter):
 
@@ -97,18 +85,6 @@ class PandasCursorFormatter(CursorFormatter):
         # TODO: Handle parsing of date fields
 
         return pd.Series(row, index=self.column_names)
-
-    @classmethod
-    def serialize(cls, formatted_data, fh):
-        # compat: if pandas is old, to_pickle does not accept file handles
-        if LooseVersion(pd.__version__) <= LooseVersion('0.20.3'):
-            fh.close()
-            fh = fh.name
-        return pd.to_pickle(formatted_data, fh)
-
-    @classmethod
-    def deserialize(cls, fh):
-        return pd.read_pickle(fh)
 
 
 class DictCursorFormatter(CursorFormatter):
