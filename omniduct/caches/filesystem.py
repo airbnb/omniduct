@@ -1,5 +1,7 @@
+import six
 import yaml
 
+from omniduct.filesystems.base import FileSystemClient
 from omniduct.filesystems.local import LocalFsClient
 
 from .base import Cache
@@ -19,7 +21,18 @@ class FileSystemCache(Cache):
         self.fs = fs or LocalFsClient()
         self.path = path
         # Currently config is not used, but will be in future versions
-        self._config = self._prepare_cache()
+        self._config = None
+        self.connection_fields += ('fs',)
+
+    def _prepare(self):
+        Cache._prepare(self)
+
+        if self.registry is not None:
+            if isinstance(self.fs, six.string_types):
+                self.fs = self.registry.lookup(self.fs, kind=FileSystemCache.Type.FILESYSTEM)
+        assert isinstance(self.fs, FileSystemClient), "Provided cache is not an instance of `omniduct.filesystems.base.FileSystemClient`."
+
+        self._prepare_cache()
 
     def _prepare_cache(self):
         config_path = self.fs.path_join(self.path, 'config')

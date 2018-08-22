@@ -106,6 +106,7 @@ class Cache(Duct):
             metadata (dict, None): Additional metadata to be stored with the value
                 in the cache. Values must be serializable via `yaml.safe_dump`.
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         try:
@@ -130,6 +131,7 @@ class Cache(Duct):
             replace (bool): Whether the provided metadata should entirely
                 replace any existing metadata, or just update it. (default=False)
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if replace:
             orig_metadata = {'created': datetime.datetime.utcnow()}
@@ -151,6 +153,7 @@ class Cache(Duct):
             serializer (Serializer): The `Serializer` subclass to use for the
                 deserialisation of value from the cache. (default=PickleSerializer)
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         if not self._has_key(namespace, key):
@@ -169,6 +172,7 @@ class Cache(Duct):
             key (str): The key for which to extract metadata.
             namespace (str, None): The namespace to be used.
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
             raise KeyError("{} (namespace: {})".format(key, namespace))
@@ -186,6 +190,7 @@ class Cache(Duct):
             key (str): The key which should be unset.
             namespace (str, None): The namespace to be used.
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
             raise KeyError("{} (namespace: {})".format(key, namespace))
@@ -198,6 +203,7 @@ class Cache(Duct):
         Parameters:
             namespace (str, None): The namespace to be removed.
         """
+        self.connect()
         namespace = self._namespace(namespace)
         if not self._has_namespace(namespace):
             raise KeyError("namespace: {}".format(namespace))
@@ -208,7 +214,7 @@ class Cache(Duct):
     @property
     def namespaces(self):
         "list <str,None>: A list of the namespaces stored in the cache."
-        return self._get_namespaces()
+        return self.connect()._get_namespaces()
 
     def has_namespace(self, namespace=None):
         """
@@ -217,6 +223,7 @@ class Cache(Duct):
         Parameters:
             namespace (str,None): The namespace for which to check for existence.
         """
+        self.connect()
         namespace = self._namespace(namespace)
         return self._has_namespace(namespace)
 
@@ -228,6 +235,7 @@ class Cache(Duct):
             namespace (str,None): The namespace from which to extract all of the
                 keys.
         """
+        self.connect()
         namespace = self._namespace(namespace)
         return self._get_keys(namespace)
 
@@ -240,6 +248,7 @@ class Cache(Duct):
             namespace (str,None): The namespace from which to extract all of the
                 keys.
         """
+        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         return self._has_key(namespace, key)
 
