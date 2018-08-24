@@ -82,6 +82,10 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         )
         return self.execute(statement, **kwargs)
 
+    def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
+        return df.to_sql(name=table.table, schema=table.database, con=self.engine,
+                         index=False, if_exists=if_exists, **kwargs)
+
     def _cursor_empty(self, cursor):
         return False
 

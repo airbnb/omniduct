@@ -588,8 +588,8 @@ class DatabaseClient(Duct, MagicsProvider):
 
         Parameters:
             df (pandas.DataFrame): The dataframe to upload into the database.
-            table (str): The name of the table into which the dataframe should
-                be uploaded.
+            table (str, ParsedNamespaces): The name of the table into which the
+                dataframe should be uploaded.
             if_exists (str): if nominated table already exists: 'fail' to do
                 nothing, 'replace' to drop, recreate and insert data into new
                 table, and 'append' to add data from this table into the
@@ -615,12 +615,13 @@ class DatabaseClient(Duct, MagicsProvider):
     def _cursor_empty(self, cursor):
         return False
 
-    def _parse_namespaces(self, name, level=0):
+    def _parse_namespaces(self, name, level=0, defaults=None):
         return ParsedNamespaces.from_name(
             name,
             self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
             quote_char=self.NAMESPACE_QUOTECHAR,
-            separator=self.NAMESPACE_SEPARATOR
+            separator=self.NAMESPACE_SEPARATOR,
+            defaults=defaults
         )
 
     @quirk_docs('_table_list')

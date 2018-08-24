@@ -217,7 +217,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return self.execute(statement, **kwargs)
 
     def _dataframe_to_table(
-        self, df, table, if_exists='fail', schema=None, use_hive_cli=None,
+        self, df, table, if_exists='fail', use_hive_cli=None,
         partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs
     ):
         """
@@ -236,9 +236,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         `pyhive` and `impyla`. This may be slower, does not support older
         versions of Hive, and does not support table properties or partitioning.
 
+        If if the schema namespace is not specified, `table.schema` will be
+        defaulted to your username.
+
         Additional Parameters:
-            schema (str): The schema into which the table should be pushed. If
-                not specified, the schema will be set to your username.
             use_hive_cli (bool, None): A local override for the global
                 `.push_using_hive_cli` attribute. If not specified, the global
                 default is used. If True, then pushes are performed using the
@@ -257,7 +258,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             dtype_overrides (dict): Mapping of column names to Hive datatypes to
                 use instead of default mapping.
         """
-        schema = schema or self.username
+        table = self._parse_namespaces(table, defaults={'schema': self.username})
         use_hive_cli = use_hive_cli or self.push_using_hive_cli
         partition = partition or {}
         table_props = table_props or {}
@@ -275,9 +276,8 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     "and try again."
                 )
             try:
-                return df.to_sql(name=table, con=self._sqlalchemy_engine,
-                                 index=False, if_exists=if_exists,
-                                 schema=schema, **kwargs)
+                return df.to_sql(name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+                                 index=False, if_exists=if_exists, **kwargs)
             except Exception as e:
                 raise RuntimeError(
                     "Push unsuccessful. Your version of Hive may be too old to "
@@ -320,8 +320,8 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         tblprops = self.default_table_props.copy()
         tblprops.update(table_props or {})
         cts = self._create_table_statement_from_df(
-            df=df, table=table,
-            schema=schema,
+            df=df,
+            table=table,
             drop=(if_exists == 'replace') and not partition,
             text=True,
             sep=sep,
@@ -332,22 +332,20 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # Generate load data statement.
         partition_clause = '' if not partition else 'PARTITION ({})'.format(','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items()))
-        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {schema}.{table} {partition_clause};'.format(
+        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {table} {partition_clause};'.format(
             path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
             overwrite="OVERWRITE" if if_exists == "replace" else "",
-            schema=schema,
             table=table,
             partition_clause=partition_clause
         )
 
         # Run create table statement and load data statments
         logger.info(
-            "Creating hive table `{schema}.{table}` if it does not "
+            "Creating hive table `{table}` if it does not "
             "already exist, and inserting the provided data{partition}."
             .format(
-                schema=schema,
                 table=table,
-                partition="into {}".format(partition_clause) if partition_clause else ""
+                partition=" into {}".format(partition_clause) if partition_clause else ""
             )
         )
         try:
@@ -362,14 +360,13 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 self.remote.execute('rm -rf {}'.format(tmp_fname))
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-        logger.info("Successfully uploaded dataframe {partition}`{schema}.{table}`.".format(
-            schema=schema,
+        logger.info("Successfully uploaded dataframe {partition}`{table}`.".format(
             table=table,
             partition="into {} of ".format(partition_clause) if partition_clause else ""
         ))
 
     def _table_list(self, namespace, like='*', **kwargs):
-        schema = namespace.name or self.schema or 'default'
+        schema = namespace.name or self.schema
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
 
@@ -422,7 +419,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return proc
 
     @classmethod
-    def _create_table_statement_from_df(cls, df, table, schema='default', drop=False,
+    def _create_table_statement_from_df(cls, df, table, drop=False,
                                         text=True, sep=chr(1), loc=None,
                                         table_props=None, partition_cols=None,
                                         dtype_overrides=None):
@@ -432,8 +429,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         Parameters:
             df (pandas.DataFrame, pandas.Series): Used to determine column names
                 and types for create table statement.
-            table (str): The name of the target table.
-            schema (str): The name of the target schema.
+            table (ParsedNamespaces): The parsed name of the target table.
             drop (bool): Whether to include a drop table statement before the
                 create table statement.
             text (bool): Whether data will be stored as a textfile.
@@ -489,9 +485,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         cmd = Template("""
         {% if drop %}
-        DROP TABLE IF EXISTS {{ schema }}.{{ table }};
+        DROP TABLE IF EXISTS {{ table }};
         {% endif -%}
-        CREATE TABLE IF NOT EXISTS {{ schema }}.{{ table }} (
+        CREATE TABLE IF NOT EXISTS {{ table }} (
             {%- for col in columns %}
             {{ col }} {% if not loop.last %}, {% endif %}
             {%- endfor %}

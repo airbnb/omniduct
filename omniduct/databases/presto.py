@@ -169,14 +169,15 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         )
         return self.execute(statement, **kwargs)
 
-    def _dataframe_to_table(self, df, table, if_exists='fail', schema=None, **kwargs):
+    def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
         """
-        Additional parameters:
-            schema (str): The schema into which the table should be pushed. If
-                not specified, the schema will be set to your username.
+        If if the schema namespace is not specified, `table.schema` will be
+        defaulted to your username. Catalog overrides will be ignored, and will
+        default to `self.catalog`.
         """
-        return df.to_sql(name=table, con=self._sqlalchemy_engine, index=False,
-                         if_exists=if_exists, schema=schema or self.username, **kwargs)
+        table = self._parse_namespaces(table, defaults={'schema': self.username})
+        return df.to_sql(name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+                         index=False, if_exists=if_exists, **kwargs)
 
     def _cursor_empty(self, cursor):
         return False
