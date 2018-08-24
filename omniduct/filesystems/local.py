@@ -23,8 +23,11 @@ class LocalFsClient(FileSystemClient):
     PROTOCOLS = ['localfs']
 
     def _init(self):
-        assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
         self._path_cwd = self._path_cwd or os.getcwd()
+
+    def _prepare(self):
+        assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
+        super()._prepare()
 
     def _connect(self):
         pass
