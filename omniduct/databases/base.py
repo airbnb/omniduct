@@ -613,7 +613,7 @@ class DatabaseClient(Duct, MagicsProvider):
         raise NotImplementedError
 
     def _cursor_empty(self, cursor):
-        return False
+        return cursor is None
 
     def _parse_namespaces(self, name, level=0, defaults=None):
         return ParsedNamespaces.from_name(

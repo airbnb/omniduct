@@ -48,6 +48,10 @@ def cached_method(
 
         if _renew or not _cache.has_key(_key, namespace=_namespace):  # noqa: has_key is not of a dictionary here
             value = method(self, **kwargs)
+            if value is None:
+                logger.warning("Method value returned None. Not saving to cache.")
+                return
+
             try:
                 _cache.set(
                     _key,
