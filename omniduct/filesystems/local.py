@@ -27,7 +27,7 @@ class LocalFsClient(FileSystemClient):
 
     def _prepare(self):
         assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
-        super()._prepare()
+        super(LocalFsClient, self)._prepare()
 
     def _connect(self):
         pass
