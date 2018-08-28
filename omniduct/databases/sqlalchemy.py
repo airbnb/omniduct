@@ -86,9 +86,6 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return df.to_sql(name=table.table, schema=table.database, con=self.engine,
                          index=False, if_exists=if_exists, **kwargs)
 
-    def _cursor_empty(self, cursor):
-        return False
-
     def _table_list(self, **kwargs):
         return self.query("SHOW TABLES", **kwargs)
 
