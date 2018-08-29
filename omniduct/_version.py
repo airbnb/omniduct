@@ -72,6 +72,11 @@ __optional_dependencies__ = {
         'pexpect',  # Command line handling (including smartcard activation)
     ],
 
+    # Wrappers
+    'redis': [
+        'redis',  # Primary Client
+    ],
+
     # Rest clients
     'rest': [
         'requests',  # Library to handle underlying REST queries
