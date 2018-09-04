@@ -52,6 +52,10 @@ __optional_dependencies__ = {
         'pyspark',  # Primary client
     ],
 
+    'snowflake': [
+        'snowflake-sqlalchemy',
+    ],
+
     # Filesystems
     'webhdfs': [
         'pywebhdfs',  # Primary client
