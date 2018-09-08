@@ -97,7 +97,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
         elif self.driver == 'impyla':
-            import impala.dbapi
+            try:
+                import impala.dbapi
+            except ImportError:
+                raise ImportError("Please install impyla or specify driver='pyhive'.")
             self.__hive = impala.dbapi.connect(host=self.host,
                                                port=self.port,
                                                auth_mechanism=self.auth_mechanism,
