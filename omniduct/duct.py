@@ -237,13 +237,13 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     class Type(Enum):
         """
         The `Duct.Type` enum specifies all of the permissible values of
-        `Duct.DUCT_TYPE`.
+        `Duct.DUCT_TYPE`. Also determines the order in which ducts are loaded by DuctRegistry.
         """
         REMOTE = 'remotes'
         FILESYSTEM = 'filesystems'
-        DATABASE = 'databases'
         CACHE = 'caches'
         RESTFUL = 'rest_clients'
+        DATABASE = 'databases'
         OTHER = 'other'
 
     AUTO_LOGGING_SCOPE = True
@@ -405,6 +405,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
            and '_password'.
          - Ensures value of self.port is an integer (or None).
         """
+
         # Import necessary classes lazily (to prevent dependency cycles)
         from omniduct.registry import DuctRegistry
         from omniduct.caches.base import Cache

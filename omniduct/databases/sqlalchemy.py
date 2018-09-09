@@ -8,12 +8,12 @@ from ._schemas import SchemasMixin
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
-    PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase']
+    PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase', 'snowflake']
     NAMESPACE_NAMES = ['database', 'table']
     NAMESPACE_QUOTECHAR = '"'  # TODO: Apply overrides depending on protocol?
     NAMESPACE_SEPARATOR = '.'
 
-    def _init(self, dialect=None, driver=None, database=''):
+    def _init(self, dialect=None, driver=None, database='', engine_opts=None):
 
         assert self._port is not None, "Omniduct requires SQLAlchemy databases to manually specify a port, as " \
                                        "it will often be the case that ports are being forwarded."
@@ -27,6 +27,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         self.driver = driver
         self.database = database
         self.connection_fields += ('schema',)
+        self.engine_opts = engine_opts or {}
 
         self.engine = None
         self.connection = None
@@ -43,7 +44,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _connect(self):
         import sqlalchemy
 
-        self.engine = sqlalchemy.create_engine(self.db_uri)
+        self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
         self._sqlalchemy_metadata = sqlalchemy.MetaData(self.engine)
 
     def _is_connected(self):
