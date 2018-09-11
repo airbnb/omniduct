@@ -86,7 +86,14 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     def _connect(self):
         from sqlalchemy import create_engine, MetaData
         if self.driver == 'pyhive':
-            import pyhive.hive
+            try:
+                import pyhive.hive
+            except ImportError:
+                raise ImportError("""
+                    Omniduct is attempting to use the 'pyhive' driver, but it
+                    is not installed. Please either install the pyhive package,
+                    or reconfigure this Duct to use the 'impyla' driver.
+                    """)
             self.__hive = pyhive.hive.connect(host=self.host,
                                               port=self.port,
                                               auth=self.auth_mechanism,
@@ -100,7 +107,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             try:
                 import impala.dbapi
             except ImportError:
-                raise ImportError("Please install impyla or specify driver='pyhive'.")
+                raise ImportError("""
+                    Omniduct is attempting to use the 'impyla' driver, but it
+                    is not installed. Please either install the impyla package,
+                    or reconfigure this Duct to use the 'pyhive' driver.
+                    """)
             self.__hive = impala.dbapi.connect(host=self.host,
                                                port=self.port,
                                                auth_mechanism=self.auth_mechanism,
