@@ -4,6 +4,7 @@ import os
 import shutil
 from io import open
 
+from omniduct.utils.debug import logger
 from .base import FileSystemClient, FileSystemFileDesc
 
 
@@ -94,6 +95,7 @@ class LocalFsClient(FileSystemClient):
             os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
             if exc.errno == errno.EEXIST and os.path.isdir(path):
+                logger.warning("directory {path} already exists".format(path=path))
                 pass
             else:
                 raise
