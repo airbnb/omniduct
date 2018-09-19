@@ -189,7 +189,7 @@ class S3Client(FileSystemClient):
     #         if pattern is None or pattern.match(k.key[len(path_prefix):]):
     #             yield k.key
 
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
 
     def _remove(self, path, recursive):

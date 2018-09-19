@@ -290,7 +290,9 @@ class SSHClient(RemoteClient):
                 last_modified=row.last_modified,
             )
 
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
+        if exist_ok and self.isdir(path):
+            return
         assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
     def _remove(self, path, recursive):

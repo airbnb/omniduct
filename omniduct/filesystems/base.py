@@ -410,7 +410,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 yield match
 
     @quirk_docs('_mkdir')
-    def mkdir(self, path, recursive=True):
+    def mkdir(self, path, recursive=True, exist_ok=False):
         """
         This method creates a directory at the specified path, recursively
         creating any parents as needed unless `recursive` is set to `False`.
@@ -419,13 +419,18 @@ class FileSystemClient(Duct, MagicsProvider):
             path (str): The path of the directory to create.
             recursive (bool): Whether to recursively create any parents of this
                 path if they do not already exist.
+
+        Note: `exist_ok` is passed onto subclass implementations of `_mkdir`
+        rather that implementing the existence check using `.exists` so that
+        they can avoid the overhead associated with multiple operations, which
+        can be costly in some cases.
         """
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
-        return self.connect()._mkdir(self._path(path), recursive)
+        return self.connect()._mkdir(self._path(path), recursive, exist_ok)
 
     @abstractmethod
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
     @quirk_docs('_remove')
@@ -611,7 +616,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
         for target in targets:
             if target[2] and not fs.isdir(target[1]):
-                fs.mkdir(target[1])
+                fs.mkdir(target[1], exist_ok=True)
             elif not target[2]:
                 self.connect()._download(target[0], target[1], overwrite, fs)
 
