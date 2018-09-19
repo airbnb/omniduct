@@ -190,10 +190,23 @@ class S3Client(FileSystemClient):
     #             yield k.key
 
     def _mkdir(self, path, recursive, exist_ok):
-        raise NotImplementedError("Support for S3 write operations has yet to be implemented.")
+        if not path.endswith('/'):
+            path += '/'
+        if not self._exists(path):
+            self._client.put_object(Bucket=self.bucket, Key=path)
 
     def _remove(self, path, recursive):
-        raise NotImplementedError("Support for S3 deletion operations has yet to be implemented.")
+        if recursive:
+            bucket = self._resource.Bucket(self.bucket)
+            to_delete = []
+            for obj in bucket.objects.filter(Prefix=path):
+                to_delete.append({'Key': obj.key})
+                if len(to_delete) == 1000:  # Maximum number of simultaneous deletes is 1000
+                    self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
+                    to_delete = []
+            self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
+        else:
+            self._client.delete_object(Bucket=self.bucket, Key=path)
 
     # File handling
 
