@@ -273,12 +273,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 use instead of default mapping.
         """
         table = self._parse_namespaces(table, defaults={'schema': self.username})
-        print(table)
         use_hive_cli = use_hive_cli or self.push_using_hive_cli
         partition = partition or {}
         table_props = table_props or {}
         dtype_overrides = dtype_overrides or {}
-        print(kwargs)
         # Try using SQLALchemy method
         if not use_hive_cli:
             if partition or table_props or dtype_overrides:
@@ -367,7 +365,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         )
         try:
             stmts = '\n'.join([cts.replace("`", ""), lds])
-            # print(stmts)
             # logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
@@ -385,7 +382,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     def _table_list(self, namespace, like='*', **kwargs):
         schema = namespace.name or self.schema
-        print(schema, namespace.name, self.schema)
 
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
@@ -431,7 +427,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         # Turn hive command into quotable string.
         double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
         sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped))
-        print(sys_cmd)
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
