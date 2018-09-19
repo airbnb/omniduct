@@ -236,7 +236,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     ):
         """
         If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
-        `True`, a `CRETE TABLE` statement will be automatically generated based
+        `True`, a `CREATE TABLE` statement will be automatically generated based
         on the datatypes of the DataFrame (unless overwritten by
         `dtype_overrides`). The `DataFrame` will then be exported to a CSV
         compatible with Hive and uploaded (if necessary) to the remote, before
