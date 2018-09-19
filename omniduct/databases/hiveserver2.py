@@ -365,7 +365,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         )
         try:
             stmts = '\n'.join([cts.replace("`", ""), lds])
-            # logger.debug(stmts)
+            logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
                 raise RuntimeError(proc.stderr.decode('utf-8'))
