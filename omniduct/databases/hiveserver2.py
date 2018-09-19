@@ -352,7 +352,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             overwrite="OVERWRITE" if if_exists == "replace" else "",
             table=table,
             partition_clause=partition_clause
-        ).replace("`", "")
+        )
 
         # Run create table statement and load data statments
         logger.info(
@@ -364,7 +364,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             )
         )
         try:
-            stmts = '\n'.join([cts.replace("`", ""), lds])
+            stmts = '\n'.join([cts, lds])
             logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
@@ -427,6 +427,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         # Turn hive command into quotable string.
         double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
         sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped))
+        sys_cmd = sys_cmd.replace('`', r'\\\`')
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
