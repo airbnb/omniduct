@@ -133,7 +133,7 @@ class WebHdfsClient(FileSystemClient):
                 replication=f['replication']
             )
 
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
     def _remove(self, path, recursive):

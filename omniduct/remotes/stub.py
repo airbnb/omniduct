@@ -57,7 +57,7 @@ class StubFsClient(RemoteClient):
     def _dir(self, path):
         raise NotImplementedError
 
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
     # File handling

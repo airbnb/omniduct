@@ -60,7 +60,7 @@ class FileSystemCache(Cache):
                     "try again.".format(self.path)
                 )
         else:  # Create cache directory
-            self.fs.mkdir(self.path, recursive=True)
+            self.fs.mkdir(self.path, recursive=True, exist_ok=True)
 
         # Write config file to mark cache as initialised
         with self.fs.open(config_path, 'w') as fh:
@@ -106,6 +106,6 @@ class FileSystemCache(Cache):
         path = self.fs.path_join(self.path, namespace, key)
 
         if create:
-            self.fs.mkdir(path, recursive=True)
+            self.fs.mkdir(path, recursive=True, exist_ok=True)
 
         return self.fs.open(self.fs.path_join(path, stream_name), mode=mode)

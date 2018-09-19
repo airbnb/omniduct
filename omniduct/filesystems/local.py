@@ -2,9 +2,10 @@ import datetime
 import errno
 import os
 import shutil
+import six
+import sys
 from io import open
 
-from omniduct.utils.debug import logger
 from .base import FileSystemClient, FileSystemFileDesc
 
 
@@ -90,15 +91,12 @@ class LocalFsClient(FileSystemClient):
     def _walk(self, path):
         return os.walk(path)
 
-    def _mkdir(self, path, recursive):
+    def _mkdir(self, path, recursive, exist_ok):
         try:
             os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                logger.warning("directory {path} already exists".format(path=path))
-                pass
-            else:
-                raise
+            if exc.errno != errno.EEXIST or not exist_ok or not os.path.isdir(path):
+                six.reraise(*sys.exc_info())
 
     def _remove(self, path, recursive):
         if recursive and self.isdir(path):
