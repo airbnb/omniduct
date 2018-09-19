@@ -273,6 +273,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 use instead of default mapping.
         """
         table = self._parse_namespaces(table, defaults={'schema': self.username})
+        print(table)
         use_hive_cli = use_hive_cli or self.push_using_hive_cli
         partition = partition or {}
         table_props = table_props or {}
@@ -346,12 +347,14 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # Generate load data statement.
         partition_clause = '' if not partition else 'PARTITION ({})'.format(','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items()))
-        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {table} {partition_clause};'.format(
+        lds = """
+            \nLOAD DATA LOCAL INPATH '{path}' {overwrite} INTO TABLE {table} {partition_clause};
+            """.format(
             path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
             overwrite="OVERWRITE" if if_exists == "replace" else "",
             table=table,
             partition_clause=partition_clause
-        )
+        ).replace("`", "")
 
         # Run create table statement and load data statments
         logger.info(
@@ -363,9 +366,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             )
         )
         try:
-            stmts = '\n'.join([cts, lds])
-            print(stmts)
-            logger.debug(stmts)
+            stmts = '\n'.join([cts.replace("`", ""), lds])
+            # print(stmts)
+            # logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
                 raise RuntimeError(proc.stderr.decode('utf-8'))
@@ -428,6 +431,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         # Turn hive command into quotable string.
         double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
         sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped))
+        print(sys_cmd)
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
@@ -518,11 +522,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         {%- endif %}
         {%- if text %}
         ROW FORMAT DELIMITED
-        FIELDS TERMINATED BY "{{ sep }}"
+        FIELDS TERMINATED BY '{{ sep }}'
         STORED AS TEXTFILE
         {% endif %}
         {%- if loc %}
-        LOCATION "{{ loc }}"
+        LOCATION '{{ loc }}'
         {%- endif %}
         {{ tblprops }}
         ;
