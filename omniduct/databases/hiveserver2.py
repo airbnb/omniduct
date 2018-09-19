@@ -277,6 +277,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         partition = partition or {}
         table_props = table_props or {}
         dtype_overrides = dtype_overrides or {}
+
         # Try using SQLALchemy method
         if not use_hive_cli:
             if partition or table_props or dtype_overrides:
@@ -345,9 +346,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # Generate load data statement.
         partition_clause = '' if not partition else 'PARTITION ({})'.format(','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items()))
-        lds = """
-            \nLOAD DATA LOCAL INPATH '{path}' {overwrite} INTO TABLE {table} {partition_clause};
-            """.format(
+        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {table} {partition_clause};'.format(
             path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
             overwrite="OVERWRITE" if if_exists == "replace" else "",
             table=table,
@@ -382,7 +381,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     def _table_list(self, namespace, like='*', **kwargs):
         schema = namespace.name or self.schema
-
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
 
@@ -425,7 +423,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     def _run_in_hivecli(self, cmd):
         """Run a query using hive cli in a subprocess."""
         # Turn hive command into quotable string.
+        # cmd = cmd.replace('`', '\\`')
         double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
+        print(double_escaped)
         sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped))
         sys_cmd = sys_cmd.replace('`', r'\\\`')
         # Execute command in a subprocess.
@@ -518,11 +518,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         {%- endif %}
         {%- if text %}
         ROW FORMAT DELIMITED
-        FIELDS TERMINATED BY '{{ sep }}'
+        FIELDS TERMINATED BY "{{ sep }}"
         STORED AS TEXTFILE
         {% endif %}
         {%- if loc %}
-        LOCATION '{{ loc }}'
+        LOCATION "{{ loc }}"
         {%- endif %}
         {{ tblprops }}
         ;
