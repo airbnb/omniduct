@@ -236,7 +236,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     ):
         """
         If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
-        `True`, a `CREATE TABLE` statement will be automatically generated based
+        `True`, a `CRETE TABLE` statement will be automatically generated based
         on the datatypes of the DataFrame (unless overwritten by
         `dtype_overrides`). The `DataFrame` will then be exported to a CSV
         compatible with Hive and uploaded (if necessary) to the remote, before
@@ -277,7 +277,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         partition = partition or {}
         table_props = table_props or {}
         dtype_overrides = dtype_overrides or {}
-
+        print(kwargs)
         # Try using SQLALchemy method
         if not use_hive_cli:
             if partition or table_props or dtype_overrides:
@@ -364,6 +364,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         )
         try:
             stmts = '\n'.join([cts, lds])
+            print(stmts)
             logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
@@ -381,6 +382,8 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     def _table_list(self, namespace, like='*', **kwargs):
         schema = namespace.name or self.schema
+        print(schema, namespace.name, self.schema)
+
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
 

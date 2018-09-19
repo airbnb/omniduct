@@ -598,6 +598,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 `DatabaseClient._dataframe_to_table`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
+        print(kwargs)
         self.connect()._dataframe_to_table(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
 
     # Table properties
