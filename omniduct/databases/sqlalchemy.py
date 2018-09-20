@@ -4,6 +4,7 @@ from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
+from . import _pandas
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
@@ -84,8 +85,10 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return self.execute(statement, **kwargs)
 
     def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
-        return df.to_sql(name=table.table, schema=table.database, con=self.engine,
-                         index=False, if_exists=if_exists, **kwargs)
+        return _pandas.to_sql(
+            df=df, name=table.table, schema=table.database, con=self.engine,
+            index=False, if_exists=if_exists, **kwargs
+        )
 
     def _table_list(self, **kwargs):
         return self.query("SHOW TABLES", **kwargs)

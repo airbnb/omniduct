@@ -14,6 +14,7 @@ from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
+from . import _pandas
 
 
 class PrestoClient(DatabaseClient, SchemasMixin):
@@ -176,8 +177,10 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         default to `self.catalog`.
         """
         table = self._parse_namespaces(table, defaults={'schema': self.username})
-        return df.to_sql(name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
-                         index=False, if_exists=if_exists, **kwargs)
+        return _pandas.to_sql(
+            df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+            index=False, if_exists=if_exists, **kwargs
+        )
 
     def _cursor_empty(self, cursor):
         return False
