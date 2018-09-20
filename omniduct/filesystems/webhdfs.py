@@ -144,7 +144,7 @@ class WebHdfsClient(FileSystemClient):
             if self._isfile(path):
                 self.__webhdfs.delete_file_dir(path)
             else:
-                self.__webhdfs.delete_file_dir(path, recursive=True)
+                self.__webhdfs.delete_file_dir(path, recursive)
 
     # File handling
 
