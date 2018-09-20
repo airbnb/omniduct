@@ -134,10 +134,17 @@ class WebHdfsClient(FileSystemClient):
             )
 
     def _mkdir(self, path, recursive, exist_ok):
-        raise NotImplementedError
+        if not path.endswith('/'):
+            path += '/'
+        if not self._exists(path):
+            self.__webhdfs.make_dir(path)
 
     def _remove(self, path, recursive):
-        raise NotImplementedError
+        if self._exists(path):
+            if self._isfile(path):
+                self.__webhdfs.delete_file_dir(path)
+            else:
+                self.__webhdfs.delete_file_dir(path, recursive=True)
 
     # File handling
 
