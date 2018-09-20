@@ -424,7 +424,8 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         """Run a query using hive cli in a subprocess."""
         # Turn hive command into quotable string.
         double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
-        sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped))
+        sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped)) \
+                                 .replace('`', '\\\\\\`')
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
