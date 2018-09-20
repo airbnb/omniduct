@@ -15,6 +15,7 @@ from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
+from . import _pandas
 
 
 class HiveServer2Client(DatabaseClient, SchemasMixin):
@@ -290,15 +291,18 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     "and try again."
                 )
             try:
-                return df.to_sql(name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
-                                 index=False, if_exists=if_exists, **kwargs)
+                return _pandas.to_sql(
+                    df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+                    index=False, if_exists=if_exists, **kwargs
+                )
             except Exception as e:
                 raise RuntimeError(
                     "Push unsuccessful. Your version of Hive may be too old to "
                     "support the `INSERT` keyword. You might want to try setting "
                     "`.push_using_hive_cli = True` if your local or remote "
                     "machine has access to the `hive` CLI executable. The "
-                    "original exception was: {}".format(e.args[0]))
+                    "original exception was: {}".format(e.args[0])
+                )
 
         # Try using Hive CLI
 
@@ -345,7 +349,13 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         )
 
         # Generate load data statement.
-        partition_clause = '' if not partition else 'PARTITION ({})'.format(','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items()))
+        partition_clause = (
+            ''
+            if not partition
+            else 'PARTITION ({})'.format(
+                ','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items())
+            )
+        )
         lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {table} {partition_clause};'.format(
             path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
             overwrite="OVERWRITE" if if_exists == "replace" else "",
