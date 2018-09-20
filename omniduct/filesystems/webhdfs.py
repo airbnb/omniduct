@@ -134,10 +134,14 @@ class WebHdfsClient(FileSystemClient):
             )
 
     def _mkdir(self, path, recursive, exist_ok):
-        raise NotImplementedError
+        if not recursive and not self._isdir(self.path_basename(path)):
+            raise IOError("No parent directory found for {}.".format(path))
+        if not exist_ok and self._exists(path):
+            raise IOError("Path already exists at {}.".format(path))
+        self.__webhdfs.make_dir(path)
 
     def _remove(self, path, recursive):
-        raise NotImplementedError
+        self.__webhdfs.delete_file_dir(path, recursive)
 
     # File handling
 
