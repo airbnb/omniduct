@@ -274,7 +274,7 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             to the cache.
         """
 
-        check_dependencies(self.PROTOCOLS)
+        check_dependencies([protocol])
 
         self.protocol = protocol
         self.name = name or self.__class__.__name__
