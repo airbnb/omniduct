@@ -73,18 +73,23 @@ class SchemasMixin(object):
 class TableDesc(Table):
 
     def desc(self):
-        # TODO this SQL is not valid for all dialects
-        return pd.read_sql('describe "{}"."{}"'.format(self.schema, self.name), self.bind)
+        return pd.DataFrame(
+            [[col.name, col.type] for col in self.columns.values()],
+            columns=['name', 'type']
+        )
 
     def head(self, n=10):
-        return pd.read_sql('SELECT * FROM "{}"."{}" LIMIT {}'.format(self.schema, self.name, n), self.bind)
+        return pd.read_sql(
+            'SELECT * FROM "{}"."{}"'.format(self.schema, self.name)
+            + 'LIMIT {}'.format(n) if n is not None else '',
+            self.bind
+        )
+
+    def dump(self):
+        return self.head(n=None)
 
     def __repr__(self):
-        df = pd.DataFrame()
-        for i, col in enumerate(self.columns):
-            df.loc[i, 'name'] = col.name
-            df.loc[i, 'type'] = col.type
-        return df.__repr__()
+        return self.desc().__repr__()
 
 
 # Define helpers to allow for table completion/etc
@@ -136,10 +141,9 @@ class Schema(object):
     def __getattr__(self, table):
         if table in self._table_names:
             if table not in self._table_cache:
-                self._table_cache[table] = TableDesc('{}'.format(table), self._metadata,
-                                                     autoload=True,
-                                                     schema=self._schema
-                                                     )
+                self._table_cache[table] = TableDesc(
+                    '{}'.format(table), self._metadata, autoload=True, schema=self._schema
+                )
             return self._table_cache[table]
         raise AttributeError("No such table {}".format(table))
 
