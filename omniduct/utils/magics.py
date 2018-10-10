@@ -28,6 +28,7 @@ def process_line_cell_arguments(f):
 
 
 def _process_line_arguments(line_arguments):
+    from IPython import get_ipython
     args = []
     kwargs = {}
     reached_kwargs = False
@@ -35,7 +36,7 @@ def _process_line_arguments(line_arguments):
         if '=' in arg:
             reached_kwargs = True
             key, value = arg.split('=')
-            value = eval(value)
+            value = eval(value, get_ipython().user_ns)
             if key in kwargs:
                 raise ValueError('Duplicate keyword argument `{}`.'.format(key))
             kwargs[key] = value
