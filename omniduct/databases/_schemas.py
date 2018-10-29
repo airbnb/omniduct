@@ -129,17 +129,23 @@ class Schema(object):
     def __init__(self, metadata, schema):
         self._metadata = metadata
         self._schema = schema
-        self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(schema)
         self._table_cache = {}
+        self._table_names = None
+
+    @property
+    def table_names(self):
+        if self._table_names is None:
+            self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(self._schema)
+        return self._table_names
 
     def __dir__(self):
-        return self._table_names
+        return self.table_names
 
     def all(self):
-        return self._table_names
+        return self.table_names
 
     def __getattr__(self, table):
-        if table in self._table_names:
+        if table in self.table_names:
             if table not in self._table_cache:
                 self._table_cache[table] = TableDesc(
                     '{}'.format(table), self._metadata, autoload=True, schema=self._schema
@@ -148,11 +154,11 @@ class Schema(object):
         raise AttributeError("No such table {}".format(table))
 
     def __repr__(self):
-        return "<Schema `{}`: {} tables>".format(self._schema, len(self._table_names))
+        return "<Schema `{}`: {} tables>".format(self._schema, len(self.table_names))
 
     def __iter__(self):
-        for schema in self._table_names:
+        for schema in self.table_names:
             yield schema
 
     def __len__(self):
-        return len(self._table_names)
+        return len(self.table_names)
