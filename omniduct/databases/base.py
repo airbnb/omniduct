@@ -71,7 +71,10 @@ class DatabaseClient(Duct, MagicsProvider):
     NAMESPACE_SEPARATOR = '.'
 
     @quirk_docs('_init', mro=True)
-    def __init__(self, session_properties=None, templates=None, template_context=None, **kwargs):
+    def __init__(
+        self, session_properties=None, templates=None, template_context=None, default_format_opts=None,
+        **kwargs
+    ):
         """
         session_properties (dict): A mapping of default session properties
             to values. Interpretation is left up to implementations.
@@ -87,6 +90,7 @@ class DatabaseClient(Duct, MagicsProvider):
         self._template_context = template_context or {}
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
+        self._default_format_opts = default_format_opts or {}
 
         self._init(**kwargs)
 
@@ -353,7 +357,8 @@ class DatabaseClient(Duct, MagicsProvider):
         if not (inspect.isclass(formatter) and issubclass(formatter, _cursor_formatters.CursorFormatter)):
             assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
             formatter = self.CURSOR_FORMATTERS[formatter]
-        return formatter(cursor, **kwargs)
+        format_opts = dict(list(self._default_format_opts.items()) + list(kwargs.items()))
+        return formatter(cursor, **format_opts)
 
     def stream_to_file(self, statement, file, format='csv', **kwargs):
         """

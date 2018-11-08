@@ -9,6 +9,7 @@ class CursorFormatter(object):
 
     def __init__(self, cursor, **kwargs):
         self.cursor = cursor
+        self.lowercase_columns = kwargs.pop('lowercase_columns', False)
         self.init(**kwargs)
 
     def init(self):
@@ -16,7 +17,7 @@ class CursorFormatter(object):
 
     @property
     def column_names(self):
-        return [c[0] for c in self.cursor.description]
+        return [c[0].lower() if self.lowercase_columns else c[0] for c in self.cursor.description]
 
     @property
     def column_formats(self):
