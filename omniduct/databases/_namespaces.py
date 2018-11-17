@@ -133,18 +133,7 @@ class ParsedNamespaces:
     @property
     def name(self):
         """The full name provided (with quotes)."""
-        names = [
-            self.__names[namespace]
-            for namespace, name in self.__names.items()
-            if name
-        ]
-        if len(names) == 0:
-            return ""
-        return (
-            self.__quote_char
-            + "{qc}.{qc}".format(qc=self.__quote_char).join(names)
-            + self.__quote_char
-        )
+        return self.render()
 
     @property
     def parent(self):
@@ -160,6 +149,25 @@ class ParsedNamespaces:
     def as_dict(self):
         """Returns the parsed namespaces as an OrderedDict from most to least general."""
         return self.__names
+
+    def render(self, quote_char=None, separator=None):
+        if quote_char is None:
+            quote_char = self.__quote_char
+        if separator is None:
+            separator = self.__separator
+
+        names = [
+            self.__names[namespace]
+            for namespace, name in self.__names.items()
+            if name
+        ]
+        if len(names) == 0:
+            return ""
+        return (
+            quote_char
+            + "{qc}{sep}{qc}".format(qc=quote_char, sep=separator).join(names)
+            + quote_char
+        )
 
     def __str__(self):
         return self.name
