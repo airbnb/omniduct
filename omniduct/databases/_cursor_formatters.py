@@ -4,11 +4,21 @@ import six
 
 from omniduct.utils.debug import logger
 
+COLUMN_NAME_FORMATTERS = {
+    'lowercase': lambda x: x.lower(),
+    'uppercase': lambda x: x.upper()
+}
+
 
 class CursorFormatter(object):
 
     def __init__(self, cursor, **kwargs):
         self.cursor = cursor
+        column_name_formatter = kwargs.pop('column_name_formatter', lambda x: x)
+        self.column_name_formatter = (
+            column_name_formatter if callable(column_name_formatter)
+            else COLUMN_NAME_FORMATTERS[column_name_formatter]
+        )
         self.init(**kwargs)
 
     def init(self):
@@ -16,7 +26,7 @@ class CursorFormatter(object):
 
     @property
     def column_names(self):
-        return [c[0] for c in self.cursor.description]
+        return [self.column_name_formatter(c[0]) for c in self.cursor.description]
 
     @property
     def column_formats(self):
