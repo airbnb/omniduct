@@ -623,8 +623,9 @@ class FileSystemClient(Duct, MagicsProvider):
     def _download(self, source, dest, overwrite, fs):
         if not overwrite and fs.exists(dest):
             raise RuntimeError("File already exists on filesystem.")
-        with fs.open(dest, 'wb') as f:
-            f.write(self._file_read(source, binary=True))
+        with self.open(source, 'rb') as f_src:
+            with fs.open(dest, 'wb') as f_dest:
+                f_dest.write(f_src.read())
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
