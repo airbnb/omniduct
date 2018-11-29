@@ -3,6 +3,9 @@ from omniduct.databases.hiveserver2 import HiveServer2Client
 
 
 class PySparkClient(DatabaseClient):
+    """
+    This Duct connects to a local PySpark session using the `pyspark` library.
+    """
 
     PROTOCOLS = ['pyspark']
     DEFAULT_PORT = None
@@ -13,7 +16,7 @@ class PySparkClient(DatabaseClient):
 
     def _init(self, app_name='omniduct', config=None, master=None, enable_hive_support=False):
         """
-        Parameters:
+        Args:
             app_name (str): The application name of the SparkSession.
             config (dict or None): Any additional configuration to pass through
                 to the SparkSession builder.

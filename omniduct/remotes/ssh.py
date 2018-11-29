@@ -29,18 +29,19 @@ SESSION_SSH_ASKPASS = False
 
 class SSHClient(RemoteClient):
     """
-    `SSHClient` is an implementation of the `RemoteClient` `Duct`, offering
-    a persistent connection to remote hosts over SSH via the CLI. As such,
-    it requires that `ssh` be installed and on your executable path.
+    An implementation of the `RemoteClient` `Duct`, offering a persistent
+    connection to remote hosts over SSH via the CLI. As such, it requires that
+    `ssh` be installed and on your executable path.
 
     To speed up connections we use control sockets, which allows all connections
     to share one SSH transport. For more details, refer to:
     https://puppetlabs.com/blog/speed-up-ssh-by-reusing-connections
 
     Attributes:
-        interactive (bool): Whether `SSHClient` should ask the user questions,
-            if necessary, to establish the connection. Production deployments
-            using this client should set this to False, which is the default.
+        interactive (bool): Whether `SSHClient` should ask the user
+            questions, if necessary, to establish the connection. Production
+            deployments using this client should set this to False.
+            (default: `False`)
     """
 
     PROTOCOLS = ['ssh', 'ssh_cli']
@@ -178,7 +179,7 @@ class SSHClient(RemoteClient):
 
     def _execute(self, cmd, skip_cwd=False, **kwargs):
         """
-        Additional Parameters:
+        Additional Args:
             skip_cwd (bool): Whether to skip changing to the current working
                 directory associated with this client before executing the
                 command. This is mainly useful to methods internal to this
@@ -325,11 +326,13 @@ class SSHClient(RemoteClient):
 
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
+        Download files to another filesystem.
+
         This method (recursively) downloads a file/folder from path `source` on
         this filesystem to the path `dest` on filesytem `fs`, overwriting any
         existing file if `overwrite` is `True`.
 
-        Parameters:
+        Args:
             source (str): The path on this filesystem of the file to download to
                 the nominated filesystem (`fs`). If `source` ends
                 with '/' then contents of the the `source` directory will be
@@ -373,12 +376,14 @@ class SSHClient(RemoteClient):
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
+        Upload files from another filesystem.
+
         This method (recursively) uploads a file/folder from path `source` on
         filesystem `fs` to the path `dest` on this filesytem, overwriting any
         existing file if `overwrite` is `True`. This is equivalent to
         `fs.download(..., fs=self)`.
 
-        Parameters:
+        Args:
             source (str): The path on the specified filesystem (`fs`) of the
                 file to upload to this filesystem. If `source` ends with '/',
                 and corresponds to a directory, the contents of source will be
@@ -437,6 +442,8 @@ class SSHClient(RemoteClient):
 
     def update_host_keys(self):
         """
+        Update host keys associated with this remote.
+
         This method updates the SSH host-keys stored in `~/.ssh/known_hosts`,
         allowing one to successfully connect to hosts when servers are,
         for example, redeployed and have different host keys.
@@ -449,4 +456,3 @@ class SSHClient(RemoteClient):
                 "Could not update host keys! Please handle this manually. The "
                 "error was:\n" + '\n'.join([proc.stdout.decode('utf-8'), proc.stderr.decode('utf-8')])
             )
-        return proc.returncode == 0

@@ -25,11 +25,10 @@ __all__ = ['ParamikoSSHClient']
 
 class ParamikoSSHClient(RemoteClient):
     """
-
-    `ParamikoSSHClient` is an experimental SSH client that uses a `paramiko`
-    rather than command-line SSH backend. This client has been fully
-    implemented and should work as is, but until it receives further testing,
-    we recommend using the cli backed SSH client.
+    An experimental SSH client that uses a `paramiko` rather than command-line
+    SSH backend. This client has been fully implemented and should work as is,
+    but until it receives further testing, we recommend using the cli backed SSH
+    client.
     """
 
     PROTOCOLS = ['ssh_paramiko']

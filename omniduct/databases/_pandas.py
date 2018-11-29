@@ -2,13 +2,18 @@ from pandas.io.sql import SQLTable, SQLDatabase
 
 
 def to_sql(df, name, schema, con, index, if_exists, mode='default', **kwargs):
+    """
+    Override the default `pandas.to_sql` method to allow for insertion of
+    multiple rows of data at once. This is derived from the upstream patch at
+    https://github.com/pandas-dev/pandas/pull/21401, and can be deprecated
+    once it is merged and released in a new version of `pandas`.
+    """
     assert mode in ('default', 'multi'), 'unexpected `to_sql` mode {}'.format(mode)
     if mode == 'default':
         return df.to_sql(
             name=name, schema=schema, con=con, index=index, if_exists=if_exists, **kwargs
         )
     else:
-        # TODO deprecate this once https://github.com/pandas-dev/pandas/pull/21401 lands
         nrows = len(df)
         if nrows == 0:
             return

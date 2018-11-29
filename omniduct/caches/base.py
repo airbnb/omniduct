@@ -14,9 +14,11 @@ from omniduct.utils.docs import quirk_docs
 
 from ._serializers import PickleSerializer
 
-config.register('cache_fail_hard',
-                description='Raise exception if cache fails to save.',
-                default=False)
+config.register(
+    'cache_fail_hard',
+    description='Raise an exception if a cache fails to save (otherwise errors are logged and suppressed).',
+    default=False
+)
 
 
 def cached_method(
@@ -30,6 +32,41 @@ def cached_method(
         serializer=lambda self, kwargs: PickleSerializer(),
         metadata=lambda self, kwargs: None
 ):
+    """
+    Wrap a method of a `Duct` class and add caching capabilities.
+
+    All arguments of this function are expected to be functions taking two
+    arguments: a reference to current instance of the class (`self`) and a
+    dictionary of arguments passed to the function (`kwargs`).
+
+    Args:
+        key (function -> str): The key under which the value returned by the
+            wrapped function should be stored.
+        namespace (function -> str): The namespace under which the key should be
+            stored (default: `"<duct class name>.<duct instance name>"`).
+        cache (function -> Cache): The instance of cache via which to store the
+            output of the wrapped function (default: `self.cache`).
+        use_cache (function -> bool): Whether or not to use the caching
+            functionality (default: `True`).
+        renew (function -> bool): Whether to renew the stored cache, overriding
+            if a value has already been stored (default: `False`).
+        serializer (function -> Serializer): The `Serializer` subclass to use
+            when storing the return object (default: `PickleSerializer`).
+        metadata (function -> None, dict): A dictionary of additional metadata
+            to be stored alongside the wrapped function's output
+            (default: `None`).
+
+    Returns:
+        object: The (potentially cached) object returned when calling the
+            wrapped function.
+
+    Raises:
+        Exception: If cache fails to store the output of the wrapped function,
+            and the omniduct configuration key `cache_fail_hard` is `True`, then
+            the underlying exceptions raised by the Cache instance will be
+            reraised.
+    """
+
     @decorator
     def wrapped(method, self, *args, **kwargs):
         kwargs = function_args_as_kwargs(method, self, *args, **kwargs)
@@ -79,9 +116,7 @@ def cached_method(
 
 class Cache(Duct):
     """
-    `Cache` is an abstract subclass of `Duct` that provides a common
-    API for all cache clients, which in turn will be subclasses of this
-    class.
+    An abstract class providing the common API for all cache clients.
     """
 
     DUCT_TYPE = Duct.Type.CACHE
@@ -101,9 +136,9 @@ class Cache(Duct):
         """
         Set the value of a key.
 
-        Parameters:
+        Args:
             key (str): The key for which `value` should be stored.
-            value (*): The value to be stored.
+            value (object): The value to be stored.
             namespace (str, None): The namespace to be used.
             serializer (Serializer): The `Serializer` subclass to use for the
                 serialisation of value into the cache. (default=PickleSerializer)
@@ -126,7 +161,7 @@ class Cache(Duct):
         Set the metadata associated with a stored key, creating the key if it
         is missing.
 
-        Parameters:
+        Args:
             key (str): The key for which `value` should be stored.
             metadata (dict, None): Additional/override metadata to be stored
                 for `key` in the cache. Values must be serializable via
@@ -151,11 +186,14 @@ class Cache(Duct):
         """
         Retrieve the value associated with the nominated key from the cache.
 
-        Parameters:
+        Args:
             key (str): The key for which `value` should be retrieved.
             namespace (str, None): The namespace to be used.
             serializer (Serializer): The `Serializer` subclass to use for the
                 deserialisation of value from the cache. (default=PickleSerializer)
+
+        Returns:
+            object: The (appropriately deserialized) object stored in the cache.
         """
         self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
@@ -172,9 +210,12 @@ class Cache(Duct):
         """
         Retrieve metadata associated with the nominated key from the cache.
 
-        Parameters:
+        Args:
             key (str): The key for which to extract metadata.
             namespace (str, None): The namespace to be used.
+
+        Returns:
+            dict: The metadata associated with this namespace and key.
         """
         self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
@@ -190,7 +231,7 @@ class Cache(Duct):
         """
         Remove the nominated key from the cache.
 
-        Parameters:
+        Args:
             key (str): The key which should be unset.
             namespace (str, None): The namespace to be used.
         """
@@ -204,7 +245,7 @@ class Cache(Duct):
         """
         Remove an entire namespace from the cache.
 
-        Parameters:
+        Args:
             namespace (str, None): The namespace to be removed.
         """
         self.connect()
@@ -224,8 +265,11 @@ class Cache(Duct):
         """
         Check whether the cache has the nominated namespace.
 
-        Parameters:
+        Args:
             namespace (str,None): The namespace for which to check for existence.
+
+        Returns:
+            bool: Whether the cache has the nominated namespaces.
         """
         self.connect()
         namespace = self._namespace(namespace)
@@ -235,9 +279,12 @@ class Cache(Duct):
         """
         Collect a list of all the keys present in the nominated namespaces.
 
-        Parameters:
+        Args:
             namespace (str,None): The namespace from which to extract all of the
                 keys.
+
+        Returns:
+            list<str>: The keys stored in the cache for the nominated namespace.
         """
         self.connect()
         namespace = self._namespace(namespace)
@@ -247,10 +294,14 @@ class Cache(Duct):
         """
         Check whether the cache as a nominated key.
 
-        Parameters:
+        Args:
             key (str): The key for which to check existence.
             namespace (str,None): The namespace from which to extract all of the
                 keys.
+
+        Returns:
+            bool: Whether the cache has a value for the nominated namespace and
+                key.
         """
         self.connect()
         namespace, key = self._namespace(namespace), self._key(key)

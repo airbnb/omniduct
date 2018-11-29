@@ -47,13 +47,22 @@ except ImportError:
 
 
 class SchemasMixin(object):
+    """
+    Attaches a tab-completable `.schemas` attribute to a `DatabaseClient` instance.
+
+    It is currently implemented as a mixin rather than directly provided on the
+    base class because it requires that the host `DatabaseClient` instance have a
+    `sqlalchemy` metadata object handle, and not all backends support this.
+
+    If we are willing to forgo the ability to actually make queries using the
+    SQLAlchemy ORM, we could instead use an SQL agnostic version.
+    """
 
     @property
     def schemas(self):
         """
-        This object has as attributes the schemas on the current catalog. These
-        schema objects in turn have the tables as SQLAlchemy `Table` objects.
-        This allows tab completion and exploration of Databases.
+        object: An object with attributes corresponding to the names of the schemas
+            in this database.
         """
         from werkzeug import LocalProxy
 
@@ -71,14 +80,28 @@ class SchemasMixin(object):
 
 # Extend Table to support returning pandas description of table
 class TableDesc(Table):
+    """
+    Extends the SQL Alchemy `Table` class with some short-hand introspection methods.
+    """
 
     def desc(self):
+        """pandas.DataFrame: The description of this SQL table."""
         return pd.DataFrame(
             [[col.name, col.type] for col in self.columns.values()],
             columns=['name', 'type']
         )
 
     def head(self, n=10):
+        """
+        Retrieve the first `n` rows from this table.
+
+        Args:
+            n (int): The number of rows to retrieve from this table.
+
+        Returns:
+            pandas.DataFrame: A dataframe representation of the first `n` rows
+                of this table.
+        """
         return pd.read_sql(
             'SELECT * FROM "{}"."{}"'.format(self.schema, self.name)
             + 'LIMIT {}'.format(n) if n is not None else '',
@@ -86,6 +109,12 @@ class TableDesc(Table):
         )
 
     def dump(self):
+        """
+        Retrieve the entire database table as a pandas DataFrame.
+
+        Returns:
+            pandas.DataFrame: A dataframe representation of the entire table.
+        """
         return self.head(n=None)
 
     def __repr__(self):
@@ -94,37 +123,56 @@ class TableDesc(Table):
 
 # Define helpers to allow for table completion/etc
 class Schemas(object):
+    """
+    An object which has as its attributes all of the schemas in a nominated database.
+
+    Args:
+        metadata (sqlalchemy.MetaData): A SQL Alchemy `MetaData` instance
+            configured for the nominated database.
+    """
 
     def __init__(self, metadata):
         self._metadata = metadata
-        self._schema_names = sqlalchemy.inspect(self._metadata.bind).get_schema_names()
+        self._schema_names = None
         self._schema_cache = {}
 
-    def __dir__(self):
+    @property
+    def all(self):
+        "list<str>: The list of schema names."
+        if self._schema_names is None:
+            self._schema_names = sqlalchemy.inspect(self._metadata.bind).get_schema_names()
         return self._schema_names
 
-    def all(self):
-        return self._schema_names
+    def __dir__(self):
+        return self.all
 
     def __getattr__(self, value):
-        if value in self._schema_names:
+        if value in self.all:
             if value not in self._schema_cache:
                 self._schema_cache[value] = Schema(metadata=self._metadata, schema=value)
             return self._schema_cache[value]
         raise AttributeError("No such schema {}".format(value))
 
     def __repr__(self):
-        return "<Schemas: {} schemas>".format(len(self._schema_names))
+        return "<Schemas: {} schemas>".format(len(self.all))
 
     def __iter__(self):
-        for schema in self._schema_names:
+        for schema in self.all:
             yield schema
 
     def __len__(self):
-        return len(self._schema_names)
+        return len(self.all)
 
 
 class Schema(object):
+    """
+    An object which has as its attributes all of the tables in a nominated database schema.
+
+    Args:
+        metadata (sqlalchemy.MetaData): A SQL Alchemy `MetaData` instance
+            configured for the nominated database.
+        schema (str): The schema within which to expose tables.
+    """
 
     def __init__(self, metadata, schema):
         self._metadata = metadata
@@ -133,19 +181,17 @@ class Schema(object):
         self._table_names = None
 
     @property
-    def table_names(self):
+    def all(self):
+        """list<str>: The table names in this database schema."""
         if self._table_names is None:
             self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(self._schema)
         return self._table_names
 
     def __dir__(self):
-        return self.table_names
-
-    def all(self):
-        return self.table_names
+        return self.all()
 
     def __getattr__(self, table):
-        if table in self.table_names:
+        if table in self.all:
             if table not in self._table_cache:
                 self._table_cache[table] = TableDesc(
                     '{}'.format(table), self._metadata, autoload=True, schema=self._schema
@@ -154,11 +200,11 @@ class Schema(object):
         raise AttributeError("No such table {}".format(table))
 
     def __repr__(self):
-        return "<Schema `{}`: {} tables>".format(self._schema, len(self.table_names))
+        return "<Schema `{}`: {} tables>".format(self._schema, len(self.all))
 
     def __iter__(self):
-        for schema in self.table_names:
+        for schema in self.all:
             yield schema
 
     def __len__(self):
-        return len(self.table_names)
+        return len(self.all)

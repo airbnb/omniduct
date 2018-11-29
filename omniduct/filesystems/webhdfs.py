@@ -16,7 +16,7 @@ class WebHdfsClient(FileSystemClient):
     """
     This Duct connects to an Apache WebHDFS server using the `pywebhdfs` library.
 
-    Parameters:
+    Attributes:
         namenodes (list<str>): A list of hosts that are acting as namenodes for
             the HDFS cluster in form "<hostname>:<port>".
     """

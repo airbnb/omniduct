@@ -4,25 +4,50 @@ from omniduct.caches._serializers import Serializer
 
 
 class CursorSerializer(Serializer):
+    """
+    Serializes and deserializes cursor objects for use with the Cache.
+    """
 
     @property
     def file_extension(self):
+        """str: The file extension to use when storing in the cache."""
         return ".pickled_cursor"
 
     def serialize(self, cursor, fh):
+        """
+        Serialize a cursor object into a nominated file handle.
+
+        Args:
+            cursor (DB-API 2.0 cursor): The cursor to serialize.
+            fh (binary file handle): A file-like object opened in binary mode
+                capable of being written into.
+        """
         description = cursor.description
         rows = cursor.fetchall()
-        return pickle.dump((description, rows), fh)
+        pickle.dump((description, rows), fh)
 
     def deserialize(self, fh):
+        """
+        Deserialize a cursor object into a DB-API 2.0 compatible cursor object.
+
+        Args:
+            fh (binary file handle): A file-like object from which serialized
+                data can be read.
+
+        Returns:
+            CachedCursor: A CacheCursor object representing a previously
+                serialized cursor.
+        """
         description, rows = pickle.load(fh)
         return CachedCursor(description, rows)
 
 
 class CachedCursor(object):
     """
-    A DBAPI2 compatible cursor for presenting reconstituted data cached from a
-    cursor object, allowing downstream formatting to execute as normal.
+    A DB-API 2.0 cursor implementation atop of static data.
+
+    This class is used to present reconstituted data cached from a cursor object
+    in a form compatible with the original cursor object.
     """
 
     def __init__(self, description, rows):

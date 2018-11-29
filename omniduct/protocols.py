@@ -1,5 +1,9 @@
 # flake8: noqa
 
+# Omniduct's automatic registration of Duct protocols requires that the subclass
+# implementation be loaded into memory. Any protocol that should be enabled by
+# default should be imported here.
+
 from .caches.filesystem import FileSystemCache
 from .databases.druid import DruidClient
 from .databases.hiveserver2 import HiveServer2Client

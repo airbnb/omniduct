@@ -10,6 +10,11 @@ from pywebhdfs.webhdfs import (PyWebHdfsClient, _is_standby_exception,
 
 
 class OmniductPyWebHdfsClient(PyWebHdfsClient):
+    """
+    A wrapper around `pywebhdfs.PyWebHdfsClient` to handle redirects requested
+    by the namenodes when taking advantage of Omniduct's automatic
+    port-forwarding of remote services.
+    """
 
     def __init__(self, remote=None, namenodes=None, **kwargs):
         self.remote = remote
@@ -69,8 +74,8 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     def _resolve_host(self, req_func, allow_redirect,
                       path, operation, **kwargs):
         """
-        internal function used to resolve federation and HA and
-        return response of resolved host.
+        This is where the magic happens, and where omniduct handles redirects
+        during federation and HA.
         """
         import requests
         uri_without_host = self._create_uri(path, operation, **kwargs)
@@ -107,10 +112,10 @@ class CdhHdfsConfParser(object):
 
     def __init__(self, fs, conf_path=None):
         """
-        Parameters:
-            conf_path (str): The path of the configuration file to be parsed.
+        Args:
             fs (FileSystemClient): The filesystem on which the configuration
                 file should be found.
+            conf_path (str): The path of the configuration file to be parsed.
         """
         self.fs = fs
         self.conf_path = conf_path or '/etc/hadoop/conf.cloudera.hdfs2/hdfs-site.xml'

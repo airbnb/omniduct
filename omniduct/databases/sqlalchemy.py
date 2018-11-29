@@ -8,6 +8,12 @@ from . import _pandas
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
+    """
+    This Duct connects to several different databases using one of several
+    SQLAlchemy drivers. In general, these are provided for their potential
+    utility, but will be less functional than the specially crafted database
+    clients.
+    """
 
     PROTOCOLS = ['sqlalchemy', 'firebird', 'mssql', 'mysql', 'oracle', 'postgresql', 'sybase', 'snowflake']
     NAMESPACE_NAMES = ['database', 'table']
@@ -65,10 +71,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return cursor
 
     def _query_to_table(self, statement, table, if_exists, **kwargs):
-        """
-        WARNING: `CREATE TABLE AS` statements may not work in all SQLAlchemy
-        backends.
-        """
+        logger.warning("`CREATE TABLE AS` statements may not work for all SQLAlchemy backends.")
         statements = []
 
         if if_exists == 'fail' and self.table_exists(table):

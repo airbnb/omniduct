@@ -18,41 +18,94 @@ except ImportError:  # Python 2
 
 
 class PortForwardingRegister(object):
+    """
+    A register of all port forwards initiated by a particular Duct.
+    """
 
     def __init__(self):
         self._register = {}
 
     def lookup(self, remote_host, remote_port):
+        """
+        Look up a previously forwarded remote port.
+
+        Args:
+            remote_host (str): The remote host.
+            remote_port (int): The remote port.
+
+        Returns:
+            tuple, None: A tuple of local port and implementation-specific
+                connection artifact, if it exists, and `None` otherwise.
+        """
         return self._register.get('{}:{}'.format(remote_host, remote_port))
 
     def lookup_port(self, remote_host, remote_port):
+        """
+        Look up the local port bound to a remote port.
+
+        Args:
+            remote_host (str): The remote host.
+            remote_port (int): The remote port.
+
+        Returns:
+            int, None: The local port use in the port forward, or `None` if
+                port forward does not exist.
+        """
         entry = self.lookup(remote_host, remote_port)
         if entry is not None:
             return entry[0]
 
     def reverse_lookup(self, local_port):
+        """
+        Look up a remote host / port associated with a local port.
+
+        Args:
+            local_port (int): The local port.
+
+        Returns:
+            list: A list of remote hostname, remote port, and
+                implementation-specific connection artifact.
+        """
         for key, (port, connection) in self._register.items():
             if port == local_port:
                 return key.split(':') + [connection]
         return None
 
     def register(self, remote_host, remote_port, local_port, connection):
+        """
+        Register a port-forward connection.
+
+        Args:
+            remote_host (str): The remote host.
+            remote_port (int): The remote port.
+            local_port (int): The local port.
+            connection (object): Implementation-specific connection artifact.
+        """
         key = '{}:{}'.format(remote_host, remote_port)
         if key in self._register:
             raise RuntimeError("Remote host/port combination ({}) is already registered.".format(key))
         self._register[key] = (local_port, connection)
 
-    def unregister(self, remote_host, remote_port):
+    def deregister(self, remote_host, remote_port):
+        """
+        Deregister a port-forward connection.
+
+        Args:
+            remote_host (str): The remote host.
+            remote_port (int): The remote port.
+
+        Returns:
+            tuple: A tuple of local port and implementation-specific
+                connection artifact, if it exists, and `None` otherwise.
+        """
         return self._register.pop('{}:{}'.format(remote_host, remote_port))
 
 
 class RemoteClient(FileSystemClient):
     """
-    `RemoteClient` is an abstract subclass of `Duct` that provides a common
-    API for all remote clients, which in turn will be subclasses of this
-    class.
+    An abstract class providing the common API for all remote clients.
 
-    Parameters:
+    Attributes:
         smartcard (dict): Mapping of smartcard names to system libraries
             compatible with `ssh-add -s '<system library>' ...`.
     """
@@ -67,7 +120,7 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_init', mro=True)
     def __init__(self, smartcards=None, **kwargs):
         """
-        Parameters:
+        Args:
             smartcards (dict): Mapping of smartcard names to system libraries
                 compatible with `ssh-add -s '<system library>' ...`.
         """
@@ -86,17 +139,15 @@ class RemoteClient(FileSystemClient):
     # SSH commands
     def connect(self):
         """
-        This method causes the `Duct` instance to connect to the service, if it
-        is not already connected. It is not normally necessary for a user to
-        manually call this function, since when a connection is required, it is
-        automatically created.
+        Connect to the remote server.
 
-        Subclasses should implement `Duct._connect` to do whatever is necessary
-        to bring a connection into being.
+        It is not normally necessary for a user to manually call this function,
+        since when a connection is required, it is automatically created.
 
         Compared to base `Duct.connect`, this method will automatically catch
-        the first `DuctAuthenticationError` error triggered by `Duct.connect`
-        if any smartcards have been configured, before trying once more.
+        the first `DuctAuthenticationError` error triggered by `Duct.connect`,
+        and (if smartcards have been configured) attempt to re-initialise the
+        smartcards before trying once more.
 
         Returns:
             `Duct` instance: A reference to the current object.
@@ -114,9 +165,15 @@ class RemoteClient(FileSystemClient):
 
     def prepare_smartcards(self):
         """
+        Prepare smartcards for use in authentication.
+
         This method checks attempts to ensure that the each of the nominated
         smartcards is available and prepared for use. This may result in
         interactive requests for pin confirmation, depending on the card.
+
+        Returns:
+            bool: Returns `True` if at least one smartcard was activated, and
+                `False` otherwise.
         """
 
         smartcard_added = False
@@ -151,9 +208,9 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_execute')
     def execute(self, cmd, **kwargs):
         """
-        This method evaluates the given command on the remote server.
+        Execute a command on the remote server.
 
-        Parameters:
+        Args:
             cmd (str): The command to run on the remote associated with this
                 instance.
             **kwargs (dict): Additional keyword arguments to be passed on to
@@ -187,14 +244,14 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_port_forward_start')
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
+        Initiate a port forward connection.
+
         This method establishes a local port forwarding from a local port `local`
         to remote port `remote`. If `local` is `None`, an available local port is
-        automatically chosen.
+        automatically chosen. If the remote port is already forwarded, a new
+        connection is not established.
 
-        Note: If the remote port is already forwarded, a new connection is not
-        established.
-
-        Parameters:
+        Args:
             remote_host (str): The hostname of the remote host in form:
                 'hostname(:port)'.
             remote_port (int, None): The remote port of the service.
@@ -232,11 +289,9 @@ class RemoteClient(FileSystemClient):
 
     def has_port_forward(self, remote_host=None, remote_port=None, local_port=None):
         """
-        This method checks to see whether a port forward is already established
-        for a nominated remote service, or whether there is a remote service
-        associated with a given local port.
+        Check whether a port forward connection exists.
 
-        Parameters:
+        Args:
             remote_host (str): The hostname of the remote host in form:
                 'hostname(:port)'.
             remote_port (int, None): The remote port of the service.
@@ -244,8 +299,8 @@ class RemoteClient(FileSystemClient):
 
         Returns:
             bool: Whether a port-forward for this remote service exists, or if
-            local port is specified, whether that port is locally used for port
-            forwarding.
+                local port is specified, whether that port is locally used for
+                port forwarding.
         """
         # Hostname and port extraction
         remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
@@ -260,12 +315,13 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_port_forward_stop')
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
         """
-        This method stops an existing port forwarding. If a local port is
-        provided, then the forwarding (if any) associated with that port is
-        found and stopped; otherwise any established port forwarding associated
-        with the nominated remote service is stopped.
+        Disconnect an existing port forward connection.
 
-        Parameters:
+        If a local port is provided, then the forwarding (if any) associated
+        with that port is found and stopped; otherwise any established port
+        forwarding associated with the nominated remote service is stopped.
+
+        Args:
             remote_host (str): The hostname of the remote host in form:
                 'hostname(:port)'.
             remote_port (int, None): The remote port of the service.
@@ -282,22 +338,24 @@ class RemoteClient(FileSystemClient):
             remote_host, remote_port, connection = self.__port_forwarding_register.reverse_lookup(local_port)
 
         self._port_forward_stop(local_port, remote_host, remote_port, connection)
-        self.__port_forwarding_register.unregister(remote_host, remote_port)
+        self.__port_forwarding_register.deregister(remote_host, remote_port)
 
     def port_forward_stopall(self):
         """
-        This method stops all port forwarding.
+        Disconnect all existing port forwarding connections.
         """
         for remote_host in self.__port_forwarding_register._register.copy():
             self.port_forward_stop(remote_host=remote_host)
 
     def get_local_uri(self, uri):
         """
+        Convert a remote uri to a local one.
+
         This method takes a remote service uri accessible to the remote host and
         returns a local uri accessible directly on the local host, establishing
         any necessary port forwarding in the process.
 
-        Parameters:
+        Args:
             uri (str): The remote uri to be made local.
 
         Returns:
@@ -308,7 +366,7 @@ class RemoteClient(FileSystemClient):
 
     def show_port_forwards(self):
         """
-        This method prints to standard out a list of active port forward.
+        Print to stdout the active port forwards associated with this client.
         """
         if len(self.__port_forwarding_register._register) == 0:
             print("No port forwards currently in use.")
@@ -326,10 +384,12 @@ class RemoteClient(FileSystemClient):
     @quirk_docs('_is_port_bound')
     def is_port_bound(self, host, port):
         """
-        This method checks to see whether a particular port is active on a
-        given host, by trying to establish a connection with it.
+        Check whether a port on a remote host is accessible.
 
-        Parameters:
+        This method checks to see whether a particular port is active on a
+        given host by attempting to establish a connection with it.
+
+        Args:
             host (str): The hostname of the target service.
             port (int): The port of the target service.
 

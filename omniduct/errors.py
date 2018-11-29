@@ -1,3 +1,4 @@
+# Connection Errors
 class DuctAuthenticationError(RuntimeError):
     pass
 
@@ -7,6 +8,11 @@ class DuctConnectionError(RuntimeError):
 
 
 class DuctServerUnreachable(RuntimeError):
+    pass
+
+
+# Lookups
+class DuctNotFound(RuntimeError):
     pass
 
 

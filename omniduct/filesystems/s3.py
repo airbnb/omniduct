@@ -11,9 +11,9 @@ except NameError:
 class S3Client(FileSystemClient):
     """
     This Duct connects to an Amazon S3 bucket instance using the `boto3`
-    library. Authentication is handled using `opinel`.
+    library. Authentication is (optionally) handled using `opinel`.
 
-    Parameters:
+    Attributes:
         bucket (str): The name of the Amazon S3 bucket to use.
         aws_profile (str): The name of configured AWS profile to use. This should
             refer to the name of a profile configured in, for example,

@@ -8,15 +8,21 @@ from .base import Cache
 
 
 class FileSystemCache(Cache):
+    """
+    An implementation of `Cache` that wraps around a `FilesystemClient`.
+    """
 
     PROTOCOLS = ['filesystem_cache']
 
     def _init(self, path, fs=None):
         """
         path (str): The top-level path of the cache in the filesystem.
-        fs (FileSystemClient): The filesystem client to use as the datastore of
-            this cache. If not specified, this will default to the local filesystem
-            using `LocalFsClient`.
+        fs (FileSystemClient, str): The filesystem client to use as the
+            datastore of this cache. If not specified, this will default to the
+            local filesystem using `LocalFsClient`. If specified as a string,
+            and connected to a `DuctRegistry`, upon first use an attempt will be
+            made to look up a `FileSystemClient` instance in the registry by
+            this name.
         """
         self.fs = fs or LocalFsClient()
         self.path = path

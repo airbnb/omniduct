@@ -23,14 +23,15 @@ class ParsedNamespaces:
     @classmethod
     def from_name(cls, name, namespaces, quote_char='"', separator='.', defaults=None):
         """
-        This classmethod returns an instance of `ParsedNamespaces` which represents
-        the parsed namespace corresponding to `name`. If `name` is an instance
-        of `ParsedNamespaces`, it is checked whether the `namespaces` are a
-        subset of the namespaces provided to this constructor. If not, a `ValueError`
-        is raised. Note that the quote charactors, separators and defaults will of
-        the passed `ParsedNamespaces` will be ignored.
+        Return an instance of `ParsedNamespaces` from a given name.
 
-        Parameters:
+        If `name` is an instance of `ParsedNamespaces`, it is checked whether
+        the `namespaces` are a subset of the namespaces provided to this
+        constructor. If not, a `ValueError` is raised. Note that the quote
+        charactors, separators and defaults will of the passed
+        `ParsedNamespaces` will be ignored.
+
+        Args:
             name (str, ParsedNamespaces): The name to be parsed.
             namespaces (list<str>): The namespaces into which the name should be
                 parsed.
@@ -42,6 +43,10 @@ class ParsedNamespaces:
                 of namespace names. (default='"')
             separator (str): The character used to separate namespaces.
                 (default='.')
+
+        Returns:
+            ParsedNamespaces: The `ParsedNamespaces` instance representing the
+                parsed value of the nominated name.
         """
         defaults = defaults or {}
 
@@ -88,22 +93,6 @@ class ParsedNamespaces:
         return cls(parsed, quote_char=quote_char, separator=separator)
 
     def __init__(self, names, namespaces=None, quote_char='"', separator='.'):
-        """
-        A container for parsed namespaces. Typically this class should be
-        constructed via the `.from_name` classmethod.
-
-        Parameters:
-            names (dict<str, str>): An ordered dictionary of
-                namespaces to names (from most to least generic).
-            namespaces (None, list<str>): For convenience, in the event that
-                you want to avoid using an ordered dictionary, you can instead
-                provide this list of ordered namespaces (from most to least generic).
-            quote_char (str): The character to used for optional encapsulation
-                of namespace names. (default='"')
-            separator (str): The character used to separate namespaces.
-                (default='.')
-        """
-
         if namespaces:
             names = OrderedDict(
                 (namespace, names.get(namespace, None))
@@ -127,17 +116,17 @@ class ParsedNamespaces:
 
     @property
     def namespaces(self):
-        """The namespaces parsed in order of most to least specific."""
+        """list<str> The namespaces parsed in order of most to least specific."""
         return list(self.__names)
 
     @property
     def name(self):
-        """The full name provided (with quotes)."""
+        """str: The full name provided (with quotes)."""
         return self.render()
 
     @property
     def parent(self):
-        """An instance of `ParsedNamespaces` with the most specific namespace truncated."""
+        """ParsedNamespaces: An instance of `ParsedNamespaces` with the most specific namespace truncated."""
         names = self.__names.copy()
         names.popitem()
         return ParsedNamespaces(
@@ -147,7 +136,7 @@ class ParsedNamespaces:
         )
 
     def as_dict(self):
-        """Returns the parsed namespaces as an OrderedDict from most to least general."""
+        """dict: Returns the parsed namespaces as an OrderedDict from most to least general."""
         return self.__names
 
     def render(self, quote_char=None, separator=None):

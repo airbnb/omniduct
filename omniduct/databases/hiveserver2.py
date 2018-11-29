@@ -156,7 +156,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     def _execute(self, statement, cursor, wait, session_properties, poll_interval=1):
         """
-        Additional Parameters:
+        Additional Args:
             poll_interval (int): Default delay in seconds between consecutive
                 query status (defaults to 1).
         """
@@ -254,7 +254,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         If if the schema namespace is not specified, `table.schema` will be
         defaulted to your username.
 
-        Additional Parameters:
+        Additional Args:
             use_hive_cli (bool, None): A local override for the global
                 `.push_using_hive_cli` attribute. If not specified, the global
                 default is used. If True, then pushes are performed using the
@@ -452,7 +452,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         """
         Return create table statement for new hive table based on pandas dataframe.
 
-        Parameters:
+        Args:
             df (pandas.DataFrame, pandas.Series): Used to determine column names
                 and types for create table statement.
             table (ParsedNamespaces): The parsed name of the target table.

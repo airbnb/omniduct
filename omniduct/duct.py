@@ -5,167 +5,33 @@ import inspect
 import os
 import pwd
 import re
-import textwrap
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from builtins import input
 from enum import Enum
 
-import decorator
 import six
 from future.utils import raise_with_traceback, with_metaclass
 
-from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
+from omniduct.errors import DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.docs import quirk_docs
+from omniduct.utils.metaclasses import ProtocolRegisteringQuirkDocumentedABCMeta
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
-
-
-class ProtocolRegisteringABCMeta(ABCMeta):
-    """
-    This metaclass provides automatic registration of Duct subclasses so that
-    they can be looked up by the protocols they support. Note that protocol
-    mappings must be unique.
-    """
-
-    def __init__(cls, name, bases, dct):
-        ABCMeta.__init__(cls, name, bases, dct)
-
-        if not hasattr(cls, '_protocols'):
-            cls._protocols = {}
-
-        registry_keys = getattr(cls, 'PROTOCOLS', []) or []
-        if registry_keys:
-            for key in registry_keys:
-                if key in cls._protocols and cls.__name__ != cls._protocols[key].__name__:
-                    logger.info("Ignoring attempt by class `{}` to register key '{}', which is already registered for class `{}`.".format(cls.__name__, key, cls._protocols[key].__name__))
-                else:
-                    cls._protocols[key] = cls
-
-    def _for_protocol(cls, key):
-        if key not in cls._protocols:
-            raise DuctProtocolUnknown("Missing `Duct` implementation for protocol: '{}'.".format(key))
-        return cls._protocols[key]
-
-
-class ProtocolRegisteringQuirkDocumentedABCMeta(ProtocolRegisteringABCMeta):
-    """
-    This metaclass adds the ability to automatically append quirk documentation
-    to methods from a nominated method. For example, if the protocol specific
-    implementation of `.connect()` is implemented in `._connect`, you can
-    decorate the connect method with this decorator using
-    `@quirk_docs('_connect')`, the the documentation from the `_connect`
-    method will be appended to the `connect` docs under a heading "<cls> Quirks:".
-    """
-
-    def __init__(cls, name, bases, dct):
-        super(ProtocolRegisteringQuirkDocumentedABCMeta, cls).__init__(name, bases, dct)
-
-        # Allow method of avoiding appending of quirk docs in some environments (such as documentation)
-        if os.environ.get('OMNIDUCT_DISABLE_QUIRKDOCS', None) is not None:
-            return
-
-        @decorator.decorator
-        def wrapped(f, *args, **kw):
-            return f(*args, **kw)
-
-        mro = inspect.getmro(cls)
-        mro = mro[:[klass.__name__ for klass in mro].index('Duct') + 1]
-
-        # Handle module-level documentation
-        module_docs = [cls.__doc__]
-        for klass in mro:
-            if klass != cls and hasattr(klass, '_{}__doc_attrs'.format(klass.__name__)):
-                module_docs.append([
-                    'Attributes inherited from {}:'.format(klass.__name__),
-                    inspect.cleandoc(getattr(klass, '_{}__doc_attrs'.format(klass.__name__)))
-                ])
-
-        cls.__doc__ = cls.__doc_join(*module_docs)
-
-        # Handle function/method-level documentation
-        for name, member in inspect.getmembers(cls, predicate=inspect.isfunction):
-
-            # Check if there is anything to do
-            if (
-                inspect.isabstract(member) or
-                not (
-                    getattr(member, '_quirks_method', None) or
-                    getattr(member, '_quirks_mro', False)
-                )
-            ):
-                continue
-
-            local_member = name in cls.__dict__
-
-            # Extract documentation from this member and the quirks member
-            member_docs = getattr(member, '__doc_orig__', None) or getattr(member, '__doc__')
-            mro_docs = quirk_docs = None
-            mro_order = reversed(mro) if member._quirks_mro_reverse else mro
-            if member._quirks_mro:
-                mro_docs = cls.__doc_join(
-                    *[
-                        [
-                            'Inherited via {}:'.format(klass.__name__),
-                            getattr(getattr(klass, member.__name__), '__doc_orig__', None) or getattr(klass, member.__name__).__doc__
-                        ]
-                        for klass in mro_order if member.__name__ in klass.__dict__
-                    ]
-                )
-            if member._quirks_method and member._quirks_method in cls.__dict__:
-                quirk_member = getattr(cls, member._quirks_method, None)
-                if quirk_member:
-                    quirk_docs = getattr(quirk_member, '__doc_orig__', None) or getattr(quirk_member, '__doc__')
-
-            if quirk_docs or mro_docs:
-                # Overide method object with new object so we don't modify
-                # underlying method that may be shared by multiple classes.
-                setattr(cls, name, wrapped(member))
-                member = getattr(cls, name)
-                member.__doc__ = cls.__doc_join(
-                    member_docs if (local_member or not mro_docs) else None,
-                    mro_docs,
-                    [
-                        "{} Quirks:".format(cls.__name__),
-                        quirk_docs
-                    ]
-                )
-
-    @classmethod
-    def __doc_join(cls, *docs, **kwargs):
-        out = []
-        for doc in docs:
-            if doc in (None, ''):
-                continue
-            elif isinstance(doc, six.string_types):
-                out.append(textwrap.dedent(doc).strip('\n'))
-            elif isinstance(doc, (list, tuple)):
-                if len(doc) < 2:
-                    continue
-                d = cls.__doc_join(*doc[1:])
-                if d:
-                    out.append(
-                        '{header}\n{body}'.format(
-                            header=doc[0].strip(),
-                            body='    ' + d.replace('\n', '\n    ')  # textwrap.indent not available in python2
-                        )
-                    )
-            else:
-                raise ValueError("Unrecognised doc format: {}".format(type(doc)))
-        return '\n\n'.join(out)
 
 
 class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     """
-    `Duct` is the abstract base class of all protocol implementations, and
-    defines the basic lifecycle of all connections, along with some magic
-    that provides automatic registration of Duct protocol implementations.
-    All connections made by `Duct` instances are lazy, meaning that instantiation
-    is "free", and no protocol connections are made until required by subsequent
-    interactions (i.e. when the value of any attribute in the list of
-    `connection_fields` is accessed). All `Ducts` will automatically connnect and
-    disconnect as required, and so manual intervention is not typically required
-    to maintain connections.
+    The abstract base class for all protocol implementations.
+
+    This class defines the basic lifecycle of service connections, along with
+    some magic that provides automatic registration of Duct protocol
+    implementations. All connections made by `Duct` instances are lazy, meaning
+    that instantiation is "free", and no protocol connections are made until
+    required by subsequent interactions (i.e. when the value of any attribute in
+    the list of `connection_fields` is accessed). All `Ducts` will automatically
+    connnect and disconnect as required, and so manual intervention is not
+    typically required to maintain connections.
 
     Attributes:
         protocol (str): The name of the protocol for which this instance was
@@ -324,24 +190,23 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             cls_parent.__init__(self, **params)
 
     @classmethod
-    def for_protocol(cls, key):
+    def for_protocol(cls, protocol):
         """
-        This classmethod retrieves the appropriate `Duct` subclass to connect to
-        the provided protocol. If no subclass of `Duct` has been created
-        in the current Python session, a `DuctProtocolUnknown` error is
-        thrown.
+        Retrieve a `Duct` subclass for a given protocol.
 
-        Parameters:
-            key (str): The protocol of interest.
+        Args:
+            protocol (str): The protocol of interest.
 
         Returns:
-            `Duct` subclass: The appropriate class for the provided protocol.
+            functools.partial object: The appropriate class for the provided,
+                partially constructed with the `protocol` keyword argument
+                set appropriately.
 
         Raises:
             DuctProtocolUnknown: If no class has been defined that offers the
                 named protocol.
         """
-        return functools.partial(cls._for_protocol(key), protocol=key)
+        return functools.partial(cls._for_protocol(protocol), protocol=protocol)
 
     def __getattribute__(self, key):
         try:
@@ -375,15 +240,16 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     @quirk_docs('_prepare')
     def prepare(self):
         """
-        This method is called before the value of any of the fields referenced
-        in `self.connection_fields` are retrieved, and does not return anything.
-        The fields include, by default: 'host', 'port', 'remote', 'cache',
-        'username', and 'password'. Subclasses may add or subtract from these
-        special fields.
+        Prepare a Duct subclass for use (if not already prepared).
 
-        When called, it first checks whether the instance has already been prepared,
-        and if not calls `_prepare` and then records that the instance has been
-        successfully prepared.
+        This method is called before the value of any of the fields referenced
+        in `self.connection_fields` are retrieved. The fields include, by
+        default: 'host', 'port', 'remote', 'cache', 'username', and 'password'.
+        Subclasses may add or subtract from these special fields.
+
+        When called, it first checks whether the instance has already been
+        prepared, and if not calls `_prepare` and then records that the instance
+        has been successfully prepared.
         """
         if not self.__prepared:
             self._prepare()
@@ -446,6 +312,27 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
 
         # Ensure port is an integer value
         self.port = int(self._port) if self._port else None
+
+    def reset(self):
+        """
+        Reset this `Duct` instance to its pre-preparation state.
+
+        This method disconnects from the service, resets any temporary
+        authentication and restores the values of the attributes listed in
+        `prepared_fields` to their values as of when `Duct.prepare` was called.
+
+        Returns:
+            `Duct` instance: A reference to this object.
+        """
+        self.disconnect()
+        self.__cached_auth = {}
+
+        for key, value in self.__prepreparation_values.items():
+            setattr(self, key, value)
+        self.__prepreparation_values = {}
+        self.__prepared = False
+
+        return self
 
     @property
     def host(self):
@@ -555,13 +442,10 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     @quirk_docs('_connect')
     def connect(self):
         """
-        This method causes the `Duct` instance to connect to the service, if it
-        is not already connected. It is not normally necessary for a user to
-        manually call this function, since when a connection is required, it is
-        automatically created.
+        Connect to the service backing this client.
 
-        Subclasses should implement `Duct._connect` to do whatever is necessary
-        to bring a connection into being.
+        It is not normally necessary for a user to manually call this function,
+        since when a connection is required, it is automatically created.
 
         Returns:
             `Duct` instance: A reference to the current object.
@@ -593,16 +477,13 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
 
     @abstractmethod
     def _connect(self):
-        """
-        This method should be overridden by subclasses, and when called, should
-        create a connection to the appropriate service. It is not necessary for
-        this method to return anything.
-        """
         raise NotImplementedError
 
     @quirk_docs('_is_connected')
     def is_connected(self):
         """
+        Check whether this `Duct` instances is currently connected.
+
         This method checks to see whether a `Duct` instance is currently
         connected. This is performed by verifying that the remote host and port
         are still accessible, and then by calling `Duct._is_connected`, which
@@ -625,20 +506,18 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
 
     @abstractmethod
     def _is_connected(self):
-        """
-        This method should be implemented by subclasses and return `True` when
-        this `Duct` instance is connected, and `False` otherwise.
-        """
         raise NotImplementedError
 
     @quirk_docs('_disconnect')
     def disconnect(self):
         """
-        This method disconnects this `Duct` instance from the service, and is
-        automatically called during reconnections and/or at Python interpreter
-        shutdown. It first calls `Duct._disconnect` (which should be implemented
-        by subclasses) and then notifies the `RemoteClient` subclass, if present,
-        to stop port-forwarding the remote service.
+        Disconnect this client from backing service.
+
+        This method is automatically called during reconnections and/or at
+        Python interpreter shutdown. It first calls `Duct._disconnect` (which
+        should be implemented by subclasses) and then notifies the
+        `RemoteClient` subclass, if present, to stop port-forwarding the remote
+        service.
 
         Returns:
             `Duct` instance: A reference to this object.
@@ -661,38 +540,15 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
 
     @abstractmethod
     def _disconnect(self):
-        """
-        Subclasses should implement this method to disconnect from remote
-        services. The return value of this method is not used.
-        """
         raise NotImplementedError
 
     def reconnect(self):
         """
-        Disconnects, and then reconnects, this client. This is entirely equivalent
-        to `duct.disconnect().connect()`.
+        Disconnects, and then reconnects, this client.
+
+        Note: This is equivalent to `duct.disconnect().connect()`.
 
         Returns:
             `Duct` instance: A reference to this object.
         """
         return self.disconnect().connect()
-
-    def reset(self):
-        """
-        This method resets the `Duct` instance to it's pre-preparation state. In
-        particular it disconnects from the service, resets any temporary
-        authentication and restores the values of the attributes listed in
-        `prepared_fields` to their values as of when `Duct.prepare` was called.
-
-        Returns:
-            `Duct` instance: A reference to this object.
-        """
-        self.disconnect()
-        self.__cached_auth = {}
-
-        for key, value in self.__prepreparation_values.items():
-            setattr(self, key, value)
-        self.__prepreparation_values = {}
-        self.__prepared = False
-
-        return self

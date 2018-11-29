@@ -11,18 +11,12 @@ from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 class FileSystemClient(Duct, MagicsProvider):
     """
-    `FileSystemClient` is an abstract subclass of `Duct` that provides a common
-    API for all filesystem clients, which in turn will be subclasses of this
-    class.
+    An abstract class providing the common API for all filesystem clients.
 
     Class Attributes:
         DUCT_TYPE (`Duct.Type`): The type of `Duct` protocol implemented by this class.
         DEFAULT_PORT (int): The default port for the filesystem service (defined
             by subclasses).
-
-    Parameters:
-        cwd (str): The path prefix to use as the current working directory (if None,
-            the user's home directory is used where that makes sense).
     """
 
     DUCT_TYPE = Duct.Type.FILESYSTEM
@@ -31,9 +25,11 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_init', mro=True)
     def __init__(self, cwd=None, global_writes=False, **kwargs):
         """
-        This is a shim __init__ function that passes all arguments onto
-        `self._init`, which is implemented by subclasses. This allows subclasses
-        to instantiate themselves with arbitrary parameters.
+        cwd (None, str): The path prefix to use as the current working directory
+            (if None, the user's home directory is used where that makes sense).
+        global_writes (bool): Whether to allow writes outside of the user's home
+            folder.
+        **kwargs (dict): Additional keyword arguments to passed on to subclasses.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._path_cwd = cwd
@@ -90,14 +86,15 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def path_join(self, path, *components):
         """
-        This method generates a new path that is the composition of base `path`
-        with any additional path components. If any component starts with
-        `self.path_separator` or '~', then all previous path
-        components are discarded, and the effective base path becomes that
-        component (with '~' expanding to `self.path_home`). Note that this method does *not* simplify paths components
-        like '..'.
+        Generate a new path by joining together multiple paths.
 
-        Parameters:
+        If any component starts with `self.path_separator` or '~', then all
+        previous path components are discarded, and the effective base path
+        becomes that component (with '~' expanding to `self.path_home`). Note
+        that this method does *not* simplify paths components like '..'. Use
+        `self.path_normpath` for this purpose.
+
+        Args:
             path (str): The base path to which components should be joined.
             *components (str): Any additional components to join to the base
                 path.
@@ -117,12 +114,13 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def path_basename(self, path):
         """
-        This method returns the name of the last component of any given path,
-        where components are determined by splitting by `self.path_separator`.
+        Extract the last component of a given path.
+
+        Components are determined by splitting by `self.path_separator`.
         Note that if a path ends with a path separator, the basename will be
         the empty string.
 
-        Parameters:
+        Args:
             path (str): The path from which the basename should be extracted.
 
         Returns:
@@ -132,11 +130,13 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def path_dirname(self, path):
         """
+        Extract the parent directory for provided path.
+
         This method returns the entire path except for the basename (the last
         component), where components are determined by splitting by
         `self.path_separator`.
 
-        Parameters:
+        Args:
             path (str): The path from which the directory path should be
                 extracted.
 
@@ -147,10 +147,12 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def path_normpath(self, path):
         """
+        Normalise a pathname.
+
         This method returns the normalised (absolute) path corresponding to `path`
         on this filesystem.
 
-        Parameters:
+        Args:
             path (str): The path to normalise (make absolute).
 
         Returns:
@@ -198,16 +200,14 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_exists')
     def exists(self, path):
         """
-        This method checks whether a file (or folder) exists at the given path,
-        relative (as appropriate) to the current working directory (on remote
-        filesytems, this will typically be the home folder).
+        Check whether nominated path exists on this filesytem.
 
-        Parameters:
+        Args:
             path (str): The path for which to check existence.
 
         Returns:
             bool: `True` if file/folder exists at nominated path, and `False`
-            otherwise.
+                otherwise.
         """
         return self.connect()._exists(self._path(path))
 
@@ -218,11 +218,9 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_isdir')
     def isdir(self, path):
         """
-        This method checks to see whether a folder/directory exists at the given
-        path, relative to the current working directory  (on remote filesytems,
-        this will typically be the home folder).
+        Check whether a nominated path is directory.
 
-        Parameters:
+        Args:
             path (str): The path for which to check directory nature.
 
         Returns:
@@ -238,11 +236,9 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_isfile')
     def isfile(self, path):
         """
-        This method checks to see whether a file (not a directory) exists at the
-        given path, relative to the current working directory (on remote
-        filesytems, this will typically be the home folder).
+        Check whether a nominated path is a file.
 
-        Parameters:
+        Args:
             path (str): The path for which to check file nature.
 
         Returns:
@@ -266,6 +262,8 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_dir')
     def dir(self, path=None):
         """
+        Retrieve information about the children of a nominated directory.
+
         This method returns a generator over `FileSystemFileDesc` objects that
         represent the files/directories that a present as children of the
         nominated path. If `path` is not a directory, an exception is raised.
@@ -273,9 +271,7 @@ class FileSystemClient(Duct, MagicsProvider):
         directory (on remote filesytems, this will typically be the home
         folder).
 
-        :todo:`Which exception class should be raised.`
-
-        Parameters:
+        Args:
             path (str): The path to examine for children.
 
         Returns:
@@ -287,12 +283,14 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def listdir(self, path=None):
         """
+        Retrieve the names of the children of a nomianted directory.
+
         This method inspects the contents of a directory using `.dir(path)`, and
         returns the names of child members as strings. `path` is interpreted
         relative to the current working directory (on remote filesytems, this
         will typically be the home folder).
 
-        Parameters:
+        Args:
             path (str): The path of the directory from which to enumerate filenames.
 
         Returns:
@@ -302,13 +300,15 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def showdir(self, path=None):
         """
+        Return a dataframe representation of a directory.
+
         This method returns a `pandas.DataFrame` representation of the contents of
         a path, which are retrieved using `.dir(path)`. The exact columns will
         vary from filesystem to filesystem, depending on the fields returned
         by `.dir()`, but the returned DataFrame is guaranteed to at least have
         the columns: 'name' and 'type'.
 
-        Parameters:
+        Args:
             path (str): The path of the directory from which to show contents.
 
         Returns:
@@ -334,11 +334,13 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_walk')
     def walk(self, path=None):
         """
+        Explore the filesystem tree starting at a nominated path.
+
         This method returns a generator which recursively walks over all paths
         that are children of `path`, one result for each directory, of form:
         (<path name>, [<directory 1>, ...], [<file 1>, ...])
 
-        Parameters:
+        Args:
             path (str): The path of the directory from which to enumerate
                 contents.
 
@@ -366,12 +368,14 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_find')
     def find(self, path_prefix=None, **attrs):
         """
+        Find a file or directory based on certain attributes.
+
         This method searches for files or folders which satisfy certain
         constraints on the attributes of the file (as encoded into
         `FileSystemFileDesc`). Note that without attribute constraints,
         this method will function identically to `self.dir`.
 
-        Parameters:
+        Args:
             path_prefix (str): The path under which files/directories should be
                 found.
             **attrs (dict): Constraints on the fields of the `FileSystemFileDesc`
@@ -412,10 +416,9 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_mkdir')
     def mkdir(self, path, recursive=True, exist_ok=False):
         """
-        This method creates a directory at the specified path, recursively
-        creating any parents as needed unless `recursive` is set to `False`.
+        Create a directory at the given path.
 
-        Parameters:
+        Args:
             path (str): The path of the directory to create.
             recursive (bool): Whether to recursively create any parents of this
                 path if they do not already exist.
@@ -436,10 +439,12 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_remove')
     def remove(self, path, recursive=False):
         """
-        This method removes file(s) at a the specified path. Directories (and
-        their contents) will not be removed unless `recursive` is set to `True`.
+        Remove file(s) at a nominated path.
 
-        Parameters:
+        Directories (and their contents) will not be removed unless `recursive`
+        is set to `True`.
+
+        Args:
             path (str): The path of the file/directory to be removed.
             recursive (bool): Whether to remove directories and all of their
                 contents.
@@ -461,13 +466,15 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_open')
     def open(self, path, mode='rt'):
         """
+        Open a file for reading and/or writing.
+
         This method opens the file at the given path for reading and/or writing
         operations. The object returned is programmatically interchangeable with
-        any other Python file-like object, including file modes. If the file is
-        opened in write mode, changes will only be flushed to the source filesystem
-        when the file is closed.
+        any other Python file-like object, including specification of file
+        modes. If the file is opened in write mode, changes will only be flushed
+        to the source filesystem when the file is closed.
 
-        Parameters:
+        Args:
             path (str): The path of the file to open.
             mode (str): All standard Python file modes.
 
@@ -486,7 +493,7 @@ class FileSystemClient(Duct, MagicsProvider):
         `._file_read_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
-        Parameters:
+        Args:
             path (str): The path of the file to be read.
             size (int): The number of bytes to read at a time (-1 for max possible).
             offset (int): The offset in bytes from the start of the file.
@@ -507,7 +514,7 @@ class FileSystemClient(Duct, MagicsProvider):
         `._file_write_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
-        Parameters:
+        Args:
             path (str): The path of the file to be read.
             s (str, bytes): The content to be written to the file.
             binary (bool): Whether to read the file in binary mode.
@@ -529,7 +536,7 @@ class FileSystemClient(Duct, MagicsProvider):
         `._file_append_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
-        Parameters:
+        Args:
             path (str): The path of the file to be read.
             s (str, bytes): The content to be appended to the file.
             binary (bool): Whether to read the file in binary mode.
@@ -549,11 +556,13 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_download')
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
+        Download files to another filesystem.
+
         This method (recursively) downloads a file/folder from path `source` on
         this filesystem to the path `dest` on filesytem `fs`, overwriting any
         existing file if `overwrite` is `True`.
 
-        Parameters:
+        Args:
             source (str): The path on this filesystem of the file to download to
                 the nominated filesystem (`fs`). If `source` ends
                 with '/' then contents of the the `source` directory will be
@@ -629,12 +638,14 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
+        Upload files from another filesystem.
+
         This method (recursively) uploads a file/folder from path `source` on
         filesystem `fs` to the path `dest` on this filesytem, overwriting any
         existing file if `overwrite` is `True`. This is equivalent to
         `fs.download(..., fs=self)`.
 
-        Parameters:
+        Args:
             source (str): The path on the specified filesystem (`fs`) of the
                 file to upload to this filesystem. If `source` ends with '/',
                 and corresponds to a directory, the contents of source will be
@@ -684,6 +695,11 @@ class FileSystemClient(Duct, MagicsProvider):
 
 
 class FileSystemFile(object):
+    """
+    A file-like implementation that is interchangeable with native Python file
+    objects, allowing remote files to be treated identically to local files
+    both by omniduct, the user and other libraries.
+    """
 
     def __init__(self, fs, path, mode='r'):
         self.fs = fs
@@ -821,6 +837,10 @@ class FileSystemFileDesc(namedtuple('Node', [
     'last_accessed',
     'extra',
 ])):
+    """
+    A representation of a file/directory stored within an Omniduct
+    FileSystemClient.
+    """
 
     __slots__ = ()
 
