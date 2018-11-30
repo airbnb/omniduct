@@ -1,4 +1,4 @@
-# Omniduct
+# <img src="https://raw.githubusercontent.com/airbnb/omniduct/master/omniduct/logo.png" height=200> Omniduct
 [![PyPI - Version](https://img.shields.io/pypi/v/omniduct.svg)](https://pypi.org/project/omniduct/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/omniduct.svg)
 ![PyPI - Status](https://img.shields.io/pypi/status/omniduct.svg)
