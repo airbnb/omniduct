@@ -2,6 +2,9 @@
 
 from omniduct.duct import Duct
 from omniduct.registry import DuctRegistry
+from omniduct.utils.config import config
+from omniduct.utils.debug import logger
+
 from . import protocols
 from ._version import __author__, __author_email__, __version__, __logo__, __docs_url__
 
