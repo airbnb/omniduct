@@ -1,0 +1,27 @@
+caches:
+    cache:  # Setup a local cache for use by services
+        protocol: filesystem_cache
+        fs: local
+        path: ~/.example_wrapper/cache
+
+databases:
+    presto:
+        protocol: presto
+        host: presto.company.com
+        cache: cache
+        remote: gateway
+
+filesystems:
+    local:
+        protocol: localfs
+        global_writes: True
+    s3_company_bucket:
+        protocol: s3
+        bucket: company-bucket
+
+remotes:
+    gateway:  # A remote gateway used to access Presto services
+        protocol: ssh
+        host: gateway.company.com
+        smartcards:
+            yubikey: /usr/local/lib/opensc-pkcs11.so
