@@ -47,7 +47,7 @@ ABOUT_TEMPLATE_TEXT = """
 {%- endfor %}
 
 {{description}}
-{%- if endorsements %}
+{% if endorsements %}
 Built upon:
 {%- for endorsement in endorsements %}
 - {{endorsement['name']}} v{{endorsement['version'].strip()}}
@@ -92,9 +92,9 @@ def show_about(name, version=None, logo=None, maintainers=None, attributes=None,
         'name': name,
         'version': version,
         'logo': get_image_url(logo),
-        'maintainers': maintainers,
-        'attributes': attributes,
-        'description': textwrap.dedent(description).strip(),
+        'maintainers': maintainers or {},
+        'attributes': attributes or {},
+        'description': textwrap.dedent(description).strip() if description else None,
         'endorsements': endorsements
     }
 
