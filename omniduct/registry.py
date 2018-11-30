@@ -129,6 +129,7 @@ class DuctRegistry(object):
     # Inspection and retrieval methods
     @property
     def names(self):
+        """list: The names of all ducts in the registry."""
         return sorted(self._registry.keys())
 
     def __getitem__(self, name):

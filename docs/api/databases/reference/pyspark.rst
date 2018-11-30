@@ -1,7 +1,7 @@
-LocalCache
-==========
+PySparkClient
+============
 
-.. autoclass:: omniduct.caches.local.LocalCache
+.. autoclass:: omniduct.databases.pyspark.PySparkClient
     :members:
     :special-members: __init__
     :inherited-members:

@@ -82,12 +82,19 @@ __optional_dependencies__ = {
         'requests',  # Library to handle underlying REST queries
     ],
 
+    # Documentation requirements
+    'docs': [
+        'sphinx',  # The documentation engine
+        'sphinx_autobuild',  # A Sphinx plugin used during development of docs
+        'sphinx_rtd_theme',  # The Spinx theme used by the docs
+    ],
+
     'test': [
         'nose',      # test runner
         'mock',      # mocking
         'pyfakefs',  # mock filesystem
         'coverage',  # test coverage monitoring
-        'flake8'     # Code linting
+        'flake8',    # Code linting
     ]
 }
 __optional_dependencies__['all'] = [dep for deps in __optional_dependencies__.values() for dep in deps]

@@ -11,6 +11,7 @@ Common API
 
 .. automodule:: omniduct.filesystems.base
     :members:
+    :special-members: __init__
     :show-inheritance:
     :member-order: bysource
 

@@ -494,20 +494,22 @@ class DatabaseClient(Duct, MagicsProvider):
         reference other templates. For example, if you had two SQL templates
         named 'template_a' and 'template_b', then you could render them into one
         SQL query using (for example):
-        ```
-        .template_render('''
-        WITH
-            a AS (
-                {{{template_a}}}
-            ),
-            b AS (
-                {{{template_b}}}
-            )
-        SELECT *
-        FROM a
-        JOIN b ON a.x = b.x
-        ''')
-        ```
+
+        .. code-block:: python
+
+            .template_render('''
+            WITH
+                a AS (
+                    {{{template_a}}}
+                ),
+                b AS (
+                    {{{template_b}}}
+                )
+            SELECT *
+            FROM a
+            JOIN b ON a.x = b.x
+            ''')
+
         Note that template substitution in this way is iterative, so you can
         chain template embedding, provided that such embedding is not recursive.
 

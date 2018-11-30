@@ -9,6 +9,6 @@ For some simple examples on its use, please refer to the :doc:`/quickstart`.
 
 .. automodule:: omniduct.registry
     :members:
-    :undoc-members:
+    :special-members: __init__
     :show-inheritance:
     :member-order: bysource

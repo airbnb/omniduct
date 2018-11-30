@@ -18,6 +18,7 @@ Common API
 
 .. autoclass:: omniduct.databases.base.DatabaseClient
     :members:
+    :special-members: __init__
     :show-inheritance:
     :member-order: bysource
 

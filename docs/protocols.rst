@@ -12,6 +12,7 @@ of desired extras as indicated in :doc:`installation`.
     - HiveServer2 [hiveserver2]
     - Neo4j (experimental)
     - Presto [presto]
+    - PySpark [pyspark]
     - Any SQL database supported by SQL Alchemy (e.g. MySQL, Postgres, Oracle, etc) [sqlalchemy]
 - Filesystems
     - HDFS [webhdfs]

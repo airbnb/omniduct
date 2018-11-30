@@ -10,6 +10,7 @@ Common API
 
 .. autoclass:: omniduct.remotes.base.RemoteClient
     :members:
+    :special-members: __init__
     :show-inheritance:
     :member-order: bysource
 

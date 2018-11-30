@@ -19,6 +19,7 @@ Duct
 
 .. autoclass:: omniduct.duct.Duct
     :members:
+    :special-members: __init__
     :private-members:
     :show-inheritance:
     :member-order: bysource
