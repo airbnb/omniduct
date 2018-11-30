@@ -20,7 +20,7 @@ ABOUT_TEMPLATE_HTML = """
 <b>{{name}}:</b> {% if value.startswith('http://') or value.startswith('https://') %}<a href='{{value}}'>{{value}}</a>{% else %}{{value}}{%endif%}<br />
 {%- endfor %}
 <b>Description:</b><br/>
-{{description.strip()|replace('\n\n','<br/>\n')}}
+{{description.strip()|replace('\n\n','<br/><br/>\n')}}
 {%- if endorsements %}<br />
 <br />
 <b>Built upon:</b>
