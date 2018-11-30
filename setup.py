@@ -1,6 +1,3 @@
-import os
-import sys
-
 from setuptools import find_packages, setup
 
 # Extract version information from Omniduct _version.py
@@ -21,6 +18,7 @@ with open('README.md') as readme:
 setup(
     # Package metadata
     name="omniduct",
+    versioning='post',
     version=version_info['__version__'],
     author=version_info['__author__'],
     author_email=version_info['__author_email__'],
@@ -32,7 +30,7 @@ setup(
     ),
     long_description=long_description,
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
@@ -51,6 +49,7 @@ setup(
     include_package_data=True,
 
     # Dependencies
+    setup_requires=['setupmeta'],
     install_requires=version_info['__dependencies__'],
     extras_require=version_info['__optional_dependencies__']
 )
