@@ -50,6 +50,12 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     def _connect(self):
         import sqlalchemy
+        if self.protocol not in ['mysql']:
+            logger.warning("While querying and executing should work as "
+                           "expected, some operations on this database client "
+                           "(such as listing tables, querying to tables, etc) "
+                           "may not function as expected due to the backend "
+                           "not supporting ANSI SQL.")
 
         self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
         self._sqlalchemy_metadata = sqlalchemy.MetaData(self.engine)
@@ -71,7 +77,6 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return cursor
 
     def _query_to_table(self, statement, table, if_exists, **kwargs):
-        logger.warning("`CREATE TABLE AS` statements may not work for all SQLAlchemy backends.")
         statements = []
 
         if if_exists == 'fail' and self.table_exists(table):
