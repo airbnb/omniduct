@@ -4,7 +4,7 @@ import sys
 __all__ = ['__author__', '__author_email__', '__version__', '__logo__', '__docs_url__']
 
 __author__ = "Matthew Wardrop, Dan Frank"
-__author_email__ = "mpwardrop@gmail.com, dan.frank@airbnb.com"
+__author_email__ = "mpwardrop@gmail.com, danfrankj@gmail.com"
 __version__ = "0.9.6"
 __logo__ = os.path.join(os.path.dirname(__file__), 'logo.png') if '__file__' in globals() else None
 __docs_url__ = "https://omniduct.readthedocs.io/"
