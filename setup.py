@@ -48,6 +48,7 @@ setup(
 
     # Package details
     packages=find_packages(),
+    include_package_data=True,
 
     # Dependencies
     install_requires=version_info['__dependencies__'],
