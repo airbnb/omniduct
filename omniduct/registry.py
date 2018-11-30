@@ -157,10 +157,10 @@ class DuctRegistry(object):
             kind = Duct.Type(kind)
         if name not in self._registry:
             raise DuctNotFound(name)
-        r = self._registry[name]
-        if kind and r.DUCT_TYPE != kind:
+        duct = self._registry[name]
+        if kind and duct.DUCT_TYPE != kind:
             raise DuctNotFound("Duct named '{}' exists, but is not of kind '{}'.".format(name, kind.value))
-        return r
+        return duct
 
     # Exposing `Duct` instances.
     def populate_namespace(self, namespace=None, names=None, kinds=None):
