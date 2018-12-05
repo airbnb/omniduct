@@ -279,7 +279,7 @@ class DuctRegistry(object):
         if isinstance(config, dict):
             def max_consistent_depth(d):
                 depth = 0
-                if isinstance(d, dict):
+                if isinstance(d, dict) and len(d.keys()) > 0:
                     depths = []
                     for value in d.values():
                         depths.append(max_consistent_depth(value) + 1)
