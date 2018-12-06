@@ -122,10 +122,10 @@ class SparkCursor(object):
         pass
 
     def execute(operation, parameters=None):
-        pass
+        raise NotImplementedError
 
     def executemany(operation, seq_of_parameters=None):
-        pass
+        raise NotImplementedError
 
     def fetchone(self):
         return [
@@ -138,7 +138,7 @@ class SparkCursor(object):
         return [self.fetchone() for _ in range(size)]
 
     def fetchall(self):
-        return list(self.df_iter)
+        return self.df.collect()
 
     def setinputsizes(self, sizes):
         pass
