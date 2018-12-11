@@ -484,7 +484,7 @@ class DatabaseClient(Duct, MagicsProvider):
         self._templates[name] = body
         return self
 
-    def template_render(self, name_or_statement, context=None, by_name=False):
+    def template_render(self, name_or_statement, context=None, by_name=False, cleanup=False):
         """
         Render a template by name or value.
 
@@ -521,6 +521,8 @@ class DatabaseClient(Duct, MagicsProvider):
             by_name (bool): `True` if `name_or_statement` should be interpreted as a
                 template name, or `False` (default) if `name_or_statement` should be
                 interpreted as a template body.
+            cleanup (bool): `True` if the rendered statement should be formatted,
+                `False` (default) otherwise
 
         Returns:
             str: The rendered template.
@@ -564,7 +566,12 @@ class DatabaseClient(Duct, MagicsProvider):
                                  comment_end_string='#}}',
                                  undefined=StrictUndefined).render(getattr(self, '_templates', {}))
 
-        return Template(statement, undefined=StrictUndefined).render(template_context)
+        rendered = Template(statement, undefined=StrictUndefined).render(template_context)
+
+        if cleanup:
+            rendered = self.statement_cleanup(rendered)
+
+        return rendered
 
     def execute_from_template(self, name, context=None, **kwargs):
         """
@@ -874,15 +881,19 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_cell_magic("{}.{}".format(base_name, 'render'))
         @process_line_cell_arguments
-        def template_render_magic(body=None, name=None, context=None, show=True):
+        def template_render_magic(body=None, name=None, context=None, show=True, cleanup=False):
 
             ip = get_ipython()
 
             if body is None:
                 assert name is not None, "Name must be specified in line-mode."
-                rendered = self.template_render(name, context=context or ip.user_ns, by_name=True)
+                rendered = self.template_render(
+                    name, context=context or ip.user_ns, by_name=True, cleanup=cleanup
+                )
             else:
-                rendered = self.template_render(body, context=context or ip.user_ns, by_name=False)
+                rendered = self.template_render(
+                    body, context=context or ip.user_ns, by_name=False, cleanup=cleanup
+                )
                 if name is not None:
                     ip.user_ns[name] = rendered
 
