@@ -87,11 +87,11 @@ class FileSystemCache(Cache):
     def _namespace(self, namespace):
         if namespace is None:
             return '__default__'
-        assert isinstance(namespace, str)
+        assert isinstance(namespace, str) and namespace != 'config'
         return namespace
 
     def _get_namespaces(self):
-        return self.fs.listdir(self.path)
+        return [d for d in self.fs.listdir(self.path) if d != 'config']
 
     def _has_namespace(self, namespace):
         return self.fs.exists(self.fs.path_join(self.path, namespace))
@@ -107,6 +107,14 @@ class FileSystemCache(Cache):
 
     def _remove_key(self, namespace, key):
         return self.fs.remove(self.fs.path_join(self.path, namespace, key), recursive=True)
+
+    def _get_bytecount_for_key(self, namespace, key):
+        path = self.fs.path_join(self.path, namespace, key)
+        return sum([
+            f.bytes
+            for f in self.fs.dir(path)
+            if f.name.startswith('data.')
+        ])
 
     def _get_stream_for_key(self, namespace, key, stream_name, mode, create):
         path = self.fs.path_join(self.path, namespace, key)

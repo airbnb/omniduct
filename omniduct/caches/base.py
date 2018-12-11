@@ -1,7 +1,10 @@
 import datetime
+import functools
 import sys
 from abc import abstractmethod
 
+import dateutil
+import pandas
 import six
 import yaml
 from decorator import decorator
@@ -206,6 +209,24 @@ class Cache(Duct):
         finally:
             self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})
 
+    def get_bytecount(self, key, namespace=None):
+        """
+        Retrieve the number of bytes used by a stored key (not including metadata).
+
+        Args:
+            key (str): The key for which to extract the bytecount.
+            namespace (str, None): The namespace to be used.
+
+        Returns:
+            int: The number of bytes used by the stored value associated with
+                the nominated key and namespace.
+        """
+        self.connect()
+        namespace, key = self._namespace(namespace), self._key(key)
+        if not self._has_key(namespace, key):
+            raise KeyError("{} (namespace: {})".format(key, namespace))
+        return self._get_bytecount_for_key(namespace, key)
+
     def get_metadata(self, key, namespace=None):
         """
         Retrieve metadata associated with the nominated key from the cache.
@@ -307,6 +328,121 @@ class Cache(Duct):
         namespace, key = self._namespace(namespace), self._key(key)
         return self._has_key(namespace, key)
 
+    def get_total_bytecount(self, namespaces=None):
+        """
+        Retrieve the total number of bytes used by the cache (excluding metadata).
+
+        Args:
+            namespaces (list<str,None>): The namespaces to which the bytecount
+                should be restricted.
+
+        Returns:
+            int: The total number of bytes used by the nominated namespaces.
+        """
+        total_bytes = 0
+
+        if namespaces is None:
+            namespaces = self.namespaces
+
+        for namespace in namespaces:
+            for key in self.keys(namespace=namespace):
+                total_bytes += self.get_bytecount(key, namespace=namespace)
+
+        return total_bytes
+
+    def describe(self, namespaces=None):
+        """
+        Return a pandas DataFrame showing all keys and their metadata.
+
+        Args:
+            namespaces (list<str,None>): The namespaces to which the summary
+                should be restricted.
+
+        Returns:
+            pandas.DataFrame: A representation of keys in the cache. Will include
+                at least the following columns: ['bytes', 'namespace', 'key',
+                'created', 'last_accessed']. Any additional metadata for keys
+                will be appended to these columns.
+        """
+        out = []
+
+        if namespaces is None:
+            namespaces = self.namespaces
+
+        for namespace in namespaces:
+            for key in self.keys(namespace=namespace):
+                metadata = self.get_metadata(key, namespace=namespace)
+                usage = {
+                    'bytes': self.get_bytecount(key, namespace=namespace),
+                    'namespace': namespace,
+                    'key': key,
+                    'created': None,
+                    'last_accessed': None
+                }
+                usage.update(metadata)
+                out.append(usage)
+
+        df = pandas.DataFrame(out)
+
+        order = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
+        order += sorted(set(df.columns).difference(order))
+
+        return df.sort_values('last_accessed', ascending=False).reset_index(drop=True)[order]
+
+    # Cache pruning
+
+    def prune(self, namespaces=None, max_age=None, max_bytes=None, total_bytes=None):
+        """
+        Remove keys from the cache in order to satisfy nominated constraints.
+
+        Args:
+            namespaces (list<str, None>): The namespaces to consider for pruning.
+            max_age (None, int, timedelta, relativedelta, date, datetime): The
+                number of days, a timedelta, or a relativedelta, indicating the
+                maximum age of items in the cache (based on last accessed date).
+                Deltas are expected to be positive.
+            max_bytes (None, int): The maximum number of bytes for *each* key,
+                allowing the pruning of larger keys.
+            total_bytes (None, int): The total number of bytes for the entire
+                cache. Keys will be removed from least recently accessed to most
+                recently accessed until the constraint is satisfied. This
+                constraint will be applied after max_age and max_bytes.
+        """
+        usage = self.describe(namespaces=namespaces)
+        constraints = []
+
+        # Unset keys according to per-key constraints
+        if max_age is not None:
+            if isinstance(max_age, int):
+                max_age = datetime.timedelta(max_age)
+            if isinstance(max_age, (datetime.timedelta, dateutil.relativedelta.relativedelta)):
+                max_age = datetime.datetime.now() - max_age
+            if not isinstance(max_age, (datetime.datetime, datetime.date)):
+                raise ValueError("Invalid type specified for `max_age`: {}".format(max_age.__repr__()))
+            constraints.append(usage.last_accessed < max_age)
+
+        if max_bytes is not None:
+            if not isinstance(max_bytes, int):
+                raise ValueError("Invalid type specified for `max_bytes`: {}".format(max_bytes.__repr__()))
+            constraints.append(usage.bytes > max_bytes)
+
+        if constraints:
+            to_unset = usage[functools.reduce(lambda x, y: x | y, constraints, False)]
+            for i, row in to_unset.iterrows():
+                logger.info("Unsetting key '{}' (namespace: '{}')...".format(row.key, row.namespace))
+                self.unset(row.key, namespace=row.namespace)
+
+        # Unset keys according to global constraints
+        if total_bytes is not None:
+            if not isinstance(total_bytes, int):
+                raise ValueError("Invalid type specified for `total_bytes`: {}".format(total_bytes.__repr__()))
+            usage = self.describe(namespaces=namespaces).assign(cum_bytes=lambda x: x.bytes.cumsum())
+
+            to_unset = usage[usage.cum_bytes > total_bytes]
+            for i, row in to_unset.iterrows():
+                logger.info("Unsetting key '{}' (namespace: '{}')...".format(row.key, row.namespace))
+                self.unset(row.key, namespace=row.namespace)
+
     # Methods for subclasses to implement
 
     def _namespace(self, namespace):
@@ -335,6 +471,10 @@ class Cache(Duct):
 
     @abstractmethod
     def _remove_key(self, namespace, key):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_bytecount_for_key(self, namespace, key):
         raise NotImplementedError
 
     @abstractmethod
