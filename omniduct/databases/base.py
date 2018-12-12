@@ -8,9 +8,10 @@ import os
 import sys
 from abc import abstractmethod
 
+import jinja2
+import jinja2.meta
 import sqlparse
 from decorator import decorator
-from jinja2 import StrictUndefined, Template
 
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
@@ -484,7 +485,44 @@ class DatabaseClient(Duct, MagicsProvider):
         self._templates[name] = body
         return self
 
-    def template_render(self, name_or_statement, context=None, by_name=False, cleanup=False):
+    def template_get(self, name):
+        """
+        Retrieve a named template.
+
+        Args:
+            name (str): The name of the template to retrieve.
+
+        Raises:
+            ValueError: If `name` is not associated with a template.
+
+        Returns:
+            str: The requested template.
+        """
+        if name not in self._templates:
+            raise ValueError("No such template named: '{}'.".format(name))
+        return self._templates[name]
+
+    def template_variables(self, name_or_statement, by_name=False):
+        """
+        Return the set of undeclared variables required for this template.
+
+        Args:
+            name_or_statement (str): The name of a template (if `by_name` is True)
+                or else a string representation of a `jinja2` template.
+            by_name (bool): `True` if `name_or_statement` should be interpreted as a
+                template name, or `False` (default) if `name_or_statement` should be
+                interpreted as a template body.
+
+        Returns:
+            set<str>: A set of names which the template requires to be rendered.
+        """
+        ast = jinja2.Environment().parse(
+            self.template_render(name_or_statement, by_name=by_name, meta_only=True)
+        )
+        return jinja2.meta.find_undeclared_variables(ast)
+
+    def template_render(self, name_or_statement, context=None, by_name=False,
+                        cleanup=False, meta_only=False):
         """
         Render a template by name or value.
 
@@ -523,6 +561,9 @@ class DatabaseClient(Duct, MagicsProvider):
                 interpreted as a template body.
             cleanup (bool): `True` if the rendered statement should be formatted,
                 `False` (default) otherwise
+            meta_only (bool): `True` if rendering should only progress as far as
+                rendering nested templates (i.e. don't actually substitute in
+                variables from the context); `False` (default) otherwise.
 
         Returns:
             str: The rendered template.
@@ -557,21 +598,30 @@ class DatabaseClient(Duct, MagicsProvider):
 
         # Substitute in any other named statements recursively
         while '{{{' in statement or '{{%' in statement:
-            statement = Template(statement,
-                                 block_start_string='{{%',
-                                 block_end_string='%}}',
-                                 variable_start_string='{{{',
-                                 variable_end_string='}}}',
-                                 comment_start_string='{{#',
-                                 comment_end_string='#}}',
-                                 undefined=StrictUndefined).render(getattr(self, '_templates', {}))
+            statement = (
+                jinja2.Template(
+                    statement,
+                    block_start_string='{{%',
+                    block_end_string='%}}',
+                    variable_start_string='{{{',
+                    variable_end_string='}}}',
+                    comment_start_string='{{#',
+                    comment_end_string='#}}',
+                    undefined=jinja2.StrictUndefined
+                )
+                .render(getattr(self, '_templates', {}))
+            )
 
-        rendered = Template(statement, undefined=StrictUndefined).render(template_context)
+        if not meta_only:
+            statement = (
+                jinja2.Template(statement, undefined=jinja2.StrictUndefined)
+                .render(template_context)
+            )
 
         if cleanup:
-            rendered = self.statement_cleanup(rendered)
+            statement = self.statement_cleanup(statement)
 
-        return rendered
+        return statement
 
     def execute_from_template(self, name, context=None, **kwargs):
         """
@@ -881,18 +931,21 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_cell_magic("{}.{}".format(base_name, 'render'))
         @process_line_cell_arguments
-        def template_render_magic(body=None, name=None, context=None, show=True, cleanup=False):
+        def template_render_magic(body=None, name=None, context=None, show=True,
+                                  cleanup=False, meta_only=False):
 
             ip = get_ipython()
 
             if body is None:
                 assert name is not None, "Name must be specified in line-mode."
                 rendered = self.template_render(
-                    name, context=context or ip.user_ns, by_name=True, cleanup=cleanup
+                    name, context=context or ip.user_ns, by_name=True,
+                    cleanup=cleanup, meta_only=meta_only
                 )
             else:
                 rendered = self.template_render(
-                    body, context=context or ip.user_ns, by_name=False, cleanup=cleanup
+                    body, context=context or ip.user_ns, by_name=False,
+                    cleanup=cleanup, meta_only=meta_only
                 )
                 if name is not None:
                     ip.user_ns[name] = rendered
