@@ -113,7 +113,6 @@ class FileSystemCache(Cache):
         return sum([
             f.bytes
             for f in self.fs.dir(path)
-            if f.name.startswith('data.')
         ])
 
     def _get_stream_for_key(self, namespace, key, stream_name, mode, create):

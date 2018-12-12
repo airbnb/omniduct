@@ -211,7 +211,10 @@ class Cache(Duct):
 
     def get_bytecount(self, key, namespace=None):
         """
-        Retrieve the number of bytes used by a stored key (not including metadata).
+        Retrieve the number of bytes used by a stored key.
+
+        This bytecount may or may not include metadata storage, depending on
+        the backend.
 
         Args:
             key (str): The key for which to extract the bytecount.
@@ -330,7 +333,10 @@ class Cache(Duct):
 
     def get_total_bytecount(self, namespaces=None):
         """
-        Retrieve the total number of bytes used by the cache (excluding metadata).
+        Retrieve the total number of bytes used by the cache.
+
+        This method iterates over all (nominated) namespaces and the keys
+        therein, summing the result of `.get_bytecount(...)` on each.
 
         Args:
             namespaces (list<str,None>): The namespaces to which the bytecount
@@ -371,7 +377,6 @@ class Cache(Duct):
 
         for namespace in namespaces:
             for key in self.keys(namespace=namespace):
-                metadata = self.get_metadata(key, namespace=namespace)
                 usage = {
                     'bytes': self.get_bytecount(key, namespace=namespace),
                     'namespace': namespace,
@@ -379,20 +384,23 @@ class Cache(Duct):
                     'created': None,
                     'last_accessed': None
                 }
-                usage.update(metadata)
+                usage.update(self.get_metadata(key, namespace=namespace))
                 out.append(usage)
 
+        required_columns = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
         if out:
             df = pandas.DataFrame(out)
-
-            order = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
-            order += sorted(set(df.columns).difference(order))
-
-            return df.sort_values('last_accessed', ascending=False).reset_index(drop=True)[order]
+            order = required_columns + sorted(set(df.columns).difference(required_columns))
+            return (
+                df
+                .sort_values('last_accessed', ascending=False)
+                .reset_index(drop=True)
+                [order]
+            )
 
         return pandas.DataFrame(
             data=[],
-            columns=['bytes', 'namespace', 'key', 'created', 'last_accessed']
+            columns=required_columns
         )
 
     # Cache pruning
