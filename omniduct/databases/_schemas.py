@@ -87,7 +87,7 @@ class TableDesc(Table):
     def desc(self):
         """pandas.DataFrame: The description of this SQL table."""
         return pd.DataFrame(
-            [[col.name, col.type] for col in self.columns.values()],
+            [[col.name, col.type.compile(self.bind.dialect)] for col in self.columns.values()],
             columns=['name', 'type']
         )
 
@@ -188,7 +188,7 @@ class Schema(object):
         return self._table_names
 
     def __dir__(self):
-        return self.all()
+        return self.all
 
     def __getattr__(self, table):
         if table in self.all:
