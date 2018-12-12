@@ -382,12 +382,18 @@ class Cache(Duct):
                 usage.update(metadata)
                 out.append(usage)
 
-        df = pandas.DataFrame(out)
+        if out:
+            df = pandas.DataFrame(out)
 
-        order = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
-        order += sorted(set(df.columns).difference(order))
+            order = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
+            order += sorted(set(df.columns).difference(order))
 
-        return df.sort_values('last_accessed', ascending=False).reset_index(drop=True)[order]
+            return df.sort_values('last_accessed', ascending=False).reset_index(drop=True)[order]
+
+        return pandas.DataFrame(
+            data=[],
+            columns=['bytes', 'namespace', 'key', 'created', 'last_accessed']
+        )
 
     # Cache pruning
 
