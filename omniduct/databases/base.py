@@ -12,12 +12,12 @@ import jinja2
 import jinja2.meta
 import sqlparse
 from decorator import decorator
+from interface_meta import quirk_docs, override
 
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
 from omniduct.filesystems.local import LocalFsClient
 from omniduct.utils.debug import logger, logging_scope
-from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
                                    process_line_cell_arguments)
 
@@ -842,6 +842,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_props(self, table, **kwargs):
         pass
 
+    @override
     def _register_magics(self, base_name):
         """
         The following magic functions will be registered (assuming that

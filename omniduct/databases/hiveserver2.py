@@ -8,6 +8,7 @@ import tempfile
 import time
 
 import pandas as pd
+from interface_meta import override
 from jinja2 import Template
 
 from omniduct.utils.debug import logger
@@ -51,6 +52,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '`'
     NAMESPACE_SEPARATOR = '.'
 
+    @override
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
               push_using_hive_cli=False, default_table_props=None, **connection_options):
         """
@@ -84,6 +86,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         assert self.driver in ('pyhive', 'impyla'), "Supported drivers are pyhive and impyla."
 
+    @override
     def _connect(self):
         from sqlalchemy import create_engine, MetaData
         if self.driver == 'pyhive':
@@ -132,9 +135,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 self._connect()
         return self.__hive.cursor()
 
+    @override
     def _is_connected(self):
         return self.__hive is not None
 
+    @override
     def _disconnect(self):
         logger.info('Disconnecting from Hive coordinator...')
         try:
@@ -146,6 +151,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self._sqlalchemy_metadata = None
         self._schemas = None
 
+    @override
     def _statement_prepare(self, statement, session_properties, **kwargs):
         return (
             "\n".join(
@@ -154,6 +160,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             ) + statement
         )
 
+    @override
     def _execute(self, statement, cursor, wait, session_properties, poll_interval=1):
         """
         Additional Args:
@@ -183,6 +190,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         return cursor
 
+    @override
     def _cursor_empty(self, cursor):
         if self.driver == 'impyla':
             return not cursor.has_result_set
@@ -215,6 +223,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         return len(log)
 
+    @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         statements = []
 
@@ -231,6 +240,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         )
         return self.execute(statement, **kwargs)
 
+    @override
     def _dataframe_to_table(
         self, df, table, if_exists='fail', use_hive_cli=None,
         partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs
@@ -389,11 +399,13 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             partition="into {} of ".format(partition_clause) if partition_clause else ""
         ))
 
+    @override
     def _table_list(self, namespace, like='*', **kwargs):
         schema = namespace.name or self.schema
         return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
                           **kwargs)
 
+    @override
     def _table_exists(self, table, **kwargs):
         logger.disabled = True
         try:
@@ -404,9 +416,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         finally:
             logger.disabled = False
 
+    @override
     def _table_drop(self, table, **kwargs):
         return self.execute("DROP TABLE {table}".format(table=table))
 
+    @override
     def _table_desc(self, table, **kwargs):
         records = self.query("DESCRIBE {0}".format(table), **kwargs)
 
@@ -424,9 +438,11 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         return pd.concat((fields_df, partitions_df))
 
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
+    @override
     def _table_props(self, table, **kwargs):
         return self.query('SHOW TBLPROPERTIES {0}'.format(table), **kwargs)
 

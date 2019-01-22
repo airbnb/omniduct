@@ -8,6 +8,7 @@ from builtins import input
 from io import open
 
 import pandas as pd
+from interface_meta import override
 
 from omniduct.errors import DuctAuthenticationError
 from omniduct.filesystems.base import FileSystemFileDesc
@@ -47,6 +48,7 @@ class SSHClient(RemoteClient):
     PROTOCOLS = ['ssh', 'ssh_cli']
     DEFAULT_PORT = 22
 
+    @override
     def _init(self, interactive=False, check_known_hosts=True):
         """
         interactive (bool):  Whether `SSHClient` should ask the user questions,
@@ -60,7 +62,7 @@ class SSHClient(RemoteClient):
         self.check_known_hosts = check_known_hosts
 
     # Duct connection implementation
-
+    @override
     def _connect(self):
         """
         The workflow to handle passwords and host keys used by this method is
@@ -158,6 +160,7 @@ class SSHClient(RemoteClient):
         assert self.is_connected(), 'Unexpected failure to establish a connection with the remote host with command: \n ' \
                                     '{}\n\n Please report this!'.format(cmd)
 
+    @override
     def _is_connected(self):
         cmd = "ssh {login} -T -S {socket} -O check".format(login=self._login_info,
                                                            socket=self._socket_path)
@@ -169,6 +172,7 @@ class SSHClient(RemoteClient):
             return False
         return True
 
+    @override
     def _disconnect(self):
         # Send exit request to control socket.
         cmd = "ssh {login} -T -S {socket} -O exit".format(login=self._login_info,
@@ -176,7 +180,7 @@ class SSHClient(RemoteClient):
         run_in_subprocess(cmd)
 
     # RemoteClient implementation
-
+    @override
     def _execute(self, cmd, skip_cwd=False, **kwargs):
         """
         Additional Args:
@@ -197,6 +201,7 @@ class SSHClient(RemoteClient):
                                  check_output=True,
                                  **config)
 
+    @override
     def _port_forward_start(self, local_port, remote_host, remote_port):
         self.connect()
         logger.info('Establishing port forward...')
@@ -212,6 +217,7 @@ class SSHClient(RemoteClient):
         logger.info(proc.stderr or 'Success')
         return proc
 
+    @override
     def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
         logger.info('Cancelling port forward...')
         cmd_template = 'ssh {login} -T -O cancel -S {socket} -L localhost:{local_port}:{remote_host}:{remote_port}'
@@ -223,32 +229,36 @@ class SSHClient(RemoteClient):
         proc = run_in_subprocess(cmd)
         logger.info('Port forward succesfully stopped.' if proc.returncode == 0 else 'Failed to stop port forwarding.')
 
+    @override
     def _is_port_bound(self, host, port):
         return self.execute('which nc; if [ $? -eq 0 ]; then nc -z -w2 {} {}; fi'.format(host, port)).returncode == 0
 
     # FileSystem methods
 
     # Path properties and helpers
-
+    @override
     def _path_home(self):
         return self.execute('echo ~', skip_cwd=True).stdout.decode('utf-8').strip()
 
+    @override
     def _path_separator(self):
         return '/'
 
     # File node properties
-
+    @override
     def _exists(self, path):
         return self.execute('if [ ! -e {} ]; then exit 1; fi'.format(path)).returncode == 0
 
+    @override
     def _isdir(self, path):
         return self.execute('if [ ! -d {} ]; then exit 1; fi'.format(path)).returncode == 0
 
+    @override
     def _isfile(self, path):
         return self.execute('if [ ! -f {} ]; then exit 1; fi'.format(path)).returncode == 0
 
     # Directory handling and enumeration
-
+    @override
     def _dir(self, path):
         # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
         dir = pd.DataFrame(sorted([re.split(r'\s+', f)[:9] for f in self.execute('ls -Al {}'.format(path)).stdout.decode('utf-8').strip().split('\n')[1:]]),
@@ -291,25 +301,29 @@ class SSHClient(RemoteClient):
                 last_modified=row.last_modified,
             )
 
+    @override
     def _mkdir(self, path, recursive, exist_ok):
         if exist_ok and self.isdir(path):
             return
         assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
+    @override
     def _remove(self, path, recursive):
         assert self.execute('rm -f ' + ('-r ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to remove file(s) at: `{}`".format(path)
 
     # File handling
-
+    @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         read = self.execute('cat {}'.format(path)).stdout
         if not binary:
             read = read.decode('utf-8')
         return read
 
+    @override
     def _file_append_(self, path, s, binary):
         raise NotImplementedError
 
+    @override
     def _file_write_(self, path, s, binary):
         if binary:
             fd, tmp_path = tempfile.mkstemp()
@@ -323,7 +337,7 @@ class SSHClient(RemoteClient):
         return self.upload(tmp_path, path, overwrite=True)
 
     # File transfer
-
+    @override
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
         Download files to another filesystem.
@@ -374,6 +388,7 @@ class SSHClient(RemoteClient):
         else:
             return super(RemoteClient, self).download(source, dest, overwrite, fs)
 
+    @override
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
         Upload files from another filesystem.

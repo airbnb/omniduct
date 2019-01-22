@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from interface_meta import override
+
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
@@ -20,6 +22,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'  # TODO: Apply overrides depending on protocol?
     NAMESPACE_SEPARATOR = '.'
 
+    @override
     def _init(self, dialect=None, driver=None, database='', engine_opts=None):
 
         assert self._port is not None, "Omniduct requires SQLAlchemy databases to manually specify a port, as " \
@@ -48,6 +51,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
             database=self.database
         )
 
+    @override
     def _connect(self):
         import sqlalchemy
         if self.protocol not in ['mysql']:
@@ -60,14 +64,17 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
         self._sqlalchemy_metadata = sqlalchemy.MetaData(self.engine)
 
+    @override
     def _is_connected(self):
         return self.engine is not None
 
+    @override
     def _disconnect(self):
         self.engine = None
         self._sqlalchemy_metadata = None
         self._schemas = None
 
+    @override
     def _execute(self, statement, cursor, wait, session_properties, query=True, **kwargs):
         assert wait, "`SQLAlchemyClient` does not support asynchronous operations."
         if cursor:
@@ -76,6 +83,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
             cursor = self.engine.execute(statement).cursor
         return cursor
 
+    @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         statements = []
 
@@ -92,15 +100,18 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         )
         return self.execute(statement, **kwargs)
 
+    @override
     def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
         return _pandas.to_sql(
             df=df, name=table.table, schema=table.database, con=self.engine,
             index=False, if_exists=if_exists, **kwargs
         )
 
+    @override
     def _table_list(self, **kwargs):
         return self.query("SHOW TABLES", **kwargs)
 
+    @override
     def _table_exists(self, table, **kwargs):
         logger.disabled = True
         try:
@@ -111,14 +122,18 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         finally:
             logger.disabled = False
 
+    @override
     def _table_drop(self, table, **kwargs):
         return self.execute("DROP TABLE {table}".format(table=table))
 
+    @override
     def _table_desc(self, table, **kwargs):
         return self.query("DESCRIBE {0}".format(table), **kwargs)
 
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
+    @override
     def _table_props(self, table, **kwargs):
         raise NotImplementedError

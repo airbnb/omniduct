@@ -3,9 +3,9 @@ from abc import abstractmethod
 from collections import OrderedDict, namedtuple
 
 import pandas as pd
+from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
-from omniduct.utils.docs import quirk_docs
 from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 
@@ -667,7 +667,7 @@ class FileSystemClient(Duct, MagicsProvider):
         return fs.download(source, dest, overwrite, self)
 
     # Magics
-
+    @override
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic
 

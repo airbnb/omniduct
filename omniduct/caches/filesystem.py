@@ -1,5 +1,6 @@
 import six
 import yaml
+from interface_meta import override
 
 from omniduct.filesystems.base import FileSystemClient
 from omniduct.filesystems.local import LocalFsClient
@@ -14,6 +15,7 @@ class FileSystemCache(Cache):
 
     PROTOCOLS = ['filesystem_cache']
 
+    @override
     def _init(self, path, fs=None):
         """
         path (str): The top-level path of the cache in the filesystem.
@@ -30,6 +32,7 @@ class FileSystemCache(Cache):
         self._config = None
         self.connection_fields += ('fs',)
 
+    @override
     def _prepare(self):
         Cache._prepare(self)
 
@@ -73,41 +76,51 @@ class FileSystemCache(Cache):
             yaml.safe_dump({'version': 1}, fh, default_flow_style=False)
         return {'version': 1}
 
+    @override
     def _connect(self):
         self.fs.connect()
 
+    @override
     def _is_connected(self):
         return self.fs.is_connected()
 
+    @override
     def _disconnect(self):
         return self.fs.disconnect()
 
     # Implementations for abstract methods in Cache
-
+    @override
     def _namespace(self, namespace):
         if namespace is None:
             return '__default__'
         assert isinstance(namespace, str) and namespace != 'config'
         return namespace
 
+    @override
     def _get_namespaces(self):
         return [d for d in self.fs.listdir(self.path) if d != 'config']
 
+    @override
     def _has_namespace(self, namespace):
         return self.fs.exists(self.fs.path_join(self.path, namespace))
 
+    @override
     def _remove_namespace(self, namespace):
         return self.fs.remove(self.fs.path_join(self.path, namespace), recursive=True)
 
+    @override
     def _get_keys(self, namespace):
         return self.fs.listdir(self.fs.path_join(self.path, namespace))
 
+    @override
     def _has_key(self, namespace, key):
         return self.fs.exists(self.fs.path_join(self.path, namespace, key))
 
+    @override
     def _remove_key(self, namespace, key):
         return self.fs.remove(self.fs.path_join(self.path, namespace, key), recursive=True)
 
+    @override
     def _get_bytecount_for_key(self, namespace, key):
         path = self.fs.path_join(self.path, namespace, key)
         return sum([
@@ -115,6 +128,7 @@ class FileSystemCache(Cache):
             for f in self.fs.dir(path)
         ])
 
+    @override
     def _get_stream_for_key(self, namespace, key, stream_name, mode, create):
         path = self.fs.path_join(self.path, namespace, key)
 

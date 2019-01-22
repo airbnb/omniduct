@@ -17,6 +17,7 @@ __dependencies__ = [
     "six",  # Python 2/3 support
     "enum34",  # Python 3.4+ style enums in older versions of python
 
+    "interface_meta>=1.0.0<1.1",  # Metaclass for creating an extensible well-documented architecture
     "pyyaml",  # YAML configuration parsing
     "decorator",  # Decorators used by caching and documentation routines
     "progressbar2>=3.30.0",  # Support for progressbars in logging routines

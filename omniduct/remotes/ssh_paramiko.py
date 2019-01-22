@@ -3,6 +3,8 @@ import select
 import stat
 import threading
 
+from interface_meta import override
+
 from omniduct.errors import DuctAuthenticationError
 from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
@@ -34,10 +36,12 @@ class ParamikoSSHClient(RemoteClient):
     PROTOCOLS = ['ssh_paramiko']
     DEFAULT_PORT = 22
 
+    @override
     def _init(self):
         logger.warning("The Paramiko SSH client is still under development, \
                         and is not ready for use as a daily driver.")
 
+    @override
     def _connect(self):
         import paramiko  # Imported here due to relatively slow import
         self.__client = paramiko.SSHClient()
@@ -52,12 +56,14 @@ class ParamikoSSHClient(RemoteClient):
                 raise DuctAuthenticationError(e.args[0])
             raise e
 
+    @override
     def _is_connected(self):
         try:
             return self.__client.get_transport().is_active()
         except:
             return False
 
+    @override
     def _disconnect(self):
         try:
             self.__client_sftp.close()
@@ -65,6 +71,7 @@ class ParamikoSSHClient(RemoteClient):
         except:
             pass
 
+    @override
     def _execute(self, cmd, **kwargs):
         stdin, stdout, stderr = self.__client.exec_command(cmd)
         returncode = stdout.channel.recv_exit_status()
@@ -74,6 +81,7 @@ class ParamikoSSHClient(RemoteClient):
             stderr=stderr.read()
         )
 
+    @override
     def _port_forward_start(self, local_port, remote_host, remote_port):
         logger.debug('Now forwarding port {} to {}:{} ...'.format(local_port, remote_host, remote_port))
 
@@ -83,22 +91,25 @@ class ParamikoSSHClient(RemoteClient):
             print('C-c: Port forwarding stopped.')
         return server
 
+    @override
     def _port_forward_stop(self, local_port, remote_host, remote_port, server):
         server.shutdown()
 
+    @override
     def _is_port_bound(self, host, port):
         return True
 
     # Path properties and helpers
-
+    @override
     def _path_home(self):
         return self.execute('echo ~', skip_cwd=True).stdout.decode('utf-8').strip()
 
+    @override
     def _path_separator(self):
         return '/'
 
     # File node properties
-
+    @override
     def _exists(self, path):
         try:
             self.__client_sftp.stat(path)
@@ -106,12 +117,14 @@ class ParamikoSSHClient(RemoteClient):
         except FileNotFoundError:
             return False
 
+    @override
     def _isdir(self, path):
         try:
             return stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
         except FileNotFoundError:
             return False
 
+    @override
     def _isfile(self, path):
         try:
             return not stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
@@ -119,7 +132,7 @@ class ParamikoSSHClient(RemoteClient):
             return False
 
     # Directory handling and enumeration
-
+    @override
     def _dir(self, path):
         for attrs in self.__client_sftp.listdir_attr(path):
             yield FileSystemFileDesc(
@@ -133,16 +146,18 @@ class ParamikoSSHClient(RemoteClient):
                 last_modified=attrs.st_mtime,
             )
 
+    @override
     def _mkdir(self, path, recursive, exist_ok):
         if exist_ok and self.isdir(path):
             return
         assert self.execute('mkdir ' + ('-p ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to create directory at: `{}`".format(path)
 
+    @override
     def _remove(self, path, recursive):
         assert self.execute('rm -f ' + ('-r ' if recursive else '') + '"{}"'.format(path)).returncode == 0, "Failed to remove file(s) at: `{}`".format(path)
 
     # File handling
-
+    @override
     def _open(self, path, mode):
         """
         Paramiko offers a complete file-like abstraction for files opened over

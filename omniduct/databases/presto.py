@@ -7,6 +7,7 @@ import sys
 
 import pandas.io.sql
 import six
+from interface_meta import override
 from future.utils import raise_with_traceback
 
 from omniduct._version import __version__
@@ -40,6 +41,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+    @override
     def _init(self, catalog='default', schema='default', server_protocol='http', source=None):
         """
         catalog (str): The default catalog to use in database queries.
@@ -70,6 +72,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     # Connection
 
+    @override
     def _connect(self):
         from sqlalchemy import create_engine, MetaData
         logging.getLogger('pyhive').setLevel(1000)  # Silence pyhive logging.
@@ -77,12 +80,14 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self._sqlalchemy_engine = create_engine('presto://{}:{}/{}/{}'.format(self.host, self.port, self.catalog, self.schema))
         self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
+    @override
     def _is_connected(self):
         try:
             return self.__presto is not None
         except:
             return False
 
+    @override
     def _disconnect(self):
         logger.info('Disconnecting from Presto coordinator...')
         try:
@@ -94,6 +99,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self._schemas = None
 
     # Querying
+    @override
     def _execute(self, statement, cursor, wait, session_properties):
         """
         If something goes wrong, `PrestoClient` will attempt to parse the error
@@ -154,6 +160,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
             raise_with_traceback(exception, traceback)
 
+    @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         statements = []
 
@@ -170,6 +177,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         )
         return self.execute(statement, **kwargs)
 
+    @override
     def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
         """
         If if the schema namespace is not specified, `table.schema` will be
@@ -182,9 +190,11 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             index=False, if_exists=if_exists, **kwargs
         )
 
+    @override
     def _cursor_empty(self, cursor):
         return False
 
+    @override
     def _table_list(self, namespace, like=None, **kwargs):
         cmd = "SHOW TABLES "
         if namespace:
@@ -193,6 +203,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             cmd = cmd + " LIKE " + like + "'"
         return self.query(cmd, **kwargs)
 
+    @override
     def _table_exists(self, table, **kwargs):
         from pyhive.exc import DatabaseError
 
@@ -205,14 +216,18 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         finally:
             logger.disabled = False
 
+    @override
     def _table_drop(self, table, **kwargs):
         return self.execute("DROP TABLE {table}".format(table=table))
 
+    @override
     def _table_desc(self, table, **kwargs):
         return self.query("DESCRIBE {0}".format(table), **kwargs)
 
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
+    @override
     def _table_props(self, table, **kwargs):
         raise NotImplementedError
