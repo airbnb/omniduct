@@ -8,12 +8,12 @@ import pandas
 import six
 import yaml
 from decorator import decorator
+from interface_meta import quirk_docs
 
 from omniduct.duct import Duct
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
 from omniduct.utils.decorators import function_args_as_kwargs
-from omniduct.utils.docs import quirk_docs
 
 from ._serializers import PickleSerializer
 

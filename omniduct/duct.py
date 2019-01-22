@@ -11,16 +11,18 @@ from enum import Enum
 
 import six
 from future.utils import raise_with_traceback, with_metaclass
+from interface_meta import quirk_docs
 
-from omniduct.errors import DuctServerUnreachable
+from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
-from omniduct.utils.docs import quirk_docs
-from omniduct.utils.metaclasses import ProtocolRegisteringQuirkDocumentedABCMeta
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
 
 
-class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
+from interface_meta import InterfaceMeta
+
+
+class Duct(with_metaclass(InterfaceMeta, object)):
     """
     The abstract base class for all protocol implementations.
 
@@ -32,42 +34,6 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
     the list of `connection_fields` is accessed). All `Ducts` will automatically
     connnect and disconnect as required, and so manual intervention is not
     typically required to maintain connections.
-
-    Attributes:
-        protocol (str): The name of the protocol for which this instance was
-            created (especially useful if a `Duct` subclass supports multiple
-            protocols).
-        name (str): The name given to this `Duct` instance (defaults to class
-            name).
-        registry (None, omniduct.registry.DuctRegistry): A reference to a
-            `DuctRegistry` instance for runtime lookup of other services.
-        remote (None, omniduct.remotes.base.RemoteClient): A reference to a
-            `RemoteClient` instance to manage connections to remote services.
-        cache (None, omniduct.caches.base.Cache): A reference to a `Cache`
-            instance to add support for caching, if applicable.
-        connection_fields (tuple<str>, list<str>): A list of instance attributes
-            to monitor for changes, whereupon the `Duct` instance should automatically
-            disconnect. By default, the following attributes are monitored:
-            'host', 'port', 'remote', 'username', and 'password'.
-        prepared_fields (tuple<str>, list<str>): A list of instance attributes to
-            be populated (if their values are callable) when the instance first
-            connects to a service. Refer to `Duct.prepare` and `Duct._prepare` for
-            more details. By default, the following attributes are prepared:
-            '_host', '_port', '_username', and '_password'.
-
-    Additional attributes including `host`, `port`, `username` and `password` are
-    documented inline below.
-
-    Class Attributes:
-        AUTO_LOGGING_SCOPE (bool): Whether this class should be used by omniduct
-            logging code as a "scope". Should be overridden by subclasses as
-            appropriate.
-        DUCT_TYPE (Duct.Type): The type of `Duct` service that is provided by
-            this Duct instance. Should be overridden by subclasses as
-            appropriate.
-        PROTOCOLS (list<str>): The name(s) of any protocols that should be
-            associated with this class. Should be overridden by subclasses as
-            appropriate.
     """
     __doc_attrs = """
         protocol (str): The name of the protocol for which this instance was
@@ -97,8 +63,24 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             connects to a service. Refer to `Duct.prepare` and `Duct._prepare` for
             more details. By default, the following attributes are prepared:
             '_host', '_port', '_username', and '_password'.
+
+        Additional attributes including `host`, `port`, `username` and `password` are
+        documented inline.
+
+        Class Attributes:
+            AUTO_LOGGING_SCOPE (bool): Whether this class should be used by omniduct
+                logging code as a "scope". Should be overridden by subclasses as
+                appropriate.
+            DUCT_TYPE (Duct.Type): The type of `Duct` service that is provided by
+                this Duct instance. Should be overridden by subclasses as
+                appropriate.
+            PROTOCOLS (list<str>): The name(s) of any protocols that should be
+                associated with this class. Should be overridden by subclasses as
+                appropriate.
     """
     __doc_cls_attrs__ = None
+
+    INTERFACE_SKIPPED_NAMES = {'__init__', '_init'}
 
     class Type(Enum):
         """
@@ -163,31 +145,20 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
         self.__cached_auth = {}
         self.__prepreparation_values = {}
 
-    @property
-    def __prepare_triggers(self):
-        return (
-            ('cache',)
-            + object.__getattribute__(self, 'connection_fields')
-        )
-
     @classmethod
-    def __init_with_kwargs__(cls, self, kwargs, **fallbacks):
-        if not hasattr(self, '_Duct__inited_using_kwargs'):
-            self._Duct__inited_using_kwargs = {}
-        for cls_parent in reversed([parent for parent in inspect.getmro(cls) if issubclass(parent, Duct) and parent not in self._Duct__inited_using_kwargs and '__init__' in parent.__dict__]):
-            self._Duct__inited_using_kwargs[cls_parent] = True
-            if six.PY3:
-                argspec = inspect.getfullargspec(cls_parent.__init__)
-                keys = argspec.args[1:] + argspec.kwonlyargs
-            else:
-                keys = inspect.getargspec(cls_parent.__init__).args[1:]
-            params = {}
-            for key in keys:
-                if key in kwargs:
-                    params[key] = kwargs.pop(key)
-                elif key in fallbacks:
-                    params[key] = fallbacks[key]
-            cls_parent.__init__(self, **params)
+    def __register_implementation__(cls):
+        if not hasattr(cls, '_protocols'):
+            cls._protocols = {}
+
+        cls._protocols[cls.__name__] = cls
+
+        registry_keys = getattr(cls, 'PROTOCOLS', []) or []
+        if registry_keys:
+            for key in registry_keys:
+                if key in cls._protocols and cls.__name__ != cls._protocols[key].__name__:
+                    logger.info("Ignoring attempt by class `{}` to register key '{}', which is already registered for class `{}`.".format(cls.__name__, key, cls._protocols[key].__name__))
+                else:
+                    cls._protocols[key] = cls
 
     @classmethod
     def for_protocol(cls, protocol):
@@ -206,7 +177,40 @@ class Duct(with_metaclass(ProtocolRegisteringQuirkDocumentedABCMeta, object)):
             DuctProtocolUnknown: If no class has been defined that offers the
                 named protocol.
         """
-        return functools.partial(cls._for_protocol(protocol), protocol=protocol)
+        if protocol not in cls._protocols:
+            raise DuctProtocolUnknown("Missing `Duct` implementation for protocol: '{}'.".format(protocol))
+        return functools.partial(cls._protocols[protocol], protocol=protocol)
+
+    @property
+    def __prepare_triggers(self):
+        return (
+            ('cache',)
+            + object.__getattribute__(self, 'connection_fields')
+        )
+
+    @classmethod
+    def __init_with_kwargs__(cls, self, kwargs, **fallbacks):
+        if not hasattr(self, '_Duct__inited_using_kwargs'):
+            self._Duct__inited_using_kwargs = {}
+        for cls_parent in reversed([
+                parent for parent in inspect.getmro(cls)
+                if issubclass(parent, Duct)
+                and parent not in self._Duct__inited_using_kwargs
+                and '__init__' in parent.__dict__
+        ]):
+            self._Duct__inited_using_kwargs[cls_parent] = True
+            if six.PY3:
+                argspec = inspect.getfullargspec(cls_parent.__init__)
+                keys = argspec.args[1:] + argspec.kwonlyargs
+            else:
+                keys = inspect.getargspec(cls_parent.__init__).args[1:]
+            params = {}
+            for key in keys:
+                if key in kwargs:
+                    params[key] = kwargs.pop(key)
+                elif key in fallbacks:
+                    params[key] = fallbacks[key]
+            cls_parent.__init__(self, **params)
 
     def __getattribute__(self, key):
         try:

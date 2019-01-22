@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from future.utils import with_metaclass
 
-from omniduct.utils.docs import quirk_docs
+from interface_meta import quirk_docs
 
 
 def process_line_arguments(f):

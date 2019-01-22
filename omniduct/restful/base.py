@@ -1,7 +1,7 @@
 from future.moves.urllib.parse import urljoin
+from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
-from omniduct.utils.docs import quirk_docs
 
 
 class RestClientBase(Duct):
@@ -99,12 +99,15 @@ class RestClientBase(Duct):
             raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
         return request.json()
 
+    @override
     def _connect(self):
         pass
 
+    @override
     def _is_connected(self):
         return True
 
+    @override
     def _disconnect(self):
         pass
 

@@ -1,4 +1,7 @@
 import logging
+
+from interface_meta import override
+
 from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
 
 # Python 2 compatibility imports
@@ -24,6 +27,7 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ['s3']
     DEFAULT_PORT = 80
 
+    @override
     def _init(self, bucket=None, aws_profile=None, path_separator='/',
               use_opinel=False, skip_hadoop_artifacts=True):
         """
@@ -65,6 +69,7 @@ class S3Client(FileSystemClient):
         # Mask logging from botocore's vendored libraries
         logging.getLogger('botocore.vendored').setLevel(100)
 
+    @override
     def _connect(self):
         import boto3
 
@@ -87,6 +92,7 @@ class S3Client(FileSystemClient):
         self._client = session.client('s3')
         self._resource = session.resource('s3')
 
+    @override
     def _is_connected(self):
         if self._client is None:
             return False
@@ -101,17 +107,20 @@ class S3Client(FileSystemClient):
                 elif 'AccessDenied' in e.args[0]:
                     return True
 
+    @override
     def _disconnect(self):
         pass
 
     # Path properties and helpers
-
+    @override
     def _path_home(self):
         return self.path_separator
 
+    @override
     def _path_separator(self):
         return self.__path_separator
 
+    @override
     def _path(self, path):
         path = super(S3Client, self)._path(path)
         if path.startswith(self.path_separator):
@@ -119,16 +128,18 @@ class S3Client(FileSystemClient):
         return path
 
     # File node properties
-
+    @override
     def _exists(self, path):
         return self.isfile(path) or self.isdir(path)
 
+    @override
     def _isdir(self, path):
         response = next(iter(self.__dir_paginator(path)))
         if 'CommonPrefixes' in response or 'Contents' in response:
             return True
         return False
 
+    @override
     def _isfile(self, path):
         try:
             self._client.get_object(Bucket=self.bucket, Key=path or '')
@@ -150,6 +161,7 @@ class S3Client(FileSystemClient):
         )
         return iterator
 
+    @override
     def _dir(self, path):
         iterator = self.__dir_paginator(path)
 
@@ -189,12 +201,14 @@ class S3Client(FileSystemClient):
     #         if pattern is None or pattern.match(k.key[len(path_prefix):]):
     #             yield k.key
 
+    @override
     def _mkdir(self, path, recursive, exist_ok):
         if not path.endswith('/'):
             path += '/'
         if not self._exists(path):
             self._client.put_object(Bucket=self.bucket, Key=path)
 
+    @override
     def _remove(self, path, recursive):
         if recursive:
             bucket = self._resource.Bucket(self.bucket)
@@ -209,7 +223,7 @@ class S3Client(FileSystemClient):
             self._client.delete_object(Bucket=self.bucket, Key=path)
 
     # File handling
-
+    @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         if not self.isfile(path):
             raise FileNotFoundError("File `{}` does not exist.".format(path))
@@ -225,9 +239,11 @@ class S3Client(FileSystemClient):
             body = body[:size]
         return body
 
+    @override
     def _file_append_(self, path, s, binary):
         raise NotImplementedError("Support for S3 append operation has yet to be implemented.")
 
+    @override
     def _file_write_(self, path, s, binary):
         obj = self._resource.Object(self.bucket, path)
         if not binary:

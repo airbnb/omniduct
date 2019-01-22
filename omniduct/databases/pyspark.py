@@ -1,3 +1,5 @@
+from interface_meta import override
+
 from omniduct.databases.base import DatabaseClient
 from omniduct.databases.hiveserver2 import HiveServer2Client
 
@@ -14,6 +16,7 @@ class PySparkClient(DatabaseClient):
     NAMESPACE_QUOTECHAR = '`'
     NAMESPACE_SEPARATOR = '.'
 
+    @override
     def _init(self, app_name='omniduct', config=None, master=None, enable_hive_support=False):
         """
         Args:
@@ -35,6 +38,7 @@ class PySparkClient(DatabaseClient):
 
     # Connection management
 
+    @override
     def _connect(self):
         from pyspark.sql import SparkSession
 
@@ -49,13 +53,16 @@ class PySparkClient(DatabaseClient):
 
         self._spark_session = builder.getOrCreate()
 
+    @override
     def _is_connected(self):
         return self._spark_session is not None
 
+    @override
     def _disconnect(self):
         self._spark_session.sparkContext.stop()
 
     # Database operations
+    @override
     def _statement_prepare(self, statement, session_properties):
         return (
             "\n".join(
@@ -64,28 +71,36 @@ class PySparkClient(DatabaseClient):
             ) + statement
         )
 
+    @override
     def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         assert wait is True, "This Spark backend does not support asynchronous operations."
         return SparkCursor(self._spark_session.sql(statement))
 
+    @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         return HiveServer2Client._query_to_table(self, statement, table, if_exists, **kwargs)
 
+    @override
     def _table_list(self, namespace, **kwargs):
         return HiveServer2Client._table_list(self, namespace, **kwargs)
 
+    @override
     def _table_exists(self, table, **kwargs):
         return HiveServer2Client._table_exists(self, table, **kwargs)
 
+    @override
     def _table_drop(self, table, **kwargs):
         return HiveServer2Client._table_drop(self, table, **kwargs)
 
+    @override
     def _table_desc(self, table, **kwargs):
         return HiveServer2Client._table_desc(self, table, **kwargs)
 
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return HiveServer2Client._table_head(self, table, n=n, **kwargs)
 
+    @override
     def _table_props(self, table, **kwargs):
         return HiveServer2Client._table_props(self, table, **kwargs)
 

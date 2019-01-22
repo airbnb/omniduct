@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from interface_meta import override
+
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
@@ -16,10 +18,12 @@ class DruidClient(DatabaseClient):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+    @override
     def _init(self):
         self.__druid = None
 
     # Connection
+    @override
     def _connect(self):
         from pydruid.db import connect
         logger.info('Connecting to Druid database ...')
@@ -30,9 +34,11 @@ class DruidClient(DatabaseClient):
                 'pydruid connection currently does not allow these fields to be passed.'
             )
 
+    @override
     def _is_connected(self):
         return self.__druid is not None
 
+    @override
     def _disconnect(self):
         logger.info('Disconnecting from Druid database ...')
         try:
@@ -42,15 +48,18 @@ class DruidClient(DatabaseClient):
         self.__druid = None
 
     # Querying
+    @override
     def _execute(self, statement, cursor, wait, session_properties):
         cursor = cursor or self.__druid.cursor()
         cursor.execute(statement)
         return cursor
 
+    @override
     def _table_list(self, namespace, like=None, **kwargs):
         cmd = "SELECT * FROM INFORMATION_SCHEMA.TABLES"
         return self.query(cmd, **kwargs)
 
+    @override
     def _table_exists(self, table, **kwargs):
         logger.disabled = True
         try:
@@ -61,9 +70,11 @@ class DruidClient(DatabaseClient):
         finally:
             logger.disabled = False
 
+    @override
     def _table_drop(self, table, **kwargs):
         raise NotImplementedError
 
+    @override
     def _table_desc(self, table, **kwargs):
         query = ("""
             SELECT
@@ -78,8 +89,10 @@ class DruidClient(DatabaseClient):
             WHERE TABLE_NAME = '{}'""").format(table)
         return self.query(query, **kwargs)
 
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
+    @override
     def _table_props(self, table, **kwargs):
         raise NotImplementedError

@@ -3,12 +3,12 @@ import re
 from abc import abstractmethod
 
 import six
+from interface_meta import quirk_docs, override
 from future.utils import raise_with_traceback
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
 from omniduct.filesystems.base import FileSystemClient
-from omniduct.utils.docs import quirk_docs
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 
 try:  # Python 3
@@ -132,11 +132,13 @@ class RemoteClient(FileSystemClient):
 
         # Note: self._init is called by FileSystemClient constructor.
 
+    @override
     @abstractmethod
     def _init(self, **kwargs):
         raise NotImplementedError
 
     # SSH commands
+    @override
     def connect(self):
         """
         Connect to the remote server.
