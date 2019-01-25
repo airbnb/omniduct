@@ -3,10 +3,10 @@ from __future__ import absolute_import
 import ast
 import logging
 import re
+import six
 import sys
 
-import pandas.io.sql
-import six
+import pandas as pd
 from interface_meta import override
 from future.utils import raise_with_traceback
 
@@ -15,7 +15,6 @@ from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
-from . import _pandas
 
 
 class PrestoClient(DatabaseClient, SchemasMixin):
@@ -127,7 +126,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                     status = cursor.poll()
                 logger.progress(100, complete=True)
             return cursor
-        except (DatabaseError, pandas.io.sql.DatabaseError) as e:
+        except (DatabaseError, pd.io.sql.DatabaseError) as e:
             # Attempt to parse database error, before ultimately reraising the same
             # exception, maintaining the full stacktrace.
             exception, exception_args, traceback = sys.exc_info()
@@ -185,8 +184,8 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         default to `self.catalog`.
         """
         table = self._parse_namespaces(table, defaults={'schema': self.username})
-        return _pandas.to_sql(
-            df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+        return pd.io.sql.to_sql(
+            frame=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
             index=False, if_exists=if_exists, **kwargs
         )
 

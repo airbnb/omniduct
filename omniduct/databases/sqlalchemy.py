@@ -1,12 +1,12 @@
 from __future__ import absolute_import
 
+import pandas as pd
 from interface_meta import override
 
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
-from . import _pandas
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
@@ -102,8 +102,8 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     @override
     def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
-        return _pandas.to_sql(
-            df=df, name=table.table, schema=table.database, con=self.engine,
+        return pd.io.sql.to_sql(
+            frame=df, name=table.table, schema=table.database, con=self.engine,
             index=False, if_exists=if_exists, **kwargs
         )
 
