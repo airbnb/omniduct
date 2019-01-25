@@ -16,7 +16,6 @@ from omniduct.utils.processes import Timeout, run_in_subprocess
 
 from .base import DatabaseClient
 from ._schemas import SchemasMixin
-from . import _pandas
 
 
 class HiveServer2Client(DatabaseClient, SchemasMixin):
@@ -301,8 +300,8 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     "and try again."
                 )
             try:
-                return _pandas.to_sql(
-                    df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
+                return pd.io.sql.to_sql(
+                    frame=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
                     index=False, if_exists=if_exists, **kwargs
                 )
             except Exception as e:
