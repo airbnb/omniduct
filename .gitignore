@@ -90,3 +90,6 @@ ENV/
 
 # IDE
 .idea/
+
+# PyTest cache
+.pytest_cache
