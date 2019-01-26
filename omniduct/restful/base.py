@@ -1,3 +1,5 @@
+import json
+
 from future.moves.urllib.parse import urljoin
 from interface_meta import quirk_docs, override
 
@@ -96,7 +98,10 @@ class RestClientBase(Duct):
         """
         request = self.request(endpoint, method=method, **kwargs)
         if not request.status_code == 200:
-            raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
+            try:
+                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, json.dumps(request.json())))
+            except:
+                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
         return request.json()
 
     @override
