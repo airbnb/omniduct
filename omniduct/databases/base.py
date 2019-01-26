@@ -77,6 +77,10 @@ class DatabaseClient(Duct, MagicsProvider):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+    @property
+    def NAMESPACE_DEFAULT(self):
+        pass
+
     @quirk_docs('_init', mro=True)
     def __init__(
         self, session_properties=None, templates=None, template_context=None, default_format_opts=None,
@@ -720,7 +724,7 @@ class DatabaseClient(Duct, MagicsProvider):
             self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
             quote_char=self.NAMESPACE_QUOTECHAR,
             separator=self.NAMESPACE_SEPARATOR,
-            defaults=defaults
+            defaults=self.NAMESPACE_DEFAULT if defaults is None else defaults
         )
 
     @quirk_docs('_table_list')
