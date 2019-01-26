@@ -1,6 +1,7 @@
 future
 six
 enum34
+interface_meta
 pyyaml
 decorator
 progressbar2>=3.30.0
