@@ -102,11 +102,10 @@ class TableDesc(Table):
             pandas.DataFrame: A dataframe representation of the first `n` rows
                 of this table.
         """
-        return pd.read_sql(
-            'SELECT * FROM "{}"."{}"'.format(self.schema, self.name)
-            + 'LIMIT {}'.format(n) if n is not None else '',
-            self.bind
-        )
+        statement = self.select()
+        if n is not None:
+            statement = statement.limit(n)
+        return pd.read_sql(statement, self.bind)
 
     def dump(self):
         """
