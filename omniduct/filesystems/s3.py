@@ -121,7 +121,7 @@ class S3Client(FileSystemClient):
         return self.__path_separator
 
     @override
-    def _path(self, path):
+    def _path(self, path=None):
         path = super(S3Client, self)._path(path)
         if path.startswith(self.path_separator):
             path = path[1:]

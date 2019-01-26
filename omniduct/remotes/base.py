@@ -134,7 +134,7 @@ class RemoteClient(FileSystemClient):
 
     @override
     @abstractmethod
-    def _init(self, **kwargs):
+    def _init(self):
         raise NotImplementedError
 
     # SSH commands

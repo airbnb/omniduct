@@ -92,8 +92,8 @@ class ParamikoSSHClient(RemoteClient):
         return server
 
     @override
-    def _port_forward_stop(self, local_port, remote_host, remote_port, server):
-        server.shutdown()
+    def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
+        connection.shutdown()
 
     @override
     def _is_port_bound(self, host, port):

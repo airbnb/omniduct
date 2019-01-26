@@ -63,7 +63,7 @@ class PySparkClient(DatabaseClient):
 
     # Database operations
     @override
-    def _statement_prepare(self, statement, session_properties):
+    def _statement_prepare(self, statement, session_properties, **kwargs):
         return (
             "\n".join(
                 "SET {key} = {value};".format(key=key, value=value)

@@ -702,7 +702,7 @@ class DatabaseClient(Duct, MagicsProvider):
     # Table properties
 
     @abstractmethod
-    def _execute(self, statement, cursor, wait, session_properties, **kwargs):
+    def _execute(self, statement, cursor, wait, session_properties):
         pass
 
     def _query_to_table(self, statement, table, if_exists, **kwargs):

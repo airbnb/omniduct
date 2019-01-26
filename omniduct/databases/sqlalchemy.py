@@ -108,8 +108,8 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         )
 
     @override
-    def _table_list(self, **kwargs):
-        return self.query("SHOW TABLES", **kwargs)
+    def _table_list(self, namespace, **kwargs):
+        return self.query("SHOW TABLES IN {}".format(namespace), **kwargs)
 
     @override
     def _table_exists(self, table, **kwargs):
