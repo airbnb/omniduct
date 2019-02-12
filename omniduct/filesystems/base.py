@@ -23,13 +23,15 @@ class FileSystemClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     @quirk_docs('_init', mro=True)
-    def __init__(self, cwd=None, home=None, global_writes=False, **kwargs):
+    def __init__(self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs):
         """
         cwd (None, str): The path prefix to use as the current working directory
             (if None, the user's home directory is used where that makes sense).
         home (None, str): The path prefix to use as the current users' home
             directory. If not specified, it will default to an implementation-
             specific value (often '/').
+        read_only (bool): Whether the filesystem should only be able to perform
+            read operations.
         global_writes (bool): Whether to allow writes outside of the user's home
             folder.
         **kwargs (dict): Additional keyword arguments to passed on to subclasses.
@@ -37,6 +39,7 @@ class FileSystemClient(Duct, MagicsProvider):
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._path_cwd = cwd
         self.__path_home = home
+        self.read_only = read_only
         self.global_writes = global_writes
         self._init(**kwargs)
 
@@ -198,6 +201,18 @@ class FileSystemClient(Duct, MagicsProvider):
         return self.path_normpath(path).startswith(self.path_home)
 
     @property
+    def read_only(self):
+        """
+        bool: Whether this filesystem client should be permitted to attempt any
+        write operations.
+        """
+        return self._read_only
+
+    @read_only.setter
+    def read_only(self, read_only):
+        self._read_only = read_only
+
+    @property
     def global_writes(self):
         """
         bool: Whether writes should be permitted outside of home directory. This
@@ -209,6 +224,13 @@ class FileSystemClient(Duct, MagicsProvider):
     @global_writes.setter
     def global_writes(self, global_writes):
         self._global_writes = global_writes
+
+    def _assert_path_is_writable(self, path):
+        if self.read_only:
+            raise RuntimeError("This filesystem client is configured for read-only access. Set `{}`.`read_only` to `False` to override.".format(self.name))
+        if not self.global_writes and not self._path_in_home_dir(path):
+            raise RuntimeError("Attempt to write outside of home directory without setting `{}`.`global_writes` to `True`.".format(self.name))
+        return True
 
     # Filesystem accessors
 
@@ -443,8 +465,7 @@ class FileSystemClient(Duct, MagicsProvider):
         they can avoid the overhead associated with multiple operations, which
         can be costly in some cases.
         """
-        if not self.global_writes and not self._path_in_home_dir(path):
-            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
+        self._assert_path_is_writable(path)
         return self.connect()._mkdir(self._path(path), recursive, exist_ok)
 
     @abstractmethod
@@ -464,8 +485,7 @@ class FileSystemClient(Duct, MagicsProvider):
             recursive (bool): Whether to remove directories and all of their
                 contents.
         """
-        if not self.global_writes and not self._path_in_home_dir(path):
-            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
+        self._assert_path_is_writable(path)
         if not self.exists(path):
             raise IOError("No file(s) exist at path '{}'.".format(path))
         if self.isdir(path) and not recursive:
@@ -496,6 +516,8 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             FileSystemFile or file-like: An opened file-like object.
         """
+        if 'w' in mode or 'a' in mode or '+' in mode:
+            self._assert_path_is_writable(path)
         return self.connect()._open(self._path(path), mode=mode)
 
     def _open(self, path, mode):
@@ -537,8 +559,7 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             int: Number of bytes/characters written.
         """
-        if not self.global_writes and not self._path_in_home_dir(path):
-            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
+        self._assert_path_is_writable(path)
         return self.connect()._file_write_(self._path(path), s, binary)
 
     def _file_write_(self, path, s, binary):
@@ -559,8 +580,7 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             int: Number of bytes/characters written.
         """
-        if not self.global_writes and not self._path_in_home_dir(path):
-            raise RuntimeError("Attempt to write outside of home directory without setting {}.global_writes to True.".format(self.name))
+        self._assert_path_is_writable(path)
         return self.connect()._file_append_(self._path(path), s, binary)
 
     def _file_append_(self, path, s, binary):
