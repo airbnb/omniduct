@@ -28,7 +28,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         assert self._port is not None, "Omniduct requires SQLAlchemy databases to manually specify a port, as " \
                                        "it will often be the case that ports are being forwarded."
 
-        if self.protocol is not 'sqlalchemy':
+        if self.protocol != 'sqlalchemy':
             self.dialect = self.protocol
         else:
             self.dialect = dialect
