@@ -41,6 +41,14 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+    @property
+    @override
+    def NAMESPACE_DEFAULT(self):
+        return {
+            'catalog': self.catalog,
+            'schema': self.schema
+        }
+
     @override
     def _init(self, catalog='default', schema='default', server_protocol='http', source=None):
         """

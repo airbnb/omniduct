@@ -52,6 +52,13 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '`'
     NAMESPACE_SEPARATOR = '.'
 
+    @property
+    @override
+    def NAMESPACE_DEFAULT(self):
+        return {
+            'schema': self.schema
+        }
+
     @override
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
               push_using_hive_cli=False, default_table_props=None, **connection_options):

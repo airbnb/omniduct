@@ -22,6 +22,13 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'  # TODO: Apply overrides depending on protocol?
     NAMESPACE_SEPARATOR = '.'
 
+    @property
+    @override
+    def NAMESPACE_DEFAULT(self):
+        return {
+            'database': self.database
+        }
+
     @override
     def _init(self, dialect=None, driver=None, database='', engine_opts=None):
 
