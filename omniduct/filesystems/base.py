@@ -23,17 +23,20 @@ class FileSystemClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     @quirk_docs('_init', mro=True)
-    def __init__(self, cwd=None, global_writes=False, **kwargs):
+    def __init__(self, cwd=None, home=None, global_writes=False, **kwargs):
         """
         cwd (None, str): The path prefix to use as the current working directory
             (if None, the user's home directory is used where that makes sense).
+        home (None, str): The path prefix to use as the current users' home
+            directory. If not specified, it will default to an implementation-
+            specific value (often '/').
         global_writes (bool): Whether to allow writes outside of the user's home
             folder.
         **kwargs (dict): Additional keyword arguments to passed on to subclasses.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
         self._path_cwd = cwd
-        self.__path_home = None
+        self.__path_home = home
         self.global_writes = global_writes
         self._init(**kwargs)
 
@@ -47,13 +50,22 @@ class FileSystemClient(Duct, MagicsProvider):
     @quirk_docs('_path_home')
     def path_home(self):
         """
-        str: The default path prefix to use for all non-absolute path references
-        on this filesystem. This is assumed not to change between connections,
-        and so will not be updated on client reconnections.
+        str: The path prefix to use as the current users' home directory. Unless
+        `cwd` is set, this will be the prefix to use for all non-absolute path
+        references on this filesystem. This is assumed not to change between
+        connections, and so will not be updated on client reconnections. Unless
+        `global_writes` is set to `True`, this will be the only folder into
+        which this client is permitted to write.
         """
         if not self.__path_home:
             self.__path_home = self.connect()._path_home()
         return self.__path_home
+
+    @path_home.setter
+    def path_home(self, path_home):
+        if path_home is not None and not path_home.startswith(self.path_separator):
+            raise ValueError("The home path must be absolute. Received: '{}'.".format(path_home))
+        self.__path_home = path_home
 
     @abstractmethod
     def _path_home(self):
@@ -62,13 +74,16 @@ class FileSystemClient(Duct, MagicsProvider):
     @property
     def path_cwd(self):
         """
-        str: The path prefix associated with the current working directory.
+        str: The path prefix associated with the current working directory. If
+        not otherwise set, it will be the users' home directory, and will be the
+        prefix used by all non-absolute path references on this filesystem.
         """
         return self._path_cwd or self.path_home
 
     @path_cwd.setter
     def path_cwd(self, path_cwd):
-        assert self.isdir(self._path(path_cwd)), "Specified path does not exist."
+        path_cwd = self._path(path_cwd)
+        assert self.isdir(path_cwd), "Specified path does not exist."
         self._path_cwd = path_cwd
 
     @property
@@ -173,7 +188,7 @@ class FileSystemClient(Duct, MagicsProvider):
             else:
                 out_path.append(component)
         if len(out_path) == 1 and out_path[0] == '':
-            return '/'
+            return self.path_separator
         return self.path_separator.join(out_path)
 
     def _path(self, path=None):
