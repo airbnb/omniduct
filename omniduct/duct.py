@@ -140,7 +140,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
         atexit.register(self.disconnect)
         self.__prepared = False
-        self.__getting = False
+        self.__preparing = False
         self.__disconnecting = False
         self.__cached_auth = {}
         self.__prepreparation_values = {}
@@ -215,16 +215,16 @@ class Duct(with_metaclass(InterfaceMeta, object)):
     def __getattribute__(self, key):
         try:
             if (not object.__getattribute__(self, '_Duct__prepared')
-                    and not object.__getattribute__(self, '_Duct__getting')
+                    and not object.__getattribute__(self, '_Duct__preparing')
                     and not object.__getattribute__(self, '_Duct__disconnecting')
                     and key in object.__getattribute__(self, '_Duct__prepare_triggers')):
-                object.__setattr__(self, '_Duct__getting', True)
+                object.__setattr__(self, '_Duct__preparing', True)
                 object.__getattribute__(self, 'prepare')()
-                object.__setattr__(self, '_Duct__getting', False)
+                object.__setattr__(self, '_Duct__preparing', False)
         except AttributeError:
             pass
         except Exception as e:
-            object.__setattr__(self, '_Duct__getting', False)
+            object.__setattr__(self, '_Duct__preparing', False)
             raise_with_traceback(e)
         return object.__getattribute__(self, key)
 
