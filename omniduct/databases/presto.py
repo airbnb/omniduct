@@ -175,15 +175,15 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         if if_exists == 'fail' and self.table_exists(table):
             raise RuntimeError("Table {} already exists!".format(table))
         elif if_exists == 'replace':
-            statements.append('DROP TABLE IF EXISTS {};'.format(table))
+            statements.append('DROP TABLE IF EXISTS {};\n'.format(table))
         elif if_exists == 'append':
             raise NotImplementedError("Append operations have not been implemented for {}.".format(self.__class__.__name__))
 
-        statement = "CREATE TABLE {table} AS ({statement})".format(
+        statements.append("CREATE TABLE {table} AS ({statement})".format(
             table=table,
             statement=statement
-        )
-        return self.execute(statement, **kwargs)
+        ))
+        return self.execute('\n'.join(statements), **kwargs)
 
     @override
     def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
