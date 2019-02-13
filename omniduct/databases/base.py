@@ -905,7 +905,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 r = result.head(show) if format == 'pandas' else result[:show]
             elif show == 'all':
                 r = result
-            elif show == 'none':
+            elif show in (None, 'none'):
                 return None
             else:
                 raise ValueError("Omniduct does not recognise the argument show='{0}' in cell magic.".format(show))
