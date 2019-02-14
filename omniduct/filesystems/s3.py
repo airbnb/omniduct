@@ -120,21 +120,21 @@ class S3Client(FileSystemClient):
     def _path_separator(self):
         return self.__path_separator
 
-    @override
-    def _path(self, path=None):
-        path = super(S3Client, self)._path(path)
-        if path.startswith(self.path_separator):
-            path = path[1:]
-        return path
-
     # File node properties
     @override
     def _exists(self, path):
         return self.isfile(path) or self.isdir(path)
 
+    def _s3_path(self, path):
+        if path.startswith(self.path_separator):
+            path = path[len(self.path_separator):]
+        if path.endswith(self.path_separator):
+            path = path[:-len(self.path_separator)]
+        return path
+
     @override
     def _isdir(self, path):
-        response = next(iter(self.__dir_paginator(path)))
+        response = next(iter(self.__dir_paginator(self._s3_path(path))))
         if 'CommonPrefixes' in response or 'Contents' in response:
             return True
         return False
@@ -142,7 +142,7 @@ class S3Client(FileSystemClient):
     @override
     def _isfile(self, path):
         try:
-            self._client.get_object(Bucket=self.bucket, Key=path or '')
+            self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or '')
             return True
         except:
             return False
@@ -150,12 +150,10 @@ class S3Client(FileSystemClient):
     # Directory handling and enumeration
 
     def __dir_paginator(self, path):
-        if path.endswith(self.path_separator):
-            path = path[:-len(self.path_separator)]
         paginator = self._client.get_paginator('list_objects')
         iterator = paginator.paginate(
             Bucket=self.bucket,
-            Prefix=path + (self.path_separator if path else ''),
+            Prefix=self._s3_path(path) + (self.path_separator if path else ''),
             Delimiter=self.path_separator,
             PaginationConfig={'PageSize': 500}
         )
@@ -169,8 +167,8 @@ class S3Client(FileSystemClient):
             for prefix in response_data.get('CommonPrefixes', []):
                 yield FileSystemFileDesc(
                     fs=self,
-                    path=prefix['Prefix'][:-1],
-                    name=prefix['Prefix'][:-1].split(self.path_separator)[-1],  # Remove trailing slash
+                    path=prefix['Prefix'][:-len(self.path_separator)],
+                    name=prefix['Prefix'][:-len(self.path_separator)].split(self.path_separator)[-1],  # Remove trailing slash
                     type='directory',
                 )
             for prefix in response_data.get('Contents', []):
@@ -203,6 +201,7 @@ class S3Client(FileSystemClient):
 
     @override
     def _mkdir(self, path, recursive, exist_ok):
+        path = self._s3_path(path)
         if not path.endswith('/'):
             path += '/'
         if not self._exists(path):
@@ -210,17 +209,17 @@ class S3Client(FileSystemClient):
 
     @override
     def _remove(self, path, recursive):
+        path = self._s3_path(path)
         if recursive:
             bucket = self._resource.Bucket(self.bucket)
             to_delete = []
-            for obj in bucket.objects.filter(Prefix=path):
+            for obj in bucket.objects.filter(Prefix=path + self.path_separator):
                 to_delete.append({'Key': obj.key})
                 if len(to_delete) == 1000:  # Maximum number of simultaneous deletes is 1000
                     self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
                     to_delete = []
             self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
-        else:
-            self._client.delete_object(Bucket=self.bucket, Key=path)
+        self._client.delete_object(Bucket=self.bucket, Key=path)
 
     # File handling
     @override
@@ -228,7 +227,7 @@ class S3Client(FileSystemClient):
         if not self.isfile(path):
             raise FileNotFoundError("File `{}` does not exist.".format(path))
 
-        obj = self._resource.Object(self.bucket, path)
+        obj = self._resource.Object(self.bucket, self._s3_path(path))
         body = obj.get()['Body'].read()
 
         if not binary:
@@ -245,7 +244,7 @@ class S3Client(FileSystemClient):
 
     @override
     def _file_write_(self, path, s, binary):
-        obj = self._resource.Object(self.bucket, path)
+        obj = self._resource.Object(self.bucket, self._s3_path(path))
         if not binary:
             s = s.encode('utf-8')
         obj.put(Body=s)
