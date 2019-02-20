@@ -17,6 +17,7 @@ class Neo4jClient(DatabaseClient):
     DEFAULT_PORT = 7687
     DEFAULT_CURSOR_FORMATTER = 'raw'
 
+    @override
     @classmethod
     def statement_cleanup(cls, statement):
         return statement  # base statement cleanup assumes SQL
