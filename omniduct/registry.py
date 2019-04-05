@@ -268,10 +268,10 @@ class DuctRegistry(object):
         # Extract configuration from a file if necessary
         if isinstance(config, six.string_types):
             if '\n' in config:
-                config = yaml.load(config)
+                config = yaml.safe_load(config)
             else:
                 with open(config) as f:
-                    config = yaml.load(f.read())
+                    config = yaml.safe_load(f.read())
 
         if not isinstance(config, (list, dict)):
             raise ValueError("Invalid configuration detected.")
