@@ -778,7 +778,7 @@ class FileSystemFile(object):
         return 'r' in self.mode or '+' in self.mode
 
     @property
-    def writeable(self):
+    def writable(self):
         return 'w' in self.mode or 'a' in self.mode or '+' in self.mode
 
     @property
@@ -800,7 +800,7 @@ class FileSystemFile(object):
         self.closed = True
 
     def flush(self):
-        if not self.writeable or not self.__modified:
+        if not self.writable or not self.__modified:
             return
 
         # For the time being, just write out entire buffer. We can consider something cleverer later.
@@ -840,7 +840,7 @@ class FileSystemFile(object):
         return self.__io_buffer.tell()
 
     def write(self, s):
-        if not self.writeable:
+        if not self.writable:
             raise io.UnsupportedOperation("File not open for writing.")
         self.__io_buffer.write(s)
         self.__modified = True
