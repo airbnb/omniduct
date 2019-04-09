@@ -6,6 +6,7 @@ from sqlalchemy import Table
 from sqlalchemy import types as sql_types
 
 from omniduct.utils.debug import logger
+from omniduct.utils.decorators import require_connection
 
 try:
     from pyhive.sqlalchemy_presto import PrestoDialect
@@ -59,6 +60,7 @@ class SchemasMixin(object):
     """
 
     @property
+    @require_connection
     def schemas(self):
         """
         object: An object with attributes corresponding to the names of the schemas
@@ -68,7 +70,6 @@ class SchemasMixin(object):
 
         def get_schemas():
             if not getattr(self, '_schemas', None):
-                self.connect()
                 assert getattr(self, '_sqlalchemy_metadata', None) is not None, (
                     "`{class_name}` instances do not provide the required sqlalchemy metadata "
                     "for schema exploration.".format(self.__class__.__name__)

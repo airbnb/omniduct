@@ -141,6 +141,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         atexit.register(self.disconnect)
         self.__prepared = False
         self.__getting = False
+        self.__connected = False
         self.__disconnecting = False
         self.__cached_auth = {}
         self.__prepreparation_values = {}
@@ -469,6 +470,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
             except Exception as e:
                 self.reset()
                 raise_with_traceback(e)
+        self.__connected = True
         if self.host:
             logger.info(
                 "Connected to {host}:{port}{remote}.".format(
@@ -496,7 +498,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         Returns:
             bool: Whether this `Duct` instance is currently connected.
         """
-        if not self.__prepared:
+        if not self.__connected:
             return False
 
         if self.remote:
@@ -528,8 +530,8 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         """
         if not self.__prepared:
             return
-
         self.__disconnecting = True
+        self.__connected = False
 
         try:
             self._disconnect()

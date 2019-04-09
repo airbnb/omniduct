@@ -4,6 +4,7 @@ from future.moves.urllib.parse import urljoin
 from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
+from omniduct.utils.decorators import require_connection
 
 
 class RestClientBase(Duct):
@@ -65,6 +66,7 @@ class RestClientBase(Duct):
             url += '/'
         return url
 
+    @require_connection
     def request(self, endpoint, method='get', **kwargs):
         """
         Request data from a nominated endpoint.
@@ -79,7 +81,6 @@ class RestClientBase(Duct):
             requests.Response: The response object associated with this request.
         """
         import requests
-        self.connect()
         url = urljoin(self.base_url, endpoint)
         return requests.request(method, url, **kwargs)
 

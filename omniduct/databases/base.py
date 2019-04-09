@@ -18,6 +18,7 @@ from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
 from omniduct.filesystems.local import LocalFsClient
 from omniduct.utils.debug import logger, logging_scope
+from omniduct.utils.decorators import require_connection
 from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
                                    process_line_cell_arguments)
 
@@ -255,6 +256,7 @@ class DatabaseClient(Duct, MagicsProvider):
         }
     )
     @quirk_docs('_execute')
+    @require_connection
     def execute(self, statement, wait=True, cursor=None, session_properties=None, **kwargs):
         """
         Execute a statement against this database and return a cursor object.
@@ -301,8 +303,8 @@ class DatabaseClient(Duct, MagicsProvider):
         assert len(statements) > 0, "No non-empty statements were provided."
 
         for statement in statements[:-1]:
-            cursor = self.connect()._execute(statement, cursor=cursor, wait=True, session_properties=session_properties, **kwargs)
-        cursor = self.connect()._execute(statements[-1], cursor=cursor, wait=wait, session_properties=session_properties, **kwargs)
+            cursor = self._execute(statement, cursor=cursor, wait=True, session_properties=session_properties, **kwargs)
+        cursor = self._execute(statements[-1], cursor=cursor, wait=wait, session_properties=session_properties, **kwargs)
 
         return cursor
 
@@ -685,6 +687,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope('Dataframe Upload', timed=True)
     @quirk_docs('_dataframe_to_table')
+    @require_connection
     def dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
         """
         Upload a local pandas dataframe into a table in this database.
@@ -701,7 +704,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 `DatabaseClient._dataframe_to_table`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
-        self.connect()._dataframe_to_table(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
+        self._dataframe_to_table(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
 
     # Table properties
 

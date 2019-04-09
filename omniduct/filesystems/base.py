@@ -6,6 +6,7 @@ import pandas as pd
 from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
+from omniduct.utils.decorators import require_connection
 from omniduct.utils.magics import MagicsProvider, process_line_arguments
 
 
@@ -51,6 +52,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @property
     @quirk_docs('_path_home')
+    @require_connection
     def path_home(self):
         """
         str: The path prefix to use as the current users' home directory. Unless
@@ -61,7 +63,7 @@ class FileSystemClient(Duct, MagicsProvider):
         which this client is permitted to write.
         """
         if not self.__path_home:
-            self.__path_home = self.connect()._path_home()
+            self.__path_home = self._path_home()
         return self.__path_home
 
     @path_home.setter
@@ -235,6 +237,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # Filesystem accessors
 
     @quirk_docs('_exists')
+    @require_connection
     def exists(self, path):
         """
         Check whether nominated path exists on this filesytem.
@@ -246,13 +249,14 @@ class FileSystemClient(Duct, MagicsProvider):
             bool: `True` if file/folder exists at nominated path, and `False`
                 otherwise.
         """
-        return self.connect()._exists(self._path(path))
+        return self._exists(self._path(path))
 
     @abstractmethod
     def _exists(self, path):
         raise NotImplementedError
 
     @quirk_docs('_isdir')
+    @require_connection
     def isdir(self, path):
         """
         Check whether a nominated path is directory.
@@ -264,13 +268,14 @@ class FileSystemClient(Duct, MagicsProvider):
             bool: `True` if folder exists at nominated path, and `False`
             otherwise.
         """
-        return self.connect()._isdir(self._path(path))
+        return self._isdir(self._path(path))
 
     @abstractmethod
     def _isdir(self, path):
         raise NotImplementedError
 
     @quirk_docs('_isfile')
+    @require_connection
     def isfile(self, path):
         """
         Check whether a nominated path is a file.
@@ -282,7 +287,7 @@ class FileSystemClient(Duct, MagicsProvider):
             bool: `True` if a file exists at nominated path, and `False`
             otherwise.
         """
-        return self.connect()._isfile(self._path(path))
+        return self._isfile(self._path(path))
 
     def _isfile(self, path):
         return not self._isdir(path)
@@ -297,6 +302,7 @@ class FileSystemClient(Duct, MagicsProvider):
         raise NotImplementedError
 
     @quirk_docs('_dir')
+    @require_connection
     def dir(self, path=None):
         """
         Retrieve information about the children of a nominated directory.
@@ -316,7 +322,7 @@ class FileSystemClient(Duct, MagicsProvider):
             `FileSystemFileDesc` objects.
         """
         assert self.isdir(path), "'{}' is not a valid directory.".format(path)
-        return self.connect()._dir(self._path(path))
+        return self._dir(self._path(path))
 
     def listdir(self, path=None):
         """
@@ -335,6 +341,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         return [f.name for f in self.dir(self._path(path))]
 
+    @require_connection
     def showdir(self, path=None):
         """
         Return a dataframe representation of a directory.
@@ -353,7 +360,7 @@ class FileSystemClient(Duct, MagicsProvider):
             nominated directory.
         """
         assert self.isdir(path), "'{}' is not a valid directory.".format(path)
-        return self.connect()._showdir(self._path(path))
+        return self._showdir(self._path(path))
 
     def _showdir(self, path):
         data = [f.as_dict() for f in self._dir(path)]
@@ -369,6 +376,7 @@ class FileSystemClient(Duct, MagicsProvider):
             return "Directory has no contents."
 
     @quirk_docs('_walk')
+    @require_connection
     def walk(self, path=None):
         """
         Explore the filesystem tree starting at a nominated path.
@@ -386,7 +394,7 @@ class FileSystemClient(Duct, MagicsProvider):
             with one directory that is either `path` or one of its descendants.
         """
         assert self.isdir(path), "'{}' is not a valid directory.".format(path)
-        return self.connect()._walk(self._path(path))
+        return self._walk(self._path(path))
 
     def _walk(self, path):
         dirs = []
@@ -403,6 +411,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 yield walked
 
     @quirk_docs('_find')
+    @require_connection
     def find(self, path_prefix=None, **attrs):
         """
         Find a file or directory based on certain attributes.
@@ -427,7 +436,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 provided constraints.
         """
         assert self.isdir(path_prefix), "'{0}' is not a valid directory. Did you mean `.find(name='{0}')`?".format(path_prefix)
-        return self.connect()._find(self._path(path_prefix), **attrs)
+        return self._find(self._path(path_prefix), **attrs)
 
     def _find(self, path_prefix, **attrs):
 
@@ -451,6 +460,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 yield match
 
     @quirk_docs('_mkdir')
+    @require_connection
     def mkdir(self, path, recursive=True, exist_ok=False):
         """
         Create a directory at the given path.
@@ -466,13 +476,14 @@ class FileSystemClient(Duct, MagicsProvider):
         can be costly in some cases.
         """
         self._assert_path_is_writable(path)
-        return self.connect()._mkdir(self._path(path), recursive, exist_ok)
+        return self._mkdir(self._path(path), recursive, exist_ok)
 
     @abstractmethod
     def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
     @quirk_docs('_remove')
+    @require_connection
     def remove(self, path, recursive=False):
         """
         Remove file(s) at a nominated path.
@@ -490,7 +501,7 @@ class FileSystemClient(Duct, MagicsProvider):
             raise IOError("No file(s) exist at path '{}'.".format(path))
         if self.isdir(path) and not recursive:
             raise IOError("Attempt to remove directory '{}' without passing `recursive=True`.".format(path))
-        return self.connect()._remove(self._path(path), recursive)
+        return self._remove(self._path(path), recursive)
 
     @abstractmethod
     def _remove(self, path, recursive):
@@ -499,6 +510,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # File handling
 
     @quirk_docs('_open')
+    @require_connection
     def open(self, path, mode='rt'):
         """
         Open a file for reading and/or writing.
@@ -518,12 +530,13 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         if 'w' in mode or 'a' in mode or '+' in mode:
             self._assert_path_is_writable(path)
-        return self.connect()._open(self._path(path), mode=mode)
+        return self._open(self._path(path), mode=mode)
 
     def _open(self, path, mode):
         return FileSystemFile(self, path, mode)
 
     @quirk_docs('_file_read_')
+    @require_connection
     def _file_read(self, path, size=-1, offset=0, binary=False):
         """
         This method is used by `FileSystemFile` to read the contents of files.
@@ -539,12 +552,13 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             str or bytes: The contents of the file.
         """
-        return self.connect()._file_read_(self._path(path), size=size, offset=offset, binary=binary)
+        return self._file_read_(self._path(path), size=size, offset=offset, binary=binary)
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
     @quirk_docs('_file_write_')
+    @require_connection
     def _file_write(self, path, s, binary=False):
         """
         This method is used by `FileSystemFile` to write to files.
@@ -560,12 +574,13 @@ class FileSystemClient(Duct, MagicsProvider):
             int: Number of bytes/characters written.
         """
         self._assert_path_is_writable(path)
-        return self.connect()._file_write_(self._path(path), s, binary)
+        return self._file_write_(self._path(path), s, binary)
 
     def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
     @quirk_docs('_file_append_')
+    @require_connection
     def _file_append(self, path, s, binary=False):
         """
         This method is used by `FileSystemFile` to append content to files.
@@ -581,7 +596,7 @@ class FileSystemClient(Duct, MagicsProvider):
             int: Number of bytes/characters written.
         """
         self._assert_path_is_writable(path)
-        return self.connect()._file_append_(self._path(path), s, binary)
+        return self._file_append_(self._path(path), s, binary)
 
     def _file_append_(self, path, s, binary):
         raise NotImplementedError
@@ -662,7 +677,7 @@ class FileSystemClient(Duct, MagicsProvider):
             if target[2] and not fs.isdir(target[1]):
                 fs.mkdir(target[1], exist_ok=True)
             elif not target[2]:
-                self.connect()._download(target[0], target[1], overwrite, fs)
+                self._download(target[0], target[1], overwrite, fs)
 
     def _download(self, source, dest, overwrite, fs):
         if not overwrite and fs.exists(dest):

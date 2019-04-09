@@ -13,7 +13,7 @@ from interface_meta import quirk_docs
 from omniduct.duct import Duct
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
-from omniduct.utils.decorators import function_args_as_kwargs
+from omniduct.utils.decorators import function_args_as_kwargs, require_connection
 
 from ._serializers import PickleSerializer
 
@@ -135,6 +135,7 @@ class Cache(Duct):
 
     # Data insertion and retrieval
 
+    @require_connection
     def set(self, key, value, namespace=None, serializer=None, metadata=None):
         """
         Set the value of a key.
@@ -148,7 +149,6 @@ class Cache(Duct):
             metadata (dict, None): Additional metadata to be stored with the value
                 in the cache. Values must be serializable via `yaml.safe_dump`.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         try:
@@ -159,6 +159,7 @@ class Cache(Duct):
             self.unset(key, namespace=namespace)
             six.reraise(*sys.exc_info())
 
+    @require_connection
     def set_metadata(self, key, metadata, namespace=None, replace=False):
         """
         Set the metadata associated with a stored key, creating the key if it
@@ -173,7 +174,6 @@ class Cache(Duct):
             replace (bool): Whether the provided metadata should entirely
                 replace any existing metadata, or just update it. (default=False)
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if replace:
             orig_metadata = {'created': datetime.datetime.utcnow()}
@@ -185,6 +185,7 @@ class Cache(Duct):
         with self._get_stream_for_key(namespace, key, 'metadata', mode='w', create=True) as fh:
             yaml.safe_dump(orig_metadata, fh, default_flow_style=False)
 
+    @require_connection
     def get(self, key, namespace=None, serializer=None):
         """
         Retrieve the value associated with the nominated key from the cache.
@@ -198,7 +199,6 @@ class Cache(Duct):
         Returns:
             object: The (appropriately deserialized) object stored in the cache.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         if not self._has_key(namespace, key):
@@ -209,6 +209,7 @@ class Cache(Duct):
         finally:
             self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})
 
+    @require_connection
     def get_bytecount(self, key, namespace=None):
         """
         Retrieve the number of bytes used by a stored key.
@@ -224,12 +225,12 @@ class Cache(Duct):
             int: The number of bytes used by the stored value associated with
                 the nominated key and namespace.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
             raise KeyError("{} (namespace: {})".format(key, namespace))
         return self._get_bytecount_for_key(namespace, key)
 
+    @require_connection
     def get_metadata(self, key, namespace=None):
         """
         Retrieve metadata associated with the nominated key from the cache.
@@ -241,7 +242,6 @@ class Cache(Duct):
         Returns:
             dict: The metadata associated with this namespace and key.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
             raise KeyError("{} (namespace: {})".format(key, namespace))
@@ -251,6 +251,7 @@ class Cache(Duct):
         except:
             return {}
 
+    @require_connection
     def unset(self, key, namespace=None):
         """
         Remove the nominated key from the cache.
@@ -259,12 +260,12 @@ class Cache(Duct):
             key (str): The key which should be unset.
             namespace (str, None): The namespace to be used.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
             raise KeyError("{} (namespace: {})".format(key, namespace))
         self._remove_key(namespace, key)
 
+    @require_connection
     def unset_namespace(self, namespace=None):
         """
         Remove an entire namespace from the cache.
@@ -272,7 +273,6 @@ class Cache(Duct):
         Args:
             namespace (str, None): The namespace to be removed.
         """
-        self.connect()
         namespace = self._namespace(namespace)
         if not self._has_namespace(namespace):
             raise KeyError("namespace: {}".format(namespace))
@@ -281,10 +281,12 @@ class Cache(Duct):
     # Top-level descriptions
 
     @property
+    @require_connection
     def namespaces(self):
         "list <str,None>: A list of the namespaces stored in the cache."
-        return self.connect()._get_namespaces()
+        return self._get_namespaces()
 
+    @require_connection
     def has_namespace(self, namespace=None):
         """
         Check whether the cache has the nominated namespace.
@@ -295,10 +297,10 @@ class Cache(Duct):
         Returns:
             bool: Whether the cache has the nominated namespaces.
         """
-        self.connect()
         namespace = self._namespace(namespace)
         return self._has_namespace(namespace)
 
+    @require_connection
     def keys(self, namespace=None):
         """
         Collect a list of all the keys present in the nominated namespaces.
@@ -310,10 +312,10 @@ class Cache(Duct):
         Returns:
             list<str>: The keys stored in the cache for the nominated namespace.
         """
-        self.connect()
         namespace = self._namespace(namespace)
         return self._get_keys(namespace)
 
+    @require_connection
     def has_key(self, key, namespace=None):
         """
         Check whether the cache as a nominated key.
@@ -327,7 +329,6 @@ class Cache(Duct):
             bool: Whether the cache has a value for the nominated namespace and
                 key.
         """
-        self.connect()
         namespace, key = self._namespace(namespace), self._key(key)
         return self._has_key(namespace, key)
 

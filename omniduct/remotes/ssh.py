@@ -14,6 +14,7 @@ from omniduct.errors import DuctAuthenticationError
 from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
+from omniduct.utils.decorators import require_connection
 from omniduct.utils.processes import run_in_subprocess
 
 try:  # Python 3
@@ -202,8 +203,8 @@ class SSHClient(RemoteClient):
                                  **config)
 
     @override
+    @require_connection
     def _port_forward_start(self, local_port, remote_host, remote_port):
-        self.connect()
         logger.info('Establishing port forward...')
         cmd_template = 'ssh {login} -T -O forward -S {socket} -L localhost:{local_port}:{remote_host}:{remote_port}'
         cmd = cmd_template.format(login=self._login_info,
@@ -338,6 +339,7 @@ class SSHClient(RemoteClient):
 
     # File transfer
     @override
+    @require_connection
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
         Download files to another filesystem.
@@ -372,7 +374,6 @@ class SSHClient(RemoteClient):
         from ..filesystems.local import LocalFsClient
 
         if fs is None or isinstance(fs, LocalFsClient):
-            self.connect()
             logger.info('Copying file to local...')
             dest = dest or posixpath.basename(source)
             cmd = (
@@ -389,6 +390,7 @@ class SSHClient(RemoteClient):
             return super(RemoteClient, self).download(source, dest, overwrite, fs)
 
     @override
+    @require_connection
     def upload(self, source, dest=None, overwrite=False, fs=None):
         """
         Upload files from another filesystem.
@@ -422,7 +424,6 @@ class SSHClient(RemoteClient):
         from ..filesystems.local import LocalFsClient
 
         if fs is None or isinstance(fs, LocalFsClient):
-            self.connect()
             logger.info('Copying file from local...')
             dest = dest or posixpath.basename(source)
             cmd = (

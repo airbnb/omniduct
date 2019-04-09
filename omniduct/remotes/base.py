@@ -9,6 +9,7 @@ from future.utils import raise_with_traceback
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
 from omniduct.filesystems.base import FileSystemClient
+from omniduct.utils.decorators import require_connection
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 
 try:  # Python 3
@@ -208,6 +209,7 @@ class RemoteClient(FileSystemClient):
         return True
 
     @quirk_docs('_execute')
+    @require_connection
     def execute(self, cmd, **kwargs):
         """
         Execute a command on the remote server.
@@ -221,7 +223,7 @@ class RemoteClient(FileSystemClient):
         Returns:
             SubprocessResults: The result of the execution.
         """
-        return self.connect()._execute(cmd, **kwargs)
+        return self._execute(cmd, **kwargs)
 
     @abstractmethod
     def _execute(self, cmd, **kwargs):
@@ -244,6 +246,7 @@ class RemoteClient(FileSystemClient):
         return host, port, local_port
 
     @quirk_docs('_port_forward_start')
+    @require_connection
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
         Initiate a port forward connection.
@@ -284,7 +287,7 @@ class RemoteClient(FileSystemClient):
 
         if not self.is_port_bound(remote_host, remote_port):
             raise DuctServerUnreachable("Server specified for port forwarding ({}:{}) is unreachable via '{}' ({}).".format(remote_host, remote_port, self.name, self.__class__.__name__))
-        connection = self.connect()._port_forward_start(local_port, remote_host, remote_port)
+        connection = self._port_forward_start(local_port, remote_host, remote_port)
         self.__port_forwarding_register.register(remote_host, remote_port, local_port, connection)
 
         return local_port
@@ -384,6 +387,7 @@ class RemoteClient(FileSystemClient):
         raise NotImplementedError
 
     @quirk_docs('_is_port_bound')
+    @require_connection
     def is_port_bound(self, host, port):
         """
         Check whether a port on a remote host is accessible.
@@ -398,7 +402,7 @@ class RemoteClient(FileSystemClient):
         Returns:
             bool: Whether the port is active and accepting connections.
         """
-        return self.connect()._is_port_bound(host, port)
+        return self._is_port_bound(host, port)
 
     @abstractmethod
     def _is_port_bound(self, host, port):
