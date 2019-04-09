@@ -144,7 +144,7 @@ class S3Client(FileSystemClient):
 
     @override
     def _isdir(self, path):
-        response = next(iter(self.__dir_paginator(self._s3_path(path))))
+        response = next(iter(self.__dir_paginator(path)))
         if 'CommonPrefixes' in response or 'Contents' in response:
             return True
         return False
@@ -160,10 +160,11 @@ class S3Client(FileSystemClient):
     # Directory handling and enumeration
 
     def __dir_paginator(self, path):
+        path = self._s3_path(path)
         paginator = self._client.get_paginator('list_objects')
         iterator = paginator.paginate(
             Bucket=self.bucket,
-            Prefix=self._s3_path(path) + (self.path_separator if path else ''),
+            Prefix=path + (self.path_separator if path else ''),
             Delimiter=self.path_separator,
             PaginationConfig={'PageSize': 500}
         )
@@ -212,8 +213,8 @@ class S3Client(FileSystemClient):
     @override
     def _mkdir(self, path, recursive, exist_ok):
         path = self._s3_path(path)
-        if not path.endswith('/'):
-            path += '/'
+        if not path.endswith(self.path_separator):
+            path += self.path_separator
         if not self._exists(path):
             self._client.put_object(Bucket=self.bucket, Key=path)
 
