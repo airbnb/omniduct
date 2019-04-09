@@ -86,34 +86,47 @@ def cached_method(
         if _cache is None or not _use_cache:
             return method(self, **kwargs)
 
-        if _renew or not _cache.has_key(_key, namespace=_namespace):  # noqa: has_key is not of a dictionary here
-            value = method(self, **kwargs)
-            if value is None:
-                logger.warning("Method value returned None. Not saving to cache.")
-                return
-
+        if _cache.has_key(_key, namespace=_namespace) and not _renew:  # noqa: has_key is not of a dictionary here
             try:
-                _cache.set(
+                return _cache.get(
                     _key,
-                    value=value,
                     namespace=_namespace,
-                    serializer=_serializer,
-                    metadata=_metadata
+                    serializer=_serializer
                 )
             except:
-                logger.warning("Failed to save results to cache. If needed, please save them manually.")
+                logger.warning("Failed to retrieve results from cache. Renewing the cache...")
                 if config.cache_fail_hard:
                     six.reraise(*sys.exc_info())
-        else:
-            logger.caveat('Loaded from cache')
+            finally:
+                logger.caveat('Loaded from cache')
 
-        # Return from cache every time, just in case serialization operation was
-        # destructive (e.g. reading from cursors)
-        return _cache.get(
-            _key,
-            namespace=_namespace,
-            serializer=_serializer
-        )
+        # Renewing/creating cache
+        value = method(self, **kwargs)
+        if value is None:
+            logger.warning("Method value returned None. Not saving to cache.")
+            return
+
+        try:
+            _cache.set(
+                _key,
+                value=value,
+                namespace=_namespace,
+                serializer=_serializer,
+                metadata=_metadata
+            )
+            # Return from cache every time, just in case serialization operation was
+            # destructive (e.g. reading from cursors)
+            return _cache.get(
+                _key,
+                namespace=_namespace,
+                serializer=_serializer
+            )
+        except:
+            logger.warning("Failed to save results to cache. If needed, please save them manually.")
+            if config.cache_fail_hard:
+                six.reraise(*sys.exc_info())
+            return value  # As a last resort, return value object (which could be mutated by serialization).
+
     return wrapped
 
 
