@@ -782,6 +782,10 @@ class FileSystemFile(object):
         return 'w' in self.mode or 'a' in self.mode or '+' in self.mode
 
     @property
+    def seekable(self):
+        return True
+
+    @property
     def appending(self):
         return 'a' in self.mode
 
@@ -798,6 +802,9 @@ class FileSystemFile(object):
     def close(self):
         self.flush()
         self.closed = True
+
+    def __del__(self):
+        self.close()
 
     def flush(self):
         if not self.writable or not self.__modified:
@@ -834,7 +841,7 @@ class FileSystemFile(object):
         return self.__io_buffer.readlines(hint)
 
     def seek(self, pos, whence=0):
-        self.__io_buffer.seek(pos)
+        return self.__io_buffer.seek(pos, whence)
 
     def tell(self):
         return self.__io_buffer.tell()
@@ -850,12 +857,27 @@ class FileSystemFile(object):
 
     def __next__(self):
         line = self.readline()
-        if line:
-            return line
-        else:
+        if not line:
             raise StopIteration
+        return line
 
     next = __next__  # Python 2
+
+    # Additional methods from BufferedIOBase for compatibility
+
+    def read1(self, size=-1):
+        return self.read(size)
+
+    def detach(self):
+        raise io.UnsupportedOperation()
+
+    def readinto(self, buffer):
+        data = self.read()
+        buffer[:len(data)] = data
+        return len(data)
+
+    def readinto1(self, buffer):
+        return self.readinto(buffer)
 
 
 class FileSystemFileDesc(namedtuple('Node', [
