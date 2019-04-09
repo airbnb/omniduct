@@ -743,6 +743,12 @@ class FileSystemClient(Duct, MagicsProvider):
             with self.open(path, 'w') as f:
                 f.write(cell)
 
+    # PyArrow compat
+    @property
+    def pyarrow_fs(self):
+        from ._pyarrow_compat import OmniductFileSystem
+        return OmniductFileSystem(self)
+
 
 class FileSystemFile(object):
     """
