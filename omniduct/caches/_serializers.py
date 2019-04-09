@@ -56,8 +56,8 @@ class PandasSerializer(Serializer):
         if LooseVersion(pandas.__version__) <= LooseVersion('0.20.3'):
             fh.close()
             fh = fh.name
-        return pandas.to_pickle(formatted_data, fh)
+        return pandas.to_pickle(formatted_data, fh, compression=None)
 
     @classmethod
     def deserialize(cls, fh):
-        return pandas.read_pickle(fh)
+        return pandas.read_pickle(fh, compression=None)
