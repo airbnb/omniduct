@@ -146,7 +146,7 @@ Task 3: Persist service configuration for use in multiple sessions
 
     # Specify a YAML configuration verbatim (or the filename of a yaml configuration)
     # In this case we create the configuration for the previous task.
-    >>> duct_registry.import_from_config("""
+    >>> duct_registry.register_from_config("""
     ... remotes:
     ...     my_server:
     ...         protocol: ssh
@@ -159,8 +159,8 @@ Task 3: Persist service configuration for use in multiple sessions
     ...         remote: my_server
     ... """)
 
-    >>> %%presto_local
-    ... SELECT 42
+    >>> pc = duct_registry['presto_local']
+    >>> pc.query("SELECT 42")
     ...
     # And so on.
 
