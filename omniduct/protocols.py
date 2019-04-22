@@ -6,6 +6,7 @@
 
 from .caches.filesystem import FileSystemCache
 from .databases.druid import DruidClient
+from .databases.exasol import ExasolClient
 from .databases.hiveserver2 import HiveServer2Client
 from .databases.neo4j import Neo4jClient
 from .databases.presto import PrestoClient
