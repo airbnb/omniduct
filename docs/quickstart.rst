@@ -159,8 +159,8 @@ Task 3: Persist service configuration for use in multiple sessions
     ...         remote: my_server
     ... """)
 
-    >>> pc = duct_registry['presto_local']
-    >>> pc.query("SELECT 42")
+    >>> %%presto_local
+    ... SELECT 42
     ...
     # And so on.
 
