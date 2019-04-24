@@ -11,6 +11,18 @@ from . import _pandas
 class ExasolClient(DatabaseClient):
     """
     This client connects to an Exasol service using the `pyexasol` python library.
+
+    An example configuration for exasol.
+
+    databases:
+        exasol_db:
+            protocol: exasol
+            host:
+              - 'localhost:8563'
+              - 'localhost:8564'
+            username: exasol_user
+            password: ****
+            schema: users
     """
 
     PROTOCOLS = ["exasol"]
@@ -25,10 +37,8 @@ class ExasolClient(DatabaseClient):
         return {"database": self.schema}
 
     @override
-    def _init(self, dsn, schema=None, engine_opts=None):
+    def _init(self, schema=None, engine_opts=None):
         self.__exasol = None
-        self.dsn = dsn
-        self.host, self.port = dsn.split(":", 1)
 
         self.schema = schema
         self.connection_fields += ("schema",)
@@ -40,7 +50,10 @@ class ExasolClient(DatabaseClient):
 
         logger.info("Connecting to Exasol ...")
         self.__exasol = pyexasol.connect(
-            dsn=self.dsn, user=self.username, password=self.password, **self.engine_opts
+            dsn=f"{self.host}:{self.port}",
+            user=self.username,
+            password=self.password,
+            **self.engine_opts,
         )
 
     @override
@@ -58,13 +71,12 @@ class ExasolClient(DatabaseClient):
 
     @override
     def _execute(self, statement, cursor, wait, session_properties, query=True):
-        cursor = self.__exasol
-        if cursor:
-            # NOTE(foxyblue) Implementation of cursor-like behaviour required
-            exa_statement = cursor.export_to_list(statement)
-            return exa_statement
-        else:
-            raise Exception
+        #: pyexasol.ExaStatement has a similar interface to that of
+        # a DBAPI2 cursor.
+        cursor = self.__exasol.execute(statement)
+
+        # hacky: make the result look like a cursor
+        cursor.description = cursor.columns()
         return cursor
 
     @override
@@ -74,10 +86,7 @@ class ExasolClient(DatabaseClient):
         if if_exists == "fail" and self.table_exists(table):
             raise RuntimeError("Table {} already exists!".format(table))
         elif if_exists == "replace":
-            statements.append("SELECT 42;")
-            raise NotImplementedError
-            # NOTE(foxyblue): getting nervous
-            # statements.append("DROP TABLE IF EXISTS {};".format(table))
+            statements.append("DROP TABLE IF EXISTS {};".format(table))
         elif if_exists == "append":
             raise NotImplementedError(
                 "Append operations have not been implemented for {}.".format(
@@ -100,7 +109,7 @@ class ExasolClient(DatabaseClient):
             con=self.engine,
             index=False,
             if_exists=if_exists,
-            **kwargs
+            **kwargs,
         )
 
     @override
@@ -120,9 +129,7 @@ class ExasolClient(DatabaseClient):
 
     @override
     def _table_drop(self, table, **kwargs):
-        raise NotImplementedError
-        # NOTE(foxyblue): getting nervous
-        # return self.execute("DROP TABLE {table}".format(table=table))
+        return self.execute("DROP TABLE {table}".format(table=table))
 
     @override
     def _table_desc(self, table, **kwargs):
