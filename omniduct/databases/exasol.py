@@ -50,7 +50,7 @@ class ExasolClient(DatabaseClient):
 
         logger.info("Connecting to Exasol ...")
         self.__exasol = pyexasol.connect(
-            dsn=f"{self.host}:{self.port}",
+            dsn="{host}:{port}".format(host=self.host, port=self.port),
             user=self.username,
             password=self.password,
             **self.engine_opts,

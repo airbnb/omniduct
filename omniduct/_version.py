@@ -61,6 +61,10 @@ __optional_dependencies__ = {
         'snowflake-sqlalchemy',
     ],
 
+    'exasol': [
+        'pyexasol',
+    ],
+
     # Filesystems
     'webhdfs': [
         'pywebhdfs',  # Primary client
