@@ -5,14 +5,14 @@ from interface_meta import override
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
-from . import _pandas
 
 
 class ExasolClient(DatabaseClient):
     """
     This client connects to an Exasol service using the `pyexasol` python library.
 
-    An example configuration for exasol.
+    Example Config
+    --------------
 
     databases:
         exasol_db:
@@ -34,7 +34,7 @@ class ExasolClient(DatabaseClient):
     @property
     @override
     def NAMESPACE_DEFAULT(self):
-        return {"database": self.schema}
+        return {"schema": self.schema}
 
     @override
     def _init(self, schema=None, engine_opts=None):
@@ -53,7 +53,7 @@ class ExasolClient(DatabaseClient):
             dsn="{host}:{port}".format(host=self.host, port=self.port),
             user=self.username,
             password=self.password,
-            **self.engine_opts,
+            **self.engine_opts
         )
 
     @override
@@ -67,16 +67,23 @@ class ExasolClient(DatabaseClient):
         except Exception:
             pass
         self.__exasol = None
-        self._schemas = None
+        self.schema = None
 
     @override
     def _execute(self, statement, cursor, wait, session_properties, query=True):
         #: pyexasol.ExaStatement has a similar interface to that of
         # a DBAPI2 cursor.
-        cursor = self.__exasol.execute(statement)
+        cursor = cursor or self.__exasol.execute(statement)
 
-        # hacky: make the result look like a cursor
-        cursor.description = cursor.columns()
+        # hacky: make the result look like a cursor.
+        # cursor.columns returns a dict we transform it into a
+        # flat list.
+        cursor.description = []
+        for key, value in cursor.columns().items():
+            description = [key]
+            description.extend(value.values())
+            cursor.description.append(description)
+
         return cursor
 
     @override
@@ -100,21 +107,12 @@ class ExasolClient(DatabaseClient):
         return self.execute(statement, **kwargs)
 
     @override
-    def _dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
-        table = self._parse_namespaces(table, defaults={"schema": self.username})
-        return _pandas.to_sql(
-            df=df,
-            name=table.table,
-            schema=table.database,
-            con=self.engine,
-            index=False,
-            if_exists=if_exists,
-            **kwargs,
-        )
-
-    @override
     def _table_list(self, namespace, **kwargs):
-        return self.query("SHOW TABLES IN {}".format(namespace), **kwargs)
+        # Since this namespace is a conditional, exasol requires single quotations
+        # instead of double quotations. " -> '
+        namespace = str(namespace).replace('"', "'")
+        query = "SELECT TABLE_NAME FROM EXA_ALL_TABLES WHERE table_schema={}".format(namespace)
+        return self.query(query, **kwargs)
 
     @override
     def _table_exists(self, table, **kwargs):
@@ -129,14 +127,20 @@ class ExasolClient(DatabaseClient):
 
     @override
     def _table_drop(self, table, **kwargs):
+        # Schema and tables are always under uppercase namespaces.
+        table = str(table).upper()
         return self.execute("DROP TABLE {table}".format(table=table))
 
     @override
     def _table_desc(self, table, **kwargs):
+        # Schema and tables are always under uppercase namespaces.
+        table = str(table).upper()
         return self.query("DESCRIBE {0}".format(table), **kwargs)
 
     @override
     def _table_head(self, table, n=10, **kwargs):
+        # Schema and tables are always under uppercase namespaces.
+        table = str(table).upper()
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 
     @override
