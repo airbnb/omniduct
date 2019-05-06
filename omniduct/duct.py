@@ -11,15 +11,12 @@ from enum import Enum
 
 import six
 from future.utils import raise_with_traceback, with_metaclass
-from interface_meta import quirk_docs
+from interface_meta import InterfaceMeta, quirk_docs
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
-
-
-from interface_meta import InterfaceMeta
 
 
 class Duct(with_metaclass(InterfaceMeta, object)):
