@@ -30,7 +30,7 @@ class DruidClient(DatabaseClient):
         self.__druid = connect(self.host, self.port, path='/druid/v2/sql/', scheme='http')
         if self.username or self.password:
             logger.warning(
-                'Duct username and passowrd not passed to pydruid connection. '
+                'Duct username and password not passed to pydruid connection. '
                 'pydruid connection currently does not allow these fields to be passed.'
             )
 
