@@ -158,8 +158,8 @@ class SSHClient(RemoteClient):
             expect.close()
 
         # We should be logged in at this point, but let us make doubly sure
-        assert self.is_connected(), 'Unexpected failure to establish a connection with the remote host with command: \n ' \
-                                    '{}\n\n Please report this!'.format(cmd)
+        assert self._is_connected(), 'Unexpected failure to establish a connection with the remote host with command: \n ' \
+                                     '{}\n\n Please report this!'.format(cmd)
 
     @override
     def _is_connected(self):
