@@ -15,7 +15,6 @@ __docs_url__ = "https://omniduct.readthedocs.io/"
 __dependencies__ = [
     "future",  # Python 2/3 support
     "six",  # Python 2/3 support
-    "enum34",  # Python 3.4+ style enums in older versions of python
 
     "interface_meta>=1.1.0<1.2",  # Metaclass for creating an extensible well-documented architecture
     "pyyaml",  # YAML configuration parsing
@@ -32,6 +31,8 @@ __dependencies__ = [
     # Utility libraries
     "python-dateutil",  # Used for its `relativedelta` class for Cache instances
 ]
+if sys.version_info.major < 3 or sys.version_info.major == 3 and sys.version_info.minor < 4:
+    __dependencies__.append("enum34")  # Python 3.4+ style enums in older versions of python
 
 PY2 = sys.version_info[0] == 2
 if os.name == 'posix' and PY2:
