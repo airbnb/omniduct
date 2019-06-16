@@ -67,22 +67,28 @@ class ExasolClient(DatabaseClient):
         except Exception:
             pass
         self.__exasol = None
-        self.schema = None
 
     @override
     def _execute(self, statement, cursor, wait, session_properties, query=True):
-        #: pyexasol.ExaStatement has a similar interface to that of
+        # pyexasol.ExaStatement has a similar interface to that of
         # a DBAPI2 cursor.
         cursor = cursor or self.__exasol.execute(statement)
 
         # hacky: make the result look like a cursor.
-        # cursor.columns returns a dict we transform it into a
-        # flat list.
+        # cursor.columns returns a dict with the required attributes
         cursor.description = []
-        for key, value in cursor.columns().items():
-            description = [key]
-            description.extend(value.values())
-            cursor.description.append(description)
+        for key, values in cursor.columns().items():
+            cursor.description.append(
+                (
+                    key,
+                    values.get("type", None),
+                    values.get("size", None),
+                    values.get("size", None),
+                    values.get("precision", None),
+                    values.get("scale", None),
+                    True,
+                )
+            )
 
         return cursor
 
