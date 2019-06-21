@@ -31,8 +31,8 @@ class ExasolClient(DatabaseClient):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = "."
 
-    @property
     @override
+    @property
     def NAMESPACE_DEFAULT(self):
         return {"schema": self.schema}
 
@@ -116,8 +116,10 @@ class ExasolClient(DatabaseClient):
     def _table_list(self, namespace, **kwargs):
         # Since this namespace is a conditional, exasol requires single quotations
         # instead of double quotations. " -> '
-        namespace = str(namespace).replace('"', "'")
-        query = "SELECT TABLE_NAME FROM EXA_ALL_TABLES WHERE table_schema={}".format(namespace)
+        query = (
+            "SELECT TABLE_NAME FROM EXA_ALL_TABLES WHERE table_schema={}"
+            .format(namespace.render(quote_char="'"))
+        )
         return self.query(query, **kwargs)
 
     @override
@@ -134,20 +136,26 @@ class ExasolClient(DatabaseClient):
     @override
     def _table_drop(self, table, **kwargs):
         # Schema and tables are always under uppercase namespaces.
-        table = str(table).upper()
-        return self.execute("DROP TABLE {table}".format(table=table))
+        return self.execute(
+            "DROP TABLE {table}".format(table=str(table).upper()),
+            **kwargs
+        )
 
     @override
     def _table_desc(self, table, **kwargs):
         # Schema and tables are always under uppercase namespaces.
-        table = str(table).upper()
-        return self.query("DESCRIBE {0}".format(table), **kwargs)
+        return self.query(
+            "DESCRIBE {0}".format(str(table).upper()),
+            **kwargs
+        )
 
     @override
     def _table_head(self, table, n=10, **kwargs):
         # Schema and tables are always under uppercase namespaces.
-        table = str(table).upper()
-        return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
+        return self.query(
+            "SELECT * FROM {} LIMIT {}".format(str(table).upper(), n),
+            **kwargs
+        )
 
     @override
     def _table_props(self, table, **kwargs):
