@@ -62,6 +62,8 @@ __optional_dependencies__ = {
         'snowflake-sqlalchemy',
     ],
 
+    'exasol': ['pyexasol'] if sys.version_info.major > 2 else [],
+
     # Filesystems
     'webhdfs': [
         'pywebhdfs',  # Primary client
