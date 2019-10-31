@@ -419,7 +419,7 @@ class Cache(Duct):
 
     # Cache pruning
 
-    def prune(self, namespaces=None, max_age=None, max_bytes=None, total_bytes=None):
+    def prune(self, namespaces=None, max_age=None, max_bytes=None, total_bytes=None, total_count=None):
         """
         Remove keys from the cache in order to satisfy nominated constraints.
 
@@ -432,6 +432,10 @@ class Cache(Duct):
             max_bytes (None, int): The maximum number of bytes for *each* key,
                 allowing the pruning of larger keys.
             total_bytes (None, int): The total number of bytes for the entire
+                cache. Keys will be removed from least recently accessed to most
+                recently accessed until the constraint is satisfied. This
+                constraint will be applied after max_age and max_bytes.
+            total_count (None, int): The maximum number of items to keep in the
                 cache. Keys will be removed from least recently accessed to most
                 recently accessed until the constraint is satisfied. This
                 constraint will be applied after max_age and max_bytes.
@@ -461,13 +465,17 @@ class Cache(Duct):
                 self.unset(row.key, namespace=row.namespace)
 
         # Unset keys according to global constraints
-        if total_bytes is not None:
-            if not isinstance(total_bytes, int):
+        if total_bytes is not None or total_count is not None:
+            if total_bytes is not None and not isinstance(total_bytes, int):
                 raise ValueError("Invalid type specified for `total_bytes`: {}".format(total_bytes.__repr__()))
+            if total_count is not None and not isinstance(total_count, int):
+                raise ValueError("Invalid type specified for `total_count`: {}".format(total_bytes.__repr__()))
             usage = self.describe(namespaces=namespaces).assign(cum_bytes=lambda x: x.bytes.cumsum())
 
-            to_unset = usage[usage.cum_bytes > total_bytes]
-            for i, row in to_unset.iterrows():
+            unset_index = total_count if total_count is not None else len(usage)
+            if total_bytes is not None:
+                unset_index = min(unset_index, usage.cum_bytes.searchsorted(total_bytes, side='right'))
+            for i, row in usage.loc[unset_index:].iterrows():
                 logger.info("Unsetting key '{}' (namespace: '{}')...".format(row.key, row.namespace))
                 self.unset(row.key, namespace=row.namespace)
 
