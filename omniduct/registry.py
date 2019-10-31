@@ -218,7 +218,7 @@ class DuctRegistry(object):
         return DuctRegistry.ServicesProxy(self, by_kind=by_kind)
 
     # Batch registration of duct configurations
-    def register_from_config(self, config):
+    def register_from_config(self, config, override=False):
         """
         Register a collection of Duct service configurations.
 
@@ -246,7 +246,17 @@ class DuctRegistry(object):
         Args:
             config (iterable, dict, str, None): A configuration specified in one
                 of the above described formats.
+            override (bool): Whether to override any existing `Duct` instance
+                of the same name(s). If `False`, any overrides will result in an
+                exception.
         """
+        # Extract configuration from a file if necessary, and then process it.
+        if isinstance(config, six.string_types):
+            if '\n' in config:
+                config = yaml.safe_load(config)
+            else:
+                with open(config) as f:
+                    config = yaml.safe_load(f.read())
         config = self._process_config(config)
 
         for duct_config in config:
@@ -254,56 +264,30 @@ class DuctRegistry(object):
             protocol = duct_config.pop('protocol')
             register_magics = duct_config.pop('register_magics', True)
             try:
-                self.new(names, protocol, register_magics=register_magics, **duct_config)
+                self.new(names, protocol, register_magics=register_magics, override=override, **duct_config)
             except DuctProtocolUnknown as e:
                 logger.error("Failed to configure `Duct` instance(s) '{}'. {}".format("', '".join(names.split(',')), str(e)))
 
         return self
 
-    def _process_config(self, config):
+    def _process_config(self, config, name=None):
         """
-        Extract config from file (if necessary), and coerce the configuration
-        format into a generator of dictionaries of keyword arguments.
+        Coerce the configuration into a generator of dictionaries of keyword
+        arguments; each corresponding to a duct instance.
         """
-        # Extract configuration from a file if necessary
-        if isinstance(config, six.string_types):
-            if '\n' in config:
-                config = yaml.safe_load(config)
-            else:
-                with open(config) as f:
-                    config = yaml.safe_load(f.read())
 
-        if not isinstance(config, (list, dict)):
-            raise ValueError("Invalid configuration detected.")
+        if isinstance(config, dict) and (name is not None or 'name' in config) and 'protocol' in config and not config.get('__OMNIDUCT_SKIP__', False):
+            kwargs = config.copy()
+            if 'name' not in config:
+                kwargs['name'] = name
+            yield kwargs
 
-        if isinstance(config, dict):
-            def max_consistent_depth(d):
-                depth = 0
-                if isinstance(d, dict) and d:
-                    depths = []
-                    for value in d.values():
-                        depths.append(max_consistent_depth(value) + 1)
-                    depth = max(depth, min(depths))
-                return depth
+        elif isinstance(config, dict):
+            for name, subconfig in config.items():
+                for config in self._process_config(subconfig, name=name):
+                    yield config
 
-            depth = max_consistent_depth(config)
-
-            if depth == 2:
-                for name, kwargs in config.items():
-                    kwargs = kwargs.copy()
-                    kwargs['name'] = name
-                    yield kwargs
-            elif depth == 3:
-                for subsection in config.values():
-                    for name, kwargs in subsection.items():
-                        kwargs = kwargs.copy()
-                        kwargs['name'] = name
-                        yield kwargs
-            else:
-                raise ValueError("Invalid configuration detected.")
-
-        else:
-            for kwargs in config:
-                if not isinstance(kwargs, dict):
-                    raise ValueError("Invalid configuration detected.")
-                yield kwargs
+        elif isinstance(config, list):
+            for subconfig in config:
+                for config in self._process_config(subconfig):
+                    yield config
