@@ -10,7 +10,6 @@ import six
 from interface_meta import override
 from future.utils import raise_with_traceback
 
-from omniduct._version import __version__
 from omniduct.utils.debug import logger
 
 from .base import DatabaseClient
@@ -72,11 +71,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @source.setter
     def source(self, source):
-        omniduct_source = 'omniduct {}'.format(__version__)
-        if source is None:
-            self._source = omniduct_source
-        else:
-            self._source = "{} / {}".format(source, omniduct_source)
+        self._source = source or 'omniduct'
 
     # Connection
 
