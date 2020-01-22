@@ -441,6 +441,9 @@ class Cache(Duct):
                 constraint will be applied after max_age and max_bytes.
         """
         usage = self.describe(namespaces=namespaces)
+        if usage.shape[0] == 0:  # Abort early if the cache is empty (and hence has no index, which would cause problems later on)
+            return
+
         constraints = []
 
         # Unset keys according to per-key constraints
