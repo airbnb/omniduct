@@ -5,7 +5,7 @@ from omniduct.duct import Duct
 from omniduct.errors import DuctNotFound, DuctProtocolUnknown
 from omniduct.utils.debug import logger
 from omniduct.utils.magics import MagicsProvider
-from omniduct.utils.proxies import NestedDictObjectProxy
+from omniduct.utils.proxies import TreeProxy
 
 
 class DuctRegistry(object):
@@ -17,33 +17,6 @@ class DuctRegistry(object):
     ones. It also allows for the batch creation of services from a shared
     configuration, which is especially useful in a company deployment.
     """
-
-    class ServicesProxy(NestedDictObjectProxy):
-        """
-        A wrapper around `NestedDictObjectProxy` which is used to expose the
-        services attached to a `DuctRegistry` as attributes on an object,
-        optionally nested by service type.
-        """
-
-        def __init__(self, registry, by_kind=True):
-            self._self_registry = registry
-            get_nesting = None
-            if by_kind:
-                def get_nesting(k, v):
-                    nesting = k.split('/')
-                    if v.DUCT_TYPE is not None:
-                        nesting.insert(0, v.DUCT_TYPE.value)
-                    return nesting
-
-            NestedDictObjectProxy.__init__(self, registry._registry, is_flat=True, get_nesting=get_nesting)
-
-        @property
-        def registry(self):  # This will only appear at top level of proxy, since children will not be of this type
-            """DuctRegistry: The registry which hosts the services."""
-            return self._self_registry
-
-        def __dir__(self):
-            return NestedDictObjectProxy.__dir__(self) + ['registry']
 
     def __init__(self, config=None):
         """
@@ -138,6 +111,9 @@ class DuctRegistry(object):
     def __contains__(self, name):
         return name in self._registry
 
+    def __iter__(self):
+        return iter(self._registry.values())
+
     def lookup(self, name, kind=None):
         """
         Look up an existing registered `Duct` by name and (optionally) kind.
@@ -215,7 +191,16 @@ class DuctRegistry(object):
         Returns:
             ServicesProxy: The proxy object.
         """
-        return DuctRegistry.ServicesProxy(self, by_kind=by_kind)
+        def key_parser(k, v):
+            keys = k.split('/')
+            if by_kind and getattr(v, 'DUCT_TYPE', None) is not None:
+                keys.insert(0, v.DUCT_TYPE.value)
+            return keys
+
+        dct = self._registry.copy()
+        dct['registry'] = self
+
+        return TreeProxy._for_dict(dct, key_parser=key_parser, name='services')
 
     # Batch registration of duct configurations
     def register_from_config(self, config, override=False):
