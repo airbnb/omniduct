@@ -30,6 +30,7 @@ __dependencies__ = [
 
     # Utility libraries
     "python-dateutil",  # Used for its `relativedelta` class for Cache instances
+    "lazy-object-proxy",  # Schema traversal
 ]
 if sys.version_info.major < 3 or sys.version_info.major == 3 and sys.version_info.minor < 4:
     __dependencies__.append("enum34")  # Python 3.4+ style enums in older versions of python
@@ -51,7 +52,6 @@ __optional_dependencies__ = {
 
     'presto': [
         'pyhive[presto]>=0.4',  # Primary client
-        'werkzeug',  # Schema traversal
     ],
 
     'pyspark': [

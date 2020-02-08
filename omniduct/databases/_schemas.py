@@ -66,7 +66,7 @@ class SchemasMixin(object):
         object: An object with attributes corresponding to the names of the schemas
             in this database.
         """
-        from werkzeug import LocalProxy
+        from lazy_object_proxy import Proxy
 
         def get_schemas():
             if not getattr(self, '_schemas', None):
@@ -76,7 +76,7 @@ class SchemasMixin(object):
                 )
                 self._schemas = Schemas(self._sqlalchemy_metadata)
             return self._schemas
-        return LocalProxy(get_schemas)
+        return Proxy(get_schemas)
 
 
 # Extend Table to support returning pandas description of table
