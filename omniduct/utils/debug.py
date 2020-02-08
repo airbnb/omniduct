@@ -195,7 +195,10 @@ def detect_scopes():
     seen = set()
     for scope in scopes[::-1]:
         if scope not in seen:
-            out_scopes.append(scope if isinstance(scope, six.string_types) else (scope.name or scope.__class__.__name__))
+            out_scopes.append(
+                scope
+                if isinstance(scope, six.string_types) else
+                (getattr(scope, "LOGGING_SCOPE", None) or getattr(scope, "name", None) or scope.__class__.__name__))
             seen.add(scope)
     return out_scopes
 
