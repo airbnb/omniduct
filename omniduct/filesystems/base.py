@@ -787,9 +787,9 @@ class FileSystemFile(object):
     def mode(self, mode):
         try:
             assert len(set(mode)) == len(mode)
-            assert sum(l in mode for l in ['r', 'w', 'a', '+', 't', 'b']) == len(mode)
-            assert sum(l in mode for l in ['r', 'w', 'a']) == 1
-            assert sum(l in mode for l in ['t', 'b']) < 2
+            assert sum(opt in mode for opt in ['r', 'w', 'a', '+', 't', 'b']) == len(mode)
+            assert sum(opt in mode for opt in ['r', 'w', 'a']) == 1
+            assert sum(opt in mode for opt in ['t', 'b']) < 2
         except AssertionError:
             raise ValueError("invalid mode: '{}'".format(mode))
         self.__mode = mode

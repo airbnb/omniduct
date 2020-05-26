@@ -77,5 +77,5 @@ def naive_load_balancer(hosts, port):
     raise RuntimeError(
         "Unable to connect to any of the hosts associated with this service. "
         "This may be due to networking issues, such as not being connected to "
-        "the internet or your company's VPN.".format(host)
+        "the internet or your company's VPN."
     )

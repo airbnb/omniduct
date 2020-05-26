@@ -32,7 +32,7 @@ class TreeProxy:
             if not isinstance(self.__tree__[name], TreeProxy):
                 return TreeProxy._for_tree(self.__tree__[name], name=self.__name_of_child(name))
             return self.__tree__[name]
-        raise KeyError('Invalid child node.'.format(name))
+        raise KeyError('Invalid child node `{node_name}`.'.format(node_name=name))
 
     def __iter__(self):
         return iter(self.__tree__)
@@ -44,7 +44,7 @@ class TreeProxy:
         try:
             return self[name]
         except KeyError:
-            raise AttributeError('Invalid child node.'.format(name))
+            raise AttributeError('Invalid child node `{node_name}`.'.format(node_name=name))
 
     def __dir__(self):
         return list(self.__tree__)

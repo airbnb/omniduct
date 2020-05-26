@@ -72,7 +72,7 @@ class SchemasMixin(object):
             if not getattr(self, '_schemas', None):
                 assert getattr(self, '_sqlalchemy_metadata', None) is not None, (
                     "`{class_name}` instances do not provide the required sqlalchemy metadata "
-                    "for schema exploration.".format(self.__class__.__name__)
+                    "for schema exploration.".format(class_name=self.__class__.__name__)
                 )
                 self._schemas = Schemas(self._sqlalchemy_metadata)
             return self._schemas
