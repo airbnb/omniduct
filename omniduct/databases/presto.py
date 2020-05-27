@@ -144,7 +144,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                 splt = statement.splitlines()
                 splt[linenumber] += '   <--  {errorType} ({errorName}) occurred. {message} '.format(**message)
                 context = '\n\n[Error Context]\n{}\n'.format('\n'.join([splt[ln] for ln in range(max(linenumber - 1, 0),
-                                                                                               min(linenumber + 2, len(splt)))]))
+                                                                                                 min(linenumber + 2, len(splt)))]))
 
                 class ErrContext(object):
 
