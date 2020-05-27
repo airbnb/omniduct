@@ -2,7 +2,8 @@ language: python
 python:
   - "2.7"
   - "3.6"
-  # - "3.7"  # Not currently implemented in tox / travis
+  - "3.7"
+  - "3.8"
 
 before_install:
   - pip install flake8 wheel tox-travis
