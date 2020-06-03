@@ -84,7 +84,7 @@ class StatusLogger(object):
             print("\t" * len(self.__scopes) + "Exited manual scope: {}".format(scope['name']), file=sys.stderr)
         elif 'has_logged' in scope:
             if len(self.__scopes) != 0:
-                self.current_scope_props['has_logged'] = self.current_scope_props.get('has_logged') or props['has_logged']
+                self.current_scope_props['has_logged'] = self.current_scope_props.get('has_logged') or props.get('has_logged', False)
 
     def __get_time(self, seconds):
         m, s = divmod(seconds, 60)
