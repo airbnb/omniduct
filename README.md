@@ -19,3 +19,6 @@ It provides:
 - Automatic port forwarding of remote services over SSH where connections cannot be made directly.
 - Convenient IPython magic functions for interfacing with data providers from within IPython and Jupyter Notebook sessions.
 - Utility classes and methods to assist in maintaining registries of useful services.
+
+**Note:** Omniduct 1.1.x is the last version series to support Python 2. Going
+forward it will support Python 3.6+.
