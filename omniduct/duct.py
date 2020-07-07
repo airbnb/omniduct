@@ -228,8 +228,8 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
     def __setattr__(self, key, value):
         try:
-            if (getattr(self, '_Duct__prepared', False)
-                    and getattr(self, 'connection_fields', None)
+            if (object.__getattribute__(self, '_Duct__prepared')
+                    and object.__getattribute__(self, 'connection_fields')
                     and key in self.connection_fields
                     and self.is_connected()):
                 logger.warn('Disconnecting prior to changing field that connection is based on: {}.'.format(key))
