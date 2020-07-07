@@ -16,7 +16,7 @@ __dependencies__ = [
     "future",  # Python 2/3 support
     "six",  # Python 2/3 support
 
-    "interface_meta>=1.1.0,<1.2",  # Metaclass for creating an extensible well-documented architecture
+    "interface_meta>=1.1.0,<1.3",  # Metaclass for creating an extensible well-documented architecture
     "pyyaml",  # YAML configuration parsing
     "decorator",  # Decorators used by caching and documentation routines
     "progressbar2>=3.30.0",  # Support for progressbars in logging routines
