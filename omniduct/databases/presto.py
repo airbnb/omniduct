@@ -228,6 +228,13 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         return self.query("DESCRIBE {0}".format(table), **kwargs)
 
     @override
+    def _table_partition_cols(self, table, **kwargs):
+        desc = self._table_desc(table, **kwargs)
+        if 'Extra' in desc:
+            return list(desc[desc['Extra'].str.contains('partition key')]['Column'])
+        return []
+
+    @override
     def _table_head(self, table, n=10, **kwargs):
         return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
 

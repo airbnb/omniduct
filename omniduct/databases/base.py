@@ -807,6 +807,28 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_desc(self, table, **kwargs):
         pass
 
+    @quirk_docs('_table_partition_cols')
+    def table_partition_cols(self, table, renew=True, **kwargs):
+        """
+        Extract the columns by which a table is partitioned (if database supports partitions).
+
+        Args:
+            table (str): The table from which to extract data.
+            renew (bool): Whether to renew the results (default: True).
+            **kwargs (dict): Additional arguments passed through to implementation.
+
+        Returns:
+            list<str>: A list of columns by which table is partitioned.
+        """
+        return self._table_partition_cols(table=self._parse_namespaces(table), renew=renew, **kwargs)
+
+    def _table_partition_cols(self, table, **kwargs):
+        raise NotImplementedError(
+            "Database backend `{}` does not support, or has not implemented, "
+            "support for extracting partition columns."
+            .format(self.__class__.__name__)
+        )
+
     @quirk_docs('_table_head')
     def table_head(self, table, n=10, renew=True, **kwargs):
         """
