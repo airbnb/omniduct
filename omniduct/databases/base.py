@@ -795,6 +795,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
         Args:
             table (str): The table to describe.
+            renew (bool): Whether to renew the results (default: True).
             **kwargs (dict): Additional arguments passed through to implementation.
 
         Returns:
