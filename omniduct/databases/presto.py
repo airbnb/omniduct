@@ -49,7 +49,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         }
 
     @override
-    def _init(self, catalog='default', schema='default', server_protocol='http', source=None):
+    def _init(self, catalog='default', schema='default', server_protocol='http', source=None, **connection_options):
         """
         catalog (str): The default catalog to use in database queries.
         schema (str): The default schema/database to use in database queries.
@@ -64,6 +64,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self.source = source
         self.__presto = None
         self.connection_fields += ('catalog', 'schema')
+        self.connection_options = connection_options
 
     @property
     def source(self):
@@ -115,7 +116,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             cursor = cursor or presto.Cursor(
                 host=self.host, port=self.port, username=self.username, password=self.password,
                 catalog=self.catalog, schema=self.schema, session_props=session_properties,
-                poll_interval=1, source=self.source, protocol=self.server_protocol
+                poll_interval=1, source=self.source, protocol=self.server_protocol, **self.connection_options
             )
             cursor.execute(statement)
             status = cursor.poll()
