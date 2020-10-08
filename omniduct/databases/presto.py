@@ -57,7 +57,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             service ('http' or 'https'). (default='http')
         source (str): The source of this query (by default "omniduct <version>").
             If manually specified, result will be: "<source> / omniduct <version>".
-        requests_session (requests.Session): an optional ``requests.Session`` object for advanced usage.
+        requests_session (requests.Session): an optional requests.Session object for advanced usage.
             Passed through to the pyhive Cursor which supports custom requests sessions for advanced usage
             such as custom headers, cookie values, retry logic, etc.
         """
@@ -67,7 +67,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self.source = source
         self.__presto = None
         self.connection_fields += ('catalog', 'schema')
-        self.requests_session = requests_session
+        self._requests_session = requests_session
 
     @property
     def source(self):
@@ -120,7 +120,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                 host=self.host, port=self.port, username=self.username, password=self.password,
                 catalog=self.catalog, schema=self.schema, session_props=session_properties,
                 poll_interval=1, source=self.source, protocol=self.server_protocol,
-                requests_session=self.requests_session
+                requests_session=self._requests_session
             )
             cursor.execute(statement)
             status = cursor.poll()
