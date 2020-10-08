@@ -57,6 +57,9 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             service ('http' or 'https'). (default='http')
         source (str): The source of this query (by default "omniduct <version>").
             If manually specified, result will be: "<source> / omniduct <version>".
+        requests_session (requests.Session): an optional ``requests.Session`` object for advanced usage.
+            Passed through to the pyhive Cursor which supports custom requests sessions for advanced usage
+            such as custom headers, cookie values, retry logic, etc.
         """
         self.catalog = catalog
         self.schema = schema
