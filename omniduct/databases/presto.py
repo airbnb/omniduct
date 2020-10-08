@@ -116,7 +116,8 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             cursor = cursor or presto.Cursor(
                 host=self.host, port=self.port, username=self.username, password=self.password,
                 catalog=self.catalog, schema=self.schema, session_props=session_properties,
-                poll_interval=1, source=self.source, protocol=self.server_protocol, requests_session=self.requests_session
+                poll_interval=1, source=self.source, protocol=self.server_protocol,
+                requests_session=self.requests_session
             )
             cursor.execute(statement)
             status = cursor.poll()
