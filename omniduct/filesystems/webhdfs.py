@@ -56,8 +56,8 @@ class WebHdfsClient(FileSystemClient):
                 return random.choice(duct.namenodes)
 
             self._host = partial(get_host_and_set_namenodes, cluster=auto_conf_cluster, conf_path=auto_conf_path)
-        else:
-            self._host = self.namenodes
+        elif not self._host and namenodes:
+            self._host = random.choice(self.namenodes)
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
