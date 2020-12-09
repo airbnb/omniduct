@@ -111,9 +111,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     is not installed. Please either install the pyhive package,
                     or reconfigure this Duct to use the 'impyla' driver.
                     """)
-            self.__hive = pyhive.hive.connect(host=self.host,
-                                              port=self.port,
-                                              auth=self.auth_mechanism,
+            self.__hive = pyhive.hive.connect(host=None if self._thrift_transport else self.host,
+                                              port=None if self._thrift_transport else self.port,
+                                              auth=None if self._thrift_transport else self.auth_mechanism,
                                               database=self.schema,
                                               username=self.username,
                                               password=self.password,
