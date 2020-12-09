@@ -116,7 +116,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                                               auth=None if self._thrift_transport else self.auth_mechanism,
                                               database=self.schema,
                                               username=self.username,
-                                              password=self.password,
+                                              password=None if self._thrift_transport else self.password,
                                               thrift_transport=self._thrift_transport,
                                               **self.connection_options)
             self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
