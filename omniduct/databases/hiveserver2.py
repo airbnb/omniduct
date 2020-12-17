@@ -61,7 +61,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     @override
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
-              push_using_hive_cli=False, default_table_props=None, **connection_options):
+              push_using_hive_cli=False, default_table_props=None,
+              thrift_transport=None, **connection_options
+              ):
         """
         schema (str, None): The default database/schema to use for queries (will
             default to server-default if not specified).
@@ -79,6 +81,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             support the `INSERT` statement. False by default.
         default_table_props (dict): A dictionary of table properties to use by
             default when creating tables (default is an empty dict).
+        thrift_transport (TTransportBase): A thrift transport object for custom advanced usage.
+            Incompatible with host, port, auth_mechanism, and password.
+            Typically used to enable Thrift http transport to hiveserver2.
         **connection_options (dict): Additional options to pass through to the
             `.connect()` methods of the drivers.
         """
@@ -88,6 +93,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self.connection_options = connection_options
         self.push_using_hive_cli = push_using_hive_cli
         self.default_table_props = default_table_props or {}
+        self._thrift_transport = thrift_transport
         self.__hive = None
         self.connection_fields += ('schema',)
 
@@ -105,12 +111,13 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     is not installed. Please either install the pyhive package,
                     or reconfigure this Duct to use the 'impyla' driver.
                     """)
-            self.__hive = pyhive.hive.connect(host=self.host,
-                                              port=self.port,
-                                              auth=self.auth_mechanism,
+            self.__hive = pyhive.hive.connect(host=None if self._thrift_transport else self.host,
+                                              port=None if self._thrift_transport else self.port,
+                                              auth=None if self._thrift_transport else self.auth_mechanism,
                                               database=self.schema,
                                               username=self.username,
-                                              password=self.password,
+                                              password=None if self._thrift_transport else self.password,
+                                              thrift_transport=self._thrift_transport,
                                               **self.connection_options)
             self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
