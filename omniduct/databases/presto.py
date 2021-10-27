@@ -48,6 +48,13 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             'schema': self.schema
         }
 
+    @property
+    @override
+    def NAMESPACE_DEFAULTS_WRITE(self):
+        defaults = self.NAMESPACE_DEFAULTS_READ.copy()
+        defaults['schema'] = self.username
+        return defaults
+
     @override
     def _init(self, catalog='default', schema='default', server_protocol='http', source=None, requests_session=None):
         """
@@ -192,7 +199,6 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         defaulted to your username. Catalog overrides will be ignored, and will
         default to `self.catalog`.
         """
-        table = self._parse_namespaces(table, defaults={'schema': self.username})
         return _pandas.to_sql(
             df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
             index=False, if_exists=if_exists, **kwargs

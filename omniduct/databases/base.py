@@ -78,9 +78,21 @@ class DatabaseClient(Duct, MagicsProvider):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+    NAMESPACE_DEFAULT = None  # DEPRECATED (use NAMESPACE_DEFAULTS_READ instead): Will be removed in Omniduct 2.0.0
+
     @property
-    def NAMESPACE_DEFAULT(self):
-        pass
+    def NAMESPACE_DEFAULTS_READ(self):
+        """
+        Backwards compatible shim for `NAMESPACE_DEFAULTS`.
+        """
+        return self.NAMESPACE_DEFAULT
+
+    @property
+    def NAMESPACE_DEFAULTS_WRITE(self):
+        """
+        Unless overridden, this is the same as `NAMESPACE_DEFAULTS_READ`.
+        """
+        return self.NAMESPACE_DEFAULTS_READ
 
     @quirk_docs('_init', mro=True)
     def __init__(
@@ -682,7 +694,7 @@ class DatabaseClient(Duct, MagicsProvider):
             DB-API cursor: The cursor object associated with the execution.
         """
         assert if_exists in {'fail', 'replace', 'append'}
-        table = self._parse_namespaces(table)
+        table = self._parse_namespaces(table, write=True)
         return self._query_to_table(statement, table, if_exists=if_exists, **kwargs)
 
     @logging_scope('Dataframe Upload', timed=True)
@@ -704,7 +716,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 `DatabaseClient._dataframe_to_table`.
         """
         assert if_exists in {'fail', 'replace', 'append'}
-        self._dataframe_to_table(df, self._parse_namespaces(table), if_exists=if_exists, **kwargs)
+        self._dataframe_to_table(df, self._parse_namespaces(table, write=True), if_exists=if_exists, **kwargs)
 
     # Table properties
 
@@ -721,13 +733,13 @@ class DatabaseClient(Duct, MagicsProvider):
     def _cursor_empty(self, cursor):
         return cursor is None
 
-    def _parse_namespaces(self, name, level=0, defaults=None):
+    def _parse_namespaces(self, name, level=0, defaults=None, write=False):
         return ParsedNamespaces.from_name(
             name,
             self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
             quote_char=self.NAMESPACE_QUOTECHAR,
             separator=self.NAMESPACE_SEPARATOR,
-            defaults=self.NAMESPACE_DEFAULT if defaults is None else defaults
+            defaults=defaults if defaults else (self.NAMESPACE_DEFAULTS_WRITE if write else self.NAMESPACE_DEFAULTS_READ),
         )
 
     @quirk_docs('_table_list')
@@ -782,7 +794,7 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             DB-API cursor: The cursor associated with this execution.
         """
-        return self._table_drop(table=self._parse_namespaces(table), **kwargs)
+        return self._table_drop(table=self._parse_namespaces(table, write=True), **kwargs)
 
     @abstractmethod
     def _table_drop(self, table, **kwargs):
