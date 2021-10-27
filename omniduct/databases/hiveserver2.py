@@ -62,10 +62,9 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     @property
     @override
     def NAMESPACE_DEFAULTS_WRITE(self):
-        return {
-            **self.NAMESPACE_DEFAULTS_READ,
-            'schema': self.username
-        }
+        defaults = self.NAMESPACE_DEFAULTS_READ.copy()
+        defaults['schema'] = self.username
+        return defaults
 
     @override
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',

@@ -40,7 +40,6 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
-
     @property
     @override
     def NAMESPACE_DEFAULT(self):
@@ -52,10 +51,9 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     @property
     @override
     def NAMESPACE_DEFAULTS_WRITE(self):
-        return {
-            **self.NAMESPACE_DEFAULTS_READ,
-            'schema': self.username
-        }
+        defaults = self.NAMESPACE_DEFAULTS_READ.copy()
+        defaults['schema'] = self.username
+        return defaults
 
     @override
     def _init(self, catalog='default', schema='default', server_protocol='http', source=None, requests_session=None):
