@@ -40,12 +40,21 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     NAMESPACE_QUOTECHAR = '"'
     NAMESPACE_SEPARATOR = '.'
 
+
     @property
     @override
     def NAMESPACE_DEFAULT(self):
         return {
             'catalog': self.catalog,
             'schema': self.schema
+        }
+
+    @property
+    @override
+    def NAMESPACE_DEFAULTS_WRITE(self):
+        return {
+            **self.NAMESPACE_DEFAULTS_READ,
+            'schema': self.username
         }
 
     @override
@@ -192,7 +201,6 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         defaulted to your username. Catalog overrides will be ignored, and will
         default to `self.catalog`.
         """
-        table = self._parse_namespaces(table, defaults={'schema': self.username})
         return _pandas.to_sql(
             df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
             index=False, if_exists=if_exists, **kwargs

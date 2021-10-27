@@ -59,6 +59,14 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             'schema': self.schema
         }
 
+    @property
+    @override
+    def NAMESPACE_DEFAULTS_WRITE(self):
+        return {
+            **self.NAMESPACE_DEFAULTS_READ,
+            'schema': self.username
+        }
+
     @override
     def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
               push_using_hive_cli=False, default_table_props=None,
@@ -297,7 +305,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             dtype_overrides (dict): Mapping of column names to Hive datatypes to
                 use instead of default mapping.
         """
-        table = self._parse_namespaces(table, defaults={'schema': self.username})
         use_hive_cli = use_hive_cli or self.push_using_hive_cli
         partition = partition or {}
         table_props = table_props or {}
