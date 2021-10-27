@@ -1,11 +1,9 @@
 import datetime
 import functools
-import sys
 from abc import abstractmethod
 
 import dateutil
 import pandas
-import six
 import yaml
 from decorator import decorator
 from interface_meta import quirk_docs
@@ -96,7 +94,7 @@ def cached_method(
             except:
                 logger.warning("Failed to retrieve results from cache. Renewing the cache...")
                 if config.cache_fail_hard:
-                    six.reraise(*sys.exc_info())
+                    raise
             finally:
                 logger.caveat('Loaded from cache')
 
@@ -124,7 +122,7 @@ def cached_method(
         except:
             logger.warning("Failed to save results to cache. If needed, please save them manually.")
             if config.cache_fail_hard:
-                six.reraise(*sys.exc_info())
+                raise
             return value  # As a last resort, return value object (which could be mutated by serialization).
 
     return wrapped
@@ -170,7 +168,7 @@ class Cache(Duct):
             self.set_metadata(key, metadata, namespace=namespace, replace=True)
         except:
             self.unset(key, namespace=namespace)
-            six.reraise(*sys.exc_info())
+            raise
 
     @require_connection
     def set_metadata(self, key, metadata, namespace=None, replace=False):

@@ -6,9 +6,7 @@ import sys
 import time
 
 import progressbar
-import six
 from decorator import decorate
-from future.utils import raise_with_traceback
 
 from .config import config
 
@@ -197,7 +195,7 @@ def detect_scopes():
         if scope not in seen:
             out_scopes.append(
                 scope
-                if isinstance(scope, six.string_types) else
+                if isinstance(scope, str) else
                 (getattr(scope, "LOGGING_SCOPE", None) or getattr(scope, "name", None) or scope.__class__.__name__))
             seen.add(scope)
     return out_scopes
@@ -270,9 +268,9 @@ def logging_scope(name, *wargs, **wkwargs):
         try:
             f = func(*args, **kwargs)
             return f
-        except Exception as e:
+        except Exception:
             success = False
-            raise_with_traceback(e)
+            raise
         finally:
             logger._scope_exit(success)
     return lambda func: decorate(func, logging_scope)

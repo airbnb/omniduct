@@ -1,8 +1,8 @@
+import http
 import json
 import xml.dom.minidom
 
 import requests
-from six.moves import http_client
 
 from pywebhdfs import errors
 from pywebhdfs.webhdfs import (PyWebHdfsClient, _is_standby_exception,
@@ -88,12 +88,12 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
                                         timeout=self.timeout,
                                         **self.request_extra_opts)
 
-                    if allow_redirect and response.status_code == http_client.TEMPORARY_REDIRECT:
+                    if allow_redirect and response.status_code == http.client.TEMPORARY_REDIRECT:
                         uri = self._make_uri_local(response.headers['location'])
                     else:
                         break
 
-                if not allow_redirect and response.status_code == http_client.TEMPORARY_REDIRECT:
+                if not allow_redirect and response.status_code == http.client.TEMPORARY_REDIRECT:
                     response.headers['location'] = self._make_uri_local(response.headers['location'])
 
                 if not _is_standby_exception(response):

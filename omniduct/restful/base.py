@@ -1,6 +1,6 @@
 import json
+from urllib.parse import urljoin
 
-from future.moves.urllib.parse import urljoin
 from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct

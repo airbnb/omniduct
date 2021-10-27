@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractmethod
 
-from future.utils import with_metaclass
-
 from interface_meta import quirk_docs
 
 
@@ -47,7 +45,7 @@ def _process_line_arguments(line_arguments):
     return args, kwargs
 
 
-class MagicsProvider(with_metaclass(ABCMeta, object)):
+class MagicsProvider(metaclass=ABCMeta):
 
     @quirk_docs('_register_magics')
     def register_magics(self, base_name=None):

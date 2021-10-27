@@ -1,6 +1,5 @@
 import csv
 import io
-import six
 
 from omniduct.utils.debug import logger
 
@@ -193,7 +192,7 @@ class CsvCursorFormatter(CursorFormatter):
     }
 
     def _init(self, include_header=True):
-        self.output = io.StringIO() if six.PY3 else io.BytesIO()
+        self.output = io.StringIO()
         self.include_header = include_header
         self.writer = csv.writer(self.output, **self.FORMAT_PARAMS)
 

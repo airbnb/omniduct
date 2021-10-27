@@ -1,16 +1,10 @@
 import inspect
-import sys
 
 import decorator
-import six
-from future.utils import raise_with_traceback
 
 
 def function_args_as_kwargs(func, *args, **kwargs):
-    if six.PY3 and not hasattr(sys, 'pypy_version_info'):
-        arguments = inspect.signature(func).parameters.keys()
-    else:
-        arguments = inspect.getargspec(func).args
+    arguments = inspect.signature(func).parameters.keys()
     kwargs.update(dict(zip(list(arguments), args)))
     return kwargs
 
@@ -27,7 +21,7 @@ def require_connection(f, self, *args, **kwargs):
 
     try:
         return f(self, *args, **kwargs)
-    except Exception as e:
+    except Exception:
         # Check to see if it is possible that we failed due to connection issues.
         # If so, try again once more. If we fail again, raise.
         # TODO: Explore adding a DuctConnectionError class and filter this
@@ -35,4 +29,4 @@ def require_connection(f, self, *args, **kwargs):
         if not self.is_connected():
             self.connect()
             return f(self, *args, **kwargs)
-        raise_with_traceback(e)
+        raise

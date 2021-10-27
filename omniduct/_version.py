@@ -1,5 +1,4 @@
 import os
-import sys
 
 __all__ = ['__author__', '__author_email__', '__version__', '__logo__', '__docs_url__']
 
@@ -13,9 +12,6 @@ __docs_url__ = "https://omniduct.readthedocs.io/"
 # These are the core dependencies, and should not include those which are used only in handling specific protocols.
 # Order matters since installation happens from the end of the list
 __dependencies__ = [
-    "future",  # Python 2/3 support
-    "six",  # Python 2/3 support
-
     "interface_meta>=1.1.0,<1.3",  # Metaclass for creating an extensible well-documented architecture
     "pyyaml",  # YAML configuration parsing
     "decorator",  # Decorators used by caching and documentation routines
@@ -32,12 +28,6 @@ __dependencies__ = [
     "python-dateutil",  # Used for its `relativedelta` class for Cache instances
     "lazy-object-proxy",  # Schema traversal
 ]
-if sys.version_info.major < 3 or sys.version_info.major == 3 and sys.version_info.minor < 4:
-    __dependencies__.append("enum34")  # Python 3.4+ style enums in older versions of python
-
-PY2 = sys.version_info[0] == 2
-if os.name == 'posix' and PY2:
-    __dependencies__.append('subprocess32')  # Python 3.2+ subprocess handling for Python 2
 
 __optional_dependencies__ = {
     # Databases
@@ -62,7 +52,7 @@ __optional_dependencies__ = {
         'snowflake-sqlalchemy',
     ],
 
-    'exasol': ['pyexasol'] if sys.version_info.major > 2 else [],
+    'exasol': ['pyexasol'],
 
     # Filesystems
     'webhdfs': [

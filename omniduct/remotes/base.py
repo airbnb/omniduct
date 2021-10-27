@@ -2,9 +2,7 @@ import getpass
 import re
 from abc import abstractmethod
 
-import six
 from interface_meta import quirk_docs, override
-from future.utils import raise_with_traceback
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
@@ -157,13 +155,11 @@ class RemoteClient(FileSystemClient):
         """
         try:
             Duct.connect(self)
-        except DuctServerUnreachable as e:
-            raise_with_traceback(e)
-        except DuctAuthenticationError as e:
+        except DuctAuthenticationError:
             if self.smartcards and self.prepare_smartcards():
                 Duct.connect(self)
             else:
-                raise_with_traceback(e)
+                raise
         return self
 
     def prepare_smartcards(self):
@@ -232,7 +228,7 @@ class RemoteClient(FileSystemClient):
     # Port forwarding code
 
     def _extract_host_and_ports(self, remote_host, remote_port, local_port):
-        assert remote_host is None or isinstance(remote_host, six.string_types), "Remote host, if specified, must be a string of form 'hostname(:port)'."
+        assert remote_host is None or isinstance(remote_host, str), "Remote host, if specified, must be a string of form 'hostname(:port)'."
         assert remote_port is None or isinstance(remote_port, int), "Remote port, if specified, must be an integer."
         assert local_port is None or isinstance(local_port, int), "Local port, if specified, must be an integer."
 

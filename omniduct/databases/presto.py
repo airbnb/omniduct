@@ -6,9 +6,7 @@ import re
 import sys
 
 import pandas.io.sql
-import six
 from interface_meta import override
-from future.utils import raise_with_traceback
 
 from omniduct.utils.debug import logger
 
@@ -142,7 +140,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
             try:
                 message = e.args[0]
-                if isinstance(message, six.string_types):
+                if isinstance(message, str):
                     message = ast.literal_eval(re.match("[^{]*({.*})[^}]*$", message).group(1))
 
                 linenumber = message['errorLocation']['lineNumber'] - 1
@@ -166,7 +164,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             if isinstance(exception, type):
                 exception = exception(exception_args)
 
-            raise_with_traceback(exception, traceback)
+            raise exception.with_traceback(traceback)
 
     @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):

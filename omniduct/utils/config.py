@@ -5,8 +5,6 @@ import logging
 import os
 import sys
 
-import six
-
 
 def ensure_path_exists(path):
     path = os.path.expanduser(path)
@@ -260,7 +258,7 @@ class Configuration(ConfigurationRegistry):
         config.update(self.__restrict_keys(self._config, keys))
         with io.open(filename, 'w') as f:
             json_config = json.dumps(config, ensure_ascii=False, indent=4)
-            if sys.version_info.major == 2 and isinstance(json_config, six.string_types):
+            if sys.version_info.major == 2 and isinstance(json_config, str):
                 json_config = json_config.decode("utf-8")
             f.write(json_config)
 

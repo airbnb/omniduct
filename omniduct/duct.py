@@ -9,8 +9,6 @@ from abc import abstractmethod
 from builtins import input
 from enum import Enum
 
-import six
-from future.utils import raise_with_traceback, with_metaclass
 from interface_meta import InterfaceMeta, quirk_docs
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
@@ -19,7 +17,7 @@ from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
 
 
-class Duct(with_metaclass(InterfaceMeta, object)):
+class Duct(metaclass=InterfaceMeta):
     """
     The abstract base class for all protocol implementations.
 
@@ -197,11 +195,8 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 and '__init__' in parent.__dict__
         ]):
             self._Duct__inited_using_kwargs[cls_parent] = True
-            if six.PY3:
-                argspec = inspect.getfullargspec(cls_parent.__init__)
-                keys = argspec.args[1:] + argspec.kwonlyargs
-            else:
-                keys = inspect.getargspec(cls_parent.__init__).args[1:]
+            argspec = inspect.getfullargspec(cls_parent.__init__)
+            keys = argspec.args[1:] + argspec.kwonlyargs
             params = {}
             for key in keys:
                 if key in kwargs:
@@ -221,9 +216,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 object.__setattr__(self, '_Duct__getting', False)
         except AttributeError:
             pass
-        except Exception as e:
+        except Exception:
             object.__setattr__(self, '_Duct__getting', False)
-            raise_with_traceback(e)
+            raise
         return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
@@ -284,10 +279,10 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
         # If registry is present, lookup remotes and caches if necessary
         if self.registry is not None:
-            if self.remote and isinstance(self.remote, six.string_types):
+            if self.remote and isinstance(self.remote, str):
                 self.__prepreparation_values['remote'] = self.remote
                 self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
-            if self.cache and isinstance(self.cache, six.string_types):
+            if self.cache and isinstance(self.cache, str):
                 self.__prepreparation_values['cache'] = self.cache
                 self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
 
@@ -464,9 +459,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         if not self.is_connected():
             try:
                 self._connect()
-            except Exception as e:
+            except Exception:
                 self.reset()
-                raise_with_traceback(e)
+                raise
         self.__connected = True
         if self.host:
             logger.info(
