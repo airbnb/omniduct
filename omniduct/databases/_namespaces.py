@@ -2,7 +2,7 @@ import re
 from collections import OrderedDict
 
 
-class ParsedNamespaces:
+class ParsedNamespaces(object):
     """
     A namespace parser for DatabaseClient subclasses.
 
