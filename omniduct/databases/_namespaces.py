@@ -2,7 +2,7 @@ import re
 from collections import OrderedDict
 
 
-class ParsedNamespaces:
+class ParsedNamespaces(object):
     """
     A namespace parser for DatabaseClient subclasses.
 
@@ -99,14 +99,20 @@ class ParsedNamespaces:
                 for namespace in namespaces
             )
 
-        self.__names = names
-        self.__quote_char = quote_char
-        self.__separator = separator
+        self._names = names
+        self._quote_char = quote_char
+        self._separator = separator
 
     def __getattr__(self, name):
-        if name in self.__names:
-            return self.__names[name]
+        if '_names' in self.__dict__ and name in self._names:
+            return self._names[name]
         raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        if '_names' in self.__dict__ and name in self._names:
+            self._names[name] = value
+        else:
+            super(ParsedNamespaces, self).__setattr__(name, value)
 
     def __bool__(self):
         return bool(self.name)
@@ -117,7 +123,7 @@ class ParsedNamespaces:
     @property
     def namespaces(self):
         """list<str> The namespaces parsed in order of most to least specific."""
-        return list(self.__names)
+        return list(self._names)
 
     @property
     def name(self):
@@ -127,27 +133,27 @@ class ParsedNamespaces:
     @property
     def parent(self):
         """ParsedNamespaces: An instance of `ParsedNamespaces` with the most specific namespace truncated."""
-        names = self.__names.copy()
+        names = self._names.copy()
         names.popitem()
         return ParsedNamespaces(
             names=names,
-            quote_char=self.__quote_char,
-            separator=self.__separator
+            quote_char=self._quote_char,
+            separator=self._separator
         )
 
     def as_dict(self):
         """dict: Returns the parsed namespaces as an OrderedDict from most to least general."""
-        return self.__names
+        return self._names
 
     def render(self, quote_char=None, separator=None):
         if quote_char is None:
-            quote_char = self.__quote_char
+            quote_char = self._quote_char
         if separator is None:
-            separator = self.__separator
+            separator = self._separator
 
         names = [
-            self.__names[namespace]
-            for namespace, name in self.__names.items()
+            self._names[namespace]
+            for namespace, name in self._names.items()
             if name
         ]
         if len(names) == 0:
