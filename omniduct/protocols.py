@@ -1,4 +1,4 @@
-# flake8: noqa
+    # flake8: noqa
 
 # Omniduct's automatic registration of Duct protocols requires that the subclass
 # implementation be loaded into memory. Any protocol that should be enabled by
@@ -18,3 +18,4 @@ from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
 from .remotes.ssh_paramiko import ParamikoSSHClient
 from .restful.base import RestClient
+from .filesystems.azure_data_lake import AzureDataLakeClient
