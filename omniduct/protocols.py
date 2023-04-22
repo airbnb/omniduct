@@ -18,3 +18,4 @@ from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
 from .remotes.ssh_paramiko import ParamikoSSHClient
 from .restful.base import RestClient
+from .filesystems.azure_data_lake import AzureDataLakeClient
