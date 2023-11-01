@@ -35,7 +35,7 @@ class OmniductFileSystem(FileSystem):
         return self.fs.mkdir(_stringify_path(path), recursive=create_parents)
 
     @implements(FileSystem.open)
-    def open(self, path, mode='rb'):
+    def open(self, path, mode="rb"):
         return self.fs.open(_stringify_path(path), mode=mode)
 
     @implements(FileSystem.ls)

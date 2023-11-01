@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractmethod
 
-from future.utils import with_metaclass
-
 from interface_meta import quirk_docs
 
 
@@ -12,6 +10,7 @@ def process_line_arguments(f):
         args += new_args
         kwargs.update(new_kwargs)
         return f(*args, **kwargs)
+
     return wrapped
 
 
@@ -24,32 +23,33 @@ def process_line_cell_arguments(f):
         args += new_args
         kwargs.update(new_kwargs)
         return f(*args, **kwargs)
+
     return wrapped
 
 
 def _process_line_arguments(line_arguments):
     from IPython import get_ipython
+
     args = []
     kwargs = {}
     reached_kwargs = False
     for arg in line_arguments.split():
-        if '=' in arg:
+        if "=" in arg:
             reached_kwargs = True
-            key, value = arg.split('=')
+            key, value = arg.split("=")
             value = eval(value, get_ipython().user_ns)
             if key in kwargs:
-                raise ValueError('Duplicate keyword argument `{}`.'.format(key))
+                raise ValueError(f"Duplicate keyword argument `{key}`.")
             kwargs[key] = value
         else:
             if reached_kwargs:
-                raise ValueError('Positional argument `{}` after keyword argument.'.format(arg))
+                raise ValueError(f"Positional argument `{arg}` after keyword argument.")
             args.append(arg)
     return args, kwargs
 
 
-class MagicsProvider(with_metaclass(ABCMeta, object)):
-
-    @quirk_docs('_register_magics')
+class MagicsProvider(metaclass=ABCMeta):
+    @quirk_docs("_register_magics")
     def register_magics(self, base_name=None):
         base_name = base_name or self.name
         if base_name is None:
@@ -57,10 +57,11 @@ class MagicsProvider(with_metaclass(ABCMeta, object)):
 
         try:
             from IPython import get_ipython
+
             ip = get_ipython()
             assert ip is not None
             has_ipython = True
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             has_ipython = False
 
         if has_ipython:

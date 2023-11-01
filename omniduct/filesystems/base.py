@@ -23,8 +23,10 @@ class FileSystemClient(Duct, MagicsProvider):
     DUCT_TYPE = Duct.Type.FILESYSTEM
     DEFAULT_PORT = None
 
-    @quirk_docs('_init', mro=True)
-    def __init__(self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs):
+    @quirk_docs("_init", mro=True)
+    def __init__(  # pylint: disable=super-init-not-called
+        self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs
+    ):
         """
         cwd (None, str): The path prefix to use as the current working directory
             (if None, the user's home directory is used where that makes sense).
@@ -51,7 +53,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # Path properties and helpers
 
     @property
-    @quirk_docs('_path_home')
+    @quirk_docs("_path_home")
     @require_connection
     def path_home(self):
         """
@@ -69,7 +71,9 @@ class FileSystemClient(Duct, MagicsProvider):
     @path_home.setter
     def path_home(self, path_home):
         if path_home is not None and not path_home.startswith(self.path_separator):
-            raise ValueError("The home path must be absolute. Received: '{}'.".format(path_home))
+            raise ValueError(
+                f"The home path must be absolute. Received: '{path_home}'."
+            )
         self.__path_home = path_home
 
     @abstractmethod
@@ -92,7 +96,7 @@ class FileSystemClient(Duct, MagicsProvider):
         self._path_cwd = path_cwd
 
     @property
-    @quirk_docs('_path_separator')
+    @quirk_docs("_path_separator")
     def path_separator(self):
         """
         str: The character(s) to use in separating path components. Typically
@@ -124,12 +128,12 @@ class FileSystemClient(Duct, MagicsProvider):
             in order, to the base path.
         """
         for component in components:
-            if component.startswith('~'):
+            if component.startswith("~"):
                 path = self.path_home + component[1:]
             elif component.startswith(self.path_separator):
                 path = component
             else:
-                path = '{}{}{}'.format(path, self.path_separator if not path.endswith(self.path_separator) else '', component)
+                path = f"{path}{self.path_separator if not path.endswith(self.path_separator) else ''}{component}"
         return path
 
     def path_basename(self, path):
@@ -163,7 +167,9 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             str: The extracted directory path.
         """
-        return self.path_separator.join(self._path(path).split(self.path_separator)[:-1])
+        return self.path_separator.join(
+            self._path(path).split(self.path_separator)[:-1]
+        )
 
     def path_normpath(self, path):
         """
@@ -181,18 +187,20 @@ class FileSystemClient(Duct, MagicsProvider):
         components = self._path(path).split(self.path_separator)
         out_path = []
         for component in components:
-            if component == '' and len(out_path) > 0:
+            if component == "" and len(out_path) > 0:
                 continue
-            if component == '.':
+            if component == ".":
                 continue
-            elif component == '..':
+            if component == "..":
                 if len(out_path) > 1:
                     out_path.pop()
                 else:
-                    raise RuntimeError("Cannot access parent directory of filesystem root.")
+                    raise RuntimeError(
+                        "Cannot access parent directory of filesystem root."
+                    )
             else:
                 out_path.append(component)
-        if len(out_path) == 1 and out_path[0] == '':
+        if len(out_path) == 1 and out_path[0] == "":
             return self.path_separator
         return self.path_separator.join(out_path)
 
@@ -229,14 +237,18 @@ class FileSystemClient(Duct, MagicsProvider):
 
     def _assert_path_is_writable(self, path):
         if self.read_only:
-            raise RuntimeError("This filesystem client is configured for read-only access. Set `{}`.`read_only` to `False` to override.".format(self.name))
+            raise RuntimeError(
+                f"This filesystem client is configured for read-only access. Set `{self.name}`.`read_only` to `False` to override."
+            )
         if not self.global_writes and not self._path_in_home_dir(path):
-            raise RuntimeError("Attempt to write outside of home directory without setting `{}`.`global_writes` to `True`.".format(self.name))
+            raise RuntimeError(
+                f"Attempt to write outside of home directory without setting `{self.name}`.`global_writes` to `True`."
+            )
         return True
 
     # Filesystem accessors
 
-    @quirk_docs('_exists')
+    @quirk_docs("_exists")
     @require_connection
     def exists(self, path):
         """
@@ -255,7 +267,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _exists(self, path):
         raise NotImplementedError
 
-    @quirk_docs('_isdir')
+    @quirk_docs("_isdir")
     @require_connection
     def isdir(self, path):
         """
@@ -274,7 +286,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _isdir(self, path):
         raise NotImplementedError
 
-    @quirk_docs('_isfile')
+    @quirk_docs("_isfile")
     @require_connection
     def isfile(self, path):
         """
@@ -301,7 +313,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         raise NotImplementedError
 
-    @quirk_docs('_dir')
+    @quirk_docs("_dir")
     @require_connection
     def dir(self, path=None):
         """
@@ -321,7 +333,7 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<FileSystemFileDesc>: The children of `path` represented as
             `FileSystemFileDesc` objects.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._dir(self._path(path))
 
     def listdir(self, path=None):
@@ -359,7 +371,7 @@ class FileSystemClient(Duct, MagicsProvider):
             pandas.DataFrame: A DataFrame representation of the contents of the
             nominated directory.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._showdir(self._path(path))
 
     def _showdir(self, path):
@@ -367,15 +379,14 @@ class FileSystemClient(Duct, MagicsProvider):
         if len(data) > 0:
             return (
                 pd.DataFrame(data)
-                .sort_values(['type', 'name'])
+                .sort_values(["type", "name"])
                 .reset_index(drop=True)
-                .dropna(axis='columns', how='all')
-                .drop(axis=1, labels=['fs', 'path'])
+                .dropna(axis="columns", how="all")
+                .drop(axis=1, labels=["fs", "path"])
             )
-        else:
-            return "Directory has no contents."
+        return "Directory has no contents."
 
-    @quirk_docs('_walk')
+    @quirk_docs("_walk")
     @require_connection
     def walk(self, path=None):
         """
@@ -393,24 +404,26 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<tuple>: A generator of tuples, each tuple being associated
             with one directory that is either `path` or one of its descendants.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._walk(self._path(path))
 
     def _walk(self, path):
         dirs = []
         files = []
         for f in self._dir(path):
-            if f.type == 'directory':
+            if f.type == "directory":
                 dirs.append(f.name)
             else:
                 files.append(f.name)
         yield (path, dirs, files)
 
-        for dir in dirs:
-            for walked in self._walk(self._path(self.path_join(path, dir))):  # Note: using _walk directly here, which may fail if disconnected during walk.
+        for dirname in dirs:
+            for walked in self._walk(
+                self._path(self.path_join(path, dirname))
+            ):  # Note: using _walk directly here, which may fail if disconnected during walk.
                 yield walked
 
-    @quirk_docs('_find')
+    @quirk_docs("_find")
     @require_connection
     def find(self, path_prefix=None, **attrs):
         """
@@ -435,31 +448,34 @@ class FileSystemClient(Duct, MagicsProvider):
                 objects that are descendents of `path_prefix` and which statisfy
                 provided constraints.
         """
-        assert self.isdir(path_prefix), "'{0}' is not a valid directory. Did you mean `.find(name='{0}')`?".format(path_prefix)
+        assert self.isdir(
+            path_prefix
+        ), f"'{path_prefix}' is not a valid directory. Did you mean `.find(name='{path_prefix}')`?"
         return self._find(self._path(path_prefix), **attrs)
 
     def _find(self, path_prefix, **attrs):
-
         def is_match(f):
             for attr, value in attrs.items():
-                if hasattr(value, '__call__') and not value(f.as_dict().get(attr)):
+                if hasattr(value, "__call__") and not value(f.as_dict().get(attr)):
                     return False
-                elif value != f.as_dict().get(attr):
+                if value != f.as_dict().get(attr):
                     return False
             return True
 
         dirs = []
         for f in self._dir(path_prefix):
-            if f.type == 'directory':
+            if f.type == "directory":
                 dirs.append(f.name)
             if is_match(f):
                 yield f
 
-        for dir in dirs:
-            for match in self._find(self._path(self.path_join(path_prefix, dir)), **attrs):  # Note: using _find directly here, which may fail if disconnected during find.
+        for dirname in dirs:
+            for match in self._find(
+                self._path(self.path_join(path_prefix, dirname)), **attrs
+            ):  # Note: using _find directly here, which may fail if disconnected during find.
                 yield match
 
-    @quirk_docs('_mkdir')
+    @quirk_docs("_mkdir")
     @require_connection
     def mkdir(self, path, recursive=True, exist_ok=False):
         """
@@ -482,7 +498,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
-    @quirk_docs('_remove')
+    @quirk_docs("_remove")
     @require_connection
     def remove(self, path, recursive=False):
         """
@@ -498,9 +514,11 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         self._assert_path_is_writable(path)
         if not self.exists(path):
-            raise IOError("No file(s) exist at path '{}'.".format(path))
+            raise IOError(f"No file(s) exist at path '{path}'.")
         if self.isdir(path) and not recursive:
-            raise IOError("Attempt to remove directory '{}' without passing `recursive=True`.".format(path))
+            raise IOError(
+                f"Attempt to remove directory '{path}' without passing `recursive=True`."
+            )
         return self._remove(self._path(path), recursive)
 
     @abstractmethod
@@ -509,9 +527,9 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File handling
 
-    @quirk_docs('_open')
+    @quirk_docs("_open")
     @require_connection
-    def open(self, path, mode='rt'):
+    def open(self, path, mode="rt"):
         """
         Open a file for reading and/or writing.
 
@@ -528,14 +546,14 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             FileSystemFile or file-like: An opened file-like object.
         """
-        if 'w' in mode or 'a' in mode or '+' in mode:
+        if "w" in mode or "a" in mode or "+" in mode:
             self._assert_path_is_writable(path)
         return self._open(self._path(path), mode=mode)
 
     def _open(self, path, mode):
         return FileSystemFile(self, path, mode)
 
-    @quirk_docs('_file_read_')
+    @quirk_docs("_file_read_")
     @require_connection
     def _file_read(self, path, size=-1, offset=0, binary=False):
         """
@@ -552,12 +570,14 @@ class FileSystemClient(Duct, MagicsProvider):
         Returns:
             str or bytes: The contents of the file.
         """
-        return self._file_read_(self._path(path), size=size, offset=offset, binary=binary)
+        return self._file_read_(
+            self._path(path), size=size, offset=offset, binary=binary
+        )
 
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
-    @quirk_docs('_file_write_')
+    @quirk_docs("_file_write_")
     @require_connection
     def _file_write(self, path, s, binary=False):
         """
@@ -579,7 +599,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
-    @quirk_docs('_file_append_')
+    @quirk_docs("_file_append_")
     @require_connection
     def _file_append(self, path, s, binary=False):
         """
@@ -603,7 +623,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File transfer
 
-    @quirk_docs('_download')
+    @quirk_docs("_download")
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
         Download files to another filesystem.
@@ -635,13 +655,14 @@ class FileSystemClient(Duct, MagicsProvider):
 
         if fs is None:
             from .local import LocalFsClient
+
             fs = LocalFsClient()
 
         source = self._path(source)
         dest = fs._path(dest or self.path_basename(source))
 
         if dest.endswith(fs.path_separator):
-            assert fs.isdir(dest), "No such directory `{}`".format(dest)
+            assert fs.isdir(dest), f"No such directory `{dest}`"
             if not source.endswith(self.path_separator):
                 dest = fs.path_join(fs._path(dest), self.path_basename(source))
 
@@ -651,25 +672,41 @@ class FileSystemClient(Duct, MagicsProvider):
 
         if self.isdir(source):
             target_prefix = (
-                source if source.endswith(self.path_separator) else source + self.path_separator
+                source
+                if source.endswith(self.path_separator)
+                else source + self.path_separator
             )
             targets.append((source, dest, True))
 
             for path, dirs, files in self.walk(source):
-                for dir in dirs:
-                    target_source = self.path_join(path, dir)
-                    targets.append((
-                        target_source,
-                        fs.path_join(dest, *target_source[len(target_prefix):].split(self.path_separator)),
-                        True
-                    ))
+                for dirname in dirs:
+                    target_source = self.path_join(path, dirname)
+                    targets.append(
+                        (
+                            target_source,
+                            fs.path_join(
+                                dest,
+                                *target_source[len(target_prefix) :].split(
+                                    self.path_separator
+                                ),
+                            ),
+                            True,
+                        )
+                    )
                 for file in files:
                     target_source = self.path_join(path, file)
-                    targets.append((
-                        target_source,
-                        fs.path_join(dest, *target_source[len(target_prefix):].split(self.path_separator)),
-                        False
-                    ))
+                    targets.append(
+                        (
+                            target_source,
+                            fs.path_join(
+                                dest,
+                                *target_source[len(target_prefix) :].split(
+                                    self.path_separator
+                                ),
+                            ),
+                            False,
+                        )
+                    )
         else:
             targets.append((source, dest, False))
 
@@ -682,8 +719,8 @@ class FileSystemClient(Duct, MagicsProvider):
     def _download(self, source, dest, overwrite, fs):
         if not overwrite and fs.exists(dest):
             raise RuntimeError("File already exists on filesystem.")
-        with self.open(source, 'rb') as f_src:
-            with fs.open(dest, 'wb') as f_dest:
+        with self.open(source, "rb") as f_src:
+            with fs.open(dest, "wb") as f_dest:
                 f_dest.write(f_src.read())
 
     def upload(self, source, dest=None, overwrite=False, fs=None):
@@ -713,6 +750,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         if fs is None:
             from .local import LocalFsClient
+
             fs = LocalFsClient()
         return fs.download(source, dest, overwrite, self)
 
@@ -721,43 +759,44 @@ class FileSystemClient(Duct, MagicsProvider):
     def _register_magics(self, base_name):
         from IPython.core.magic import register_line_magic, register_cell_magic
 
-        @register_line_magic("{}.listdir".format(base_name))
+        @register_line_magic(f"{base_name}.listdir")
         @process_line_arguments
-        def listdir(path=''):
+        def listdir(path=""):
             return self.listdir(path)
 
-        @register_line_magic("{}.showdir".format(base_name))
+        @register_line_magic(f"{base_name}.showdir")
         @process_line_arguments
-        def showdir(path=''):
+        def showdir(path=""):
             return self.showdir(path)
 
-        @register_line_magic("{}.read".format(base_name))
+        @register_line_magic(f"{base_name}.read")
         @process_line_arguments
         def read_file(path):
             with self.open(path) as f:
                 return f.read()
 
-        @register_cell_magic("{}.write".format(base_name))
+        @register_cell_magic(f"{base_name}.write")
         @process_line_arguments
         def write_file(cell, path):
-            with self.open(path, 'w') as f:
+            with self.open(path, "w") as f:
                 f.write(cell)
 
     # PyArrow compat
     @property
     def pyarrow_fs(self):
         from ._pyarrow_compat import OmniductFileSystem
+
         return OmniductFileSystem(self)
 
 
-class FileSystemFile(object):
+class FileSystemFile:
     """
     A file-like implementation that is interchangeable with native Python file
     objects, allowing remote files to be treated identically to local files
     both by omniduct, the user and other libraries.
     """
 
-    def __init__(self, fs, path, mode='r'):
+    def __init__(self, fs, path, mode="r"):
         self.fs = fs
         self.path = path
         self.mode = mode
@@ -770,8 +809,10 @@ class FileSystemFile(object):
         else:
             self.__io_buffer = io.StringIO()
 
-        if 'w' not in self.mode:
-            self.__io_buffer.write(self.fs._file_read(self.path, binary=self.binary_mode))
+        if "w" not in self.mode:
+            self.__io_buffer.write(
+                self.fs._file_read(self.path, binary=self.binary_mode)
+            )
             if not self.appending:
                 self.__io_buffer.seek(0)
 
@@ -787,20 +828,22 @@ class FileSystemFile(object):
     def mode(self, mode):
         try:
             assert len(set(mode)) == len(mode)
-            assert sum(opt in mode for opt in ['r', 'w', 'a', '+', 't', 'b']) == len(mode)
-            assert sum(opt in mode for opt in ['r', 'w', 'a']) == 1
-            assert sum(opt in mode for opt in ['t', 'b']) < 2
-        except AssertionError:
-            raise ValueError("invalid mode: '{}'".format(mode))
+            assert sum(opt in mode for opt in ["r", "w", "a", "+", "t", "b"]) == len(
+                mode
+            )
+            assert sum(opt in mode for opt in ["r", "w", "a"]) == 1
+            assert sum(opt in mode for opt in ["t", "b"]) < 2
+        except AssertionError as e:
+            raise ValueError(f"invalid mode: '{mode}'") from e
         self.__mode = mode
 
     @property
     def readable(self):
-        return 'r' in self.mode or '+' in self.mode
+        return "r" in self.mode or "+" in self.mode
 
     @property
     def writable(self):
-        return 'w' in self.mode or 'a' in self.mode or '+' in self.mode
+        return "w" in self.mode or "a" in self.mode or "+" in self.mode
 
     @property
     def seekable(self):
@@ -808,16 +851,16 @@ class FileSystemFile(object):
 
     @property
     def appending(self):
-        return 'a' in self.mode
+        return "a" in self.mode
 
     @property
     def binary_mode(self):
-        return 'b' in self.mode
+        return "b" in self.mode
 
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type, value, tb):  # pylint: disable=redefined-builtin
         self.close()
 
     def close(self):
@@ -844,7 +887,7 @@ class FileSystemFile(object):
 
     @property
     def newlines(self):
-        return '\n'  # TODO: Support non-Unix newlines?
+        return "\n"  # TODO: Support non-Unix newlines?
 
     def read(self, size=-1):
         if not self.readable:
@@ -894,27 +937,32 @@ class FileSystemFile(object):
 
     def readinto(self, buffer):
         data = self.read()
-        buffer[:len(data)] = data
+        buffer[: len(data)] = data
         return len(data)
 
     def readinto1(self, buffer):
         return self.readinto(buffer)
 
 
-class FileSystemFileDesc(namedtuple('Node', [
-    'fs',
-    'path',
-    'name',
-    'type',
-    'bytes',
-    'owner',
-    'group',
-    'permissions',
-    'created',
-    'last_modified',
-    'last_accessed',
-    'extra',
-])):
+class FileSystemFileDesc(
+    namedtuple(
+        "Node",
+        [
+            "fs",
+            "path",
+            "name",
+            "type",
+            "bytes",
+            "owner",
+            "group",
+            "permissions",
+            "created",
+            "last_modified",
+            "last_accessed",
+            "extra",
+        ],
+    )
+):
     """
     A representation of a file/directory stored within an Omniduct
     FileSystemClient.
@@ -922,64 +970,85 @@ class FileSystemFileDesc(namedtuple('Node', [
 
     __slots__ = ()
 
-    def __new__(cls, fs, path, name, type, bytes=None, owner=None,
-                group=None, permissions=None, created=None, last_modified=None,
-                last_accessed=None, **extra):
-        assert type in ('directory', 'file')
-        return (
-            super(FileSystemFileDesc, cls)
-            .__new__(cls,
-                     fs=fs,
-                     path=path,
-                     name=name,
-                     type=type,
-                     bytes=bytes,
-                     owner=owner,
-                     group=group,
-                     permissions=permissions,
-                     created=created,
-                     last_modified=last_modified,
-                     last_accessed=last_accessed,
-                     extra=extra)
+    def __new__(
+        cls,
+        fs,
+        path,
+        name,
+        type,  # pylint: disable=redefined-builtin
+        bytes=None,  # pylint: disable=redefined-builtin
+        owner=None,
+        group=None,
+        permissions=None,
+        created=None,
+        last_modified=None,
+        last_accessed=None,
+        **extra,
+    ):
+        assert type in ("directory", "file")
+        return super(FileSystemFileDesc, cls).__new__(
+            cls,
+            fs=fs,
+            path=path,
+            name=name,
+            type=type,
+            bytes=bytes,
+            owner=owner,
+            group=group,
+            permissions=permissions,
+            created=created,
+            last_modified=last_modified,
+            last_accessed=last_accessed,
+            extra=extra,
         )
 
     def as_dict(self):
-        d = OrderedDict([
-            ('fs', self.fs),
-            ('path', self.path),
-            ('type', self.type),
-            ('name', self.name),
-            ('bytes', self.bytes),
-            ('owner', self.owner),
-            ('group', self.group),
-            ('permissions', self.permissions),
-            ('created', self.created),
-            ('last_modified', self.last_modified),
-            ('last_accessed', self.last_accessed),
-        ])
+        d = OrderedDict(
+            [
+                ("fs", self.fs),
+                ("path", self.path),
+                ("type", self.type),
+                ("name", self.name),
+                ("bytes", self.bytes),
+                ("owner", self.owner),
+                ("group", self.group),
+                ("permissions", self.permissions),
+                ("created", self.created),
+                ("last_modified", self.last_modified),
+                ("last_accessed", self.last_accessed),
+            ]
+        )
         d.update(self.extra)
         return d
 
     # Convenience methods
 
-    def open(self, mode='rt'):
-        assert self.type == 'file', "`.open(...)` is only appropriate for files."
+    def open(self, mode="rt"):
+        assert self.type == "file", "`.open(...)` is only appropriate for files."
         return self.fs.open(self.path, mode=mode)
 
     def dir(self):
-        assert self.type == 'directory', "`.dir(...)` is only appropriate for directories."
+        assert (
+            self.type == "directory"
+        ), "`.dir(...)` is only appropriate for directories."
         return self.fs.dir(self.path)
 
     def listdir(self):
-        assert self.type == 'directory', "`.listdir(...)` is only appropriate for directories."
+        assert (
+            self.type == "directory"
+        ), "`.listdir(...)` is only appropriate for directories."
         return self.fs.listdir(self.path)
 
     def showdir(self):
-        assert self.type == 'directory', "`.showdir(...)` is only appropriate for directories."
+        assert (
+            self.type == "directory"
+        ), "`.showdir(...)` is only appropriate for directories."
         return self.fs.showdir(self.path)
 
     def find(self, **attrs):
-        assert self.type == 'directory', "`.find(...)` is only appropriate for directories."
+        assert (
+            self.type == "directory"
+        ), "`.find(...)` is only appropriate for directories."
         return self.fs.find(self.path, **attrs)
 
     def download(self, dest=None, overwrite=False, fs=None):

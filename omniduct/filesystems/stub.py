@@ -2,7 +2,6 @@ from omniduct.filesystems.base import FileSystemClient
 
 
 class StubFsClient(FileSystemClient):
-
     PROTOCOLS = []
     DEFAULT_PORT = None
 

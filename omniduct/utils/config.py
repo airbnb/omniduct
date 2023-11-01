@@ -5,8 +5,6 @@ import logging
 import os
 import sys
 
-import six
-
 
 def ensure_path_exists(path):
     path = os.path.expanduser(path)
@@ -18,13 +16,20 @@ def ensure_path_exists(path):
 logger = logging.getLogger(__name__)
 
 
-class ConfigurationRegistry(object):
-
+class ConfigurationRegistry:
     def __init__(self):
         self._register = {}
 
-    def register(self, key, description=None, default=None, onchange=None, onload=None,
-                 type=None, host=None):
+    def register(
+        self,
+        key,
+        description=None,
+        default=None,
+        onchange=None,
+        onload=None,
+        type=None,  # pylint: disable=redefined-builtin
+        host=None,
+    ):
         """
         Register a configuration key that can be set by the user. As noted in the
         class level documentation, these keys should not lead to changes in the
@@ -43,26 +48,32 @@ class ConfigurationRegistry(object):
 
         * If not specified, these fields default to None.
         """
-        if key in dir(self):
-            raise KeyError("Key `{0}` cannot be registered as it conflicts with a method of OmniductConfiguration.".format(key))
+        if key in dir(self.__class__):
+            raise KeyError(
+                f"Key `{key}` cannot be registered as it conflicts with a method of OmniductConfiguration."
+            )
         if key in self._register:
-            logger.warn("Overwriting existing key `{0}`, previously registered by {1}".format(key, self._register[key]['host']))
+            logger.debug(
+                "Overwriting existing omniduct registry key `%s`, previously registered by %s",
+                key,
+                self._register[key]["host"],
+            )
 
         try:
-            caller_frame = inspect.current_frame().f_back
+            caller_frame = inspect.currentframe().f_back
             host = inspect.getmodule(caller_frame).__name__
-        except:
-            host = 'unknown'
+        except:  # pylint: disable=bare-except
+            host = "unknown"
 
         if default is not None and type is not None:
             assert isinstance(default, type)
         self._register[key] = {
-            'description': description,
-            'host': host,
-            'default': default,
-            'onchange': onchange,
-            'onload': onload,
-            'type': type,
+            "description": description,
+            "host": host,
+            "default": default,
+            "onchange": onchange,
+            "onload": onload,
+            "type": type,
         }
 
     def show(self):
@@ -72,12 +83,12 @@ class ConfigurationRegistry(object):
         registered.
         """
         for key in sorted(self._register.keys()):
-            desc = self._register[key].get('description')
+            desc = self._register[key].get("description")
             if desc is None:
-                desc = 'No description'
-            print('{0} with default = {1}'.format(key, self._register[key]['default']))
-            print('\t{0}'.format(desc))
-            print('\t({0})'.format(self._register[key]['host']))
+                desc = "No description"
+            print(f"{key} with default = {self._register[key]['default']}")
+            print(f"\t{desc}")
+            print(f"\t({self._register[key]['host']})")
 
 
 class Configuration(ConfigurationRegistry):
@@ -109,7 +120,7 @@ class Configuration(ConfigurationRegistry):
                 self.register(key, **props)
 
         self._config = {}
-        self.__config_path = kwargs.pop('config_path', None)
+        self.__config_path = kwargs.pop("config_path", None)
 
     def __dir__(self):
         return sorted(self._register.keys())
@@ -126,9 +137,10 @@ class Configuration(ConfigurationRegistry):
             # Restore configuration
             try:
                 self.load(force=True)
-            except:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 raise RuntimeError(
-                    "Configuration file at {0} cannot be loaded. Perhaps try deleting it.".format(self.__config_path))
+                    f"Configuration file at {self.__config_path} cannot be loaded. Perhaps try deleting it."
+                ) from e
 
     def all(self):
         """
@@ -146,13 +158,13 @@ class Configuration(ConfigurationRegistry):
         registered.
         """
         for key in sorted(self._register.keys()):
-            desc = self._register[key].get('description')
+            desc = self._register[key].get("description")
             if desc is None:
-                desc = 'No description'
-            val = str(self._config.get(key, '<Not Set>'))
-            print('{0} = {1} (default = {2})'.format(key, val, self._register[key]['default']))
-            print('\t{0}'.format(desc))
-            print('\t({0})'.format(self._register[key]['host']))
+                desc = "No description"
+            val = str(self._config.get(key, "<Not Set>"))
+            print(f"{key} = {val} (default = {self._register[key]['default']})")
+            print(f"\t{desc}")
+            print(f"\t({self._register[key]['host']})")
 
     def __setattr__(self, key, value):
         """
@@ -161,18 +173,19 @@ class Configuration(ConfigurationRegistry):
 
         Attributes prefixed with '_' are loaded from this class.
         """
-        if key.startswith('_'):
+        if key.startswith("_"):
             object.__setattr__(self, key, value)
         elif key in self._register:
-            if self._register[key]['type'] is not None:
-                if not isinstance(value, self._register[key]['type']):
+            if self._register[key]["type"] is not None:
+                if not isinstance(value, self._register[key]["type"]):
                     raise ValueError(
-                        "{} must be in type(s) {}".format(key, self._register[key]['type']))
-            if self._register[key]['onchange'] is not None:
-                self._register[key]['onchange'](value)
+                        f"{key} must be in type(s) {self._register[key]['type']}"
+                    )
+            if self._register[key]["onchange"] is not None:
+                self._register[key]["onchange"](value)
             self._config[key] = value
         else:
-            raise KeyError("No such configuration key `{0}`.".format(key))
+            raise KeyError(f"No such configuration key `{key}`.")
 
     def __getattr__(self, key):
         """
@@ -181,18 +194,21 @@ class Configuration(ConfigurationRegistry):
 
         Attributes prefixed with '_' are loaded from this class.
         """
-        if key.startswith('_'):
+        if key.startswith("_"):
             return object.__getattr__(self, key)
         if key in self._register:
             if key in self._config:
                 return self._config[key]
 
             # if a lazy loader is specified, use it
-            if self._register[key]['default'] is None and self._register[key]['onload'] is not None:
-                setattr(self, key, self._register[key]['onload']())
+            if (
+                self._register[key]["default"] is None
+                and self._register[key]["onload"] is not None
+            ):
+                setattr(self, key, self._register[key]["onload"]())
 
-            return self._config.get(key, self._register[key]['default'])
-        raise AttributeError("No such configuration key `{0}`.".format(key))
+            return self._config.get(key, self._register[key]["default"])
+        raise AttributeError(f"No such configuration key `{key}`.")
 
     def reset(self, *keys, **target_config):
         """
@@ -216,18 +232,24 @@ class Configuration(ConfigurationRegistry):
         for key, value in target_config.items():
             self._config[key] = value
             if key in self._register:
-                if value == self._register[key]['default']:
+                if value == self._register[key]["default"]:
                     self._config.pop(key)
-                if self._register[key]['onchange'] is not None:
-                    self._register[key]['onchange'](getattr(self, key))
+                if self._register[key]["onchange"] is not None:
+                    self._register[key]["onchange"](getattr(self, key))
             else:  # Allow users to delete deprecated keys
-                logger.warning("Added value for configuration key `{0}` which has yet to be registered.".format(key))
+                logger.warning(
+                    "Added value for configuration key `%s` which has yet to be registered.",
+                    key,
+                )
 
         for key in reset_keys:
             if key in self._config:
                 self._config.pop(key)
-                if key in self._register and self._register[key]['onchange'] is not None:
-                    self._register[key]['onchange'](getattr(self, key))
+                if (
+                    key in self._register
+                    and self._register[key]["onchange"] is not None
+                ):
+                    self._register[key]["onchange"](getattr(self, key))
 
     def __restrict_keys(self, d, keys):
         if keys is None:
@@ -248,19 +270,21 @@ class Configuration(ConfigurationRegistry):
             or `False` if specific keys are specified. (default=None)
         """
         filename = filename or self._config_path
-        filename = os.path.join(ensure_path_exists(os.path.dirname(filename)), os.path.basename(filename))
+        filename = os.path.join(
+            ensure_path_exists(os.path.dirname(filename)), os.path.basename(filename)
+        )
         config = {}
         if replace is None:
-            replace = True if keys is None else False
+            replace = keys is None
         if keys is None:
             replace = True
         if not replace and os.path.exists(filename):
-            with io.open(filename, 'r') as f:
+            with io.open(filename, "r", encoding="utf-8") as f:
                 config = json.load(f)
         config.update(self.__restrict_keys(self._config, keys))
-        with io.open(filename, 'w') as f:
+        with io.open(filename, "w", encoding="utf-8") as f:
             json_config = json.dumps(config, ensure_ascii=False, indent=4)
-            if sys.version_info.major == 2 and isinstance(json_config, six.string_types):
+            if sys.version_info.major == 2 and isinstance(json_config, str):
                 json_config = json_config.decode("utf-8")
             f.write(json_config)
 
@@ -283,10 +307,10 @@ class Configuration(ConfigurationRegistry):
         """
         filename = filename or self._config_path
         if replace is None:
-            replace = True if keys is None else False
+            replace = keys is None
         if keys is None:
             replace = True
-        with io.open(filename, 'r') as f:
+        with io.open(filename, "r", encoding="utf-8") as f:
             config = self.__restrict_keys(json.load(f), keys)
             if force:
                 self._config = config

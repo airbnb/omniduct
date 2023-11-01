@@ -1,9 +1,9 @@
+# pylint: disable=abstract-method # We export a different type of file-handle.
+
 import datetime
 import errno
 import os
 import shutil
-import six
-import sys
 from io import open
 
 from interface_meta import override
@@ -24,7 +24,7 @@ class LocalFsClient(FileSystemClient):
     ```
     """
 
-    PROTOCOLS = ['localfs']
+    PROTOCOLS = ["localfs"]
 
     @override
     def _init(self):
@@ -32,8 +32,10 @@ class LocalFsClient(FileSystemClient):
 
     @override
     def _prepare(self):
-        assert self.remote is None, "LocalFsClient cannot be used in conjunction with a remote client."
-        super(LocalFsClient, self)._prepare()
+        assert (
+            self.remote is None
+        ), "LocalFsClient cannot be used in conjunction with a remote client."
+        super()._prepare()
 
     @override
     def _connect(self):
@@ -50,7 +52,7 @@ class LocalFsClient(FileSystemClient):
     # File enumeration
     @override
     def _path_home(self):
-        return os.path.expanduser('~')
+        return os.path.expanduser("~")
 
     @override
     def _path_separator(self):
@@ -77,28 +79,34 @@ class LocalFsClient(FileSystemClient):
 
             attrs = {}
 
-            if os.name == 'posix':
+            if os.name == "posix":
                 import grp
                 import pwd
 
                 stat = os.stat(f_path)
 
-                attrs.update({
-                    'owner': pwd.getpwuid(stat.st_uid).pw_name,
-                    'group': grp.getgrgid(stat.st_gid).gr_name,
-                    'permissions': oct(stat.st_mode),
-                    'created': str(datetime.datetime.fromtimestamp(stat.st_ctime)),
-                    'last_modified': str(datetime.datetime.fromtimestamp(stat.st_mtime)),
-                    'last_accessed': str(datetime.datetime.fromtimestamp(stat.st_atime)),
-                })
+                attrs.update(
+                    {
+                        "owner": pwd.getpwuid(stat.st_uid).pw_name,
+                        "group": grp.getgrgid(stat.st_gid).gr_name,
+                        "permissions": oct(stat.st_mode),
+                        "created": str(datetime.datetime.fromtimestamp(stat.st_ctime)),
+                        "last_modified": str(
+                            datetime.datetime.fromtimestamp(stat.st_mtime)
+                        ),
+                        "last_accessed": str(
+                            datetime.datetime.fromtimestamp(stat.st_atime)
+                        ),
+                    }
+                )
 
             yield FileSystemFileDesc(
                 fs=self,
                 path=f_path,
                 name=f,
-                type='directory' if os.path.isdir(f_path) else 'file',
+                type="directory" if os.path.isdir(f_path) else "file",
                 bytes=os.path.getsize(f_path),
-                **attrs
+                **attrs,
             )
 
     @override
@@ -111,7 +119,7 @@ class LocalFsClient(FileSystemClient):
             os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
             if exc.errno != errno.EEXIST or not exist_ok or not os.path.isdir(path):
-                six.reraise(*sys.exc_info())
+                raise
 
     @override
     def _remove(self, path, recursive):
@@ -123,4 +131,4 @@ class LocalFsClient(FileSystemClient):
     # File opening
     @override
     def _open(self, path, mode):
-        return open(path, mode=mode, encoding=None if 'b' in mode else 'utf-8')
+        return open(path, mode=mode, encoding=None if "b" in mode else "utf-8")

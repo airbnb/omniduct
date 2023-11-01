@@ -11,7 +11,7 @@ class TreeProxy:
     ```
     """
 
-    __slots__ = ('__tree__', '__nodename__')
+    __slots__ = ("__tree__", "__nodename__")
 
     @classmethod
     def _for_dict(cls, dct, key_parser=None, name=None):
@@ -30,9 +30,11 @@ class TreeProxy:
     def __getitem__(self, name):
         if name in self.__tree__:
             if not isinstance(self.__tree__[name], TreeProxy):
-                return TreeProxy._for_tree(self.__tree__[name], name=self.__name_of_child(name))
+                return TreeProxy._for_tree(
+                    self.__tree__[name], name=self.__name_of_child(name)
+                )
             return self.__tree__[name]
-        raise KeyError('Invalid child node `{node_name}`.'.format(node_name=name))
+        raise KeyError(f"Invalid child node `{name}`.")
 
     def __iter__(self):
         return iter(self.__tree__)
@@ -43,16 +45,18 @@ class TreeProxy:
     def __getattr__(self, name):
         try:
             return self[name]
-        except KeyError:
-            raise AttributeError('Invalid child node `{node_name}`.'.format(node_name=name))
+        except KeyError as e:
+            raise AttributeError(f"Invalid child node `{name}`.") from e
 
     def __dir__(self):
         return list(self.__tree__)
 
     def __repr__(self):
         if self.__nodename__:
-            return "<TreeProxy of '{}' with {} nodes>".format(self.__nodename__, len(self.__tree__))
-        return "<TreeProxy of dictionary with {} nodes>".format(len(self.__tree__))
+            return (
+                f"<TreeProxy of '{self.__nodename__}' with {len(self.__tree__)} nodes>"
+            )
+        return f"<TreeProxy of dictionary with {len(self.__tree__)} nodes>"
 
     # Helpers
 
@@ -65,7 +69,9 @@ class TreeProxy:
     def __dict_to_tree(cls, dct, key_parser):
         tree = {}
         for key, value in dct.items():
-            cls.__add_nested_key_value(tree, keys=key_parser(key, value) if key_parser else [key], value=value)
+            cls.__add_nested_key_value(
+                tree, keys=key_parser(key, value) if key_parser else [key], value=value
+            )
         return tree
 
     @classmethod
@@ -76,8 +82,6 @@ class TreeProxy:
             tree = tree[key]
         if len(tree) and None not in tree:
             raise ValueError(
-                "`TreeProxy` objects can only proxy trees with values only on leaf "
-                "nodes; error encounted while trying to add value to node {}."
-                .format(keys)
+                f"`TreeProxy` objects can only proxy trees with values only on leaf nodes; error encounted while trying to add value to node {keys}."
             )
         tree[None] = value

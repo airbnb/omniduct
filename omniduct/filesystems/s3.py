@@ -1,14 +1,9 @@
+# pylint: disable=attribute-defined-outside-init
 import logging
 
 from interface_meta import override
 
 from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
-
-# Python 2 compatibility imports
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 class S3Client(FileSystemClient):
@@ -24,12 +19,19 @@ class S3Client(FileSystemClient):
             library, which is also aware of environment variables.
     """
 
-    PROTOCOLS = ['s3']
+    PROTOCOLS = ["s3"]
     DEFAULT_PORT = 80
 
     @override
-    def _init(self, bucket=None, aws_profile=None, use_opinel=False,
-              session=None, path_separator='/', skip_hadoop_artifacts=True):
+    def _init(
+        self,
+        bucket=None,
+        aws_profile=None,
+        use_opinel=False,
+        session=None,
+        path_separator="/",
+        skip_hadoop_artifacts=True,
+    ):
         """
         bucket (str): The name of the Amazon S3 bucket to use.
         aws_profile (str): The name of configured AWS profile to use. This should
@@ -60,7 +62,9 @@ class S3Client(FileSystemClient):
         environments to subclass `S3Client` and override the `_get_boto3_session`
         method to suit your needs.
         """
-        assert bucket is not None, 'S3 Bucket must be specified using the `bucket` kwarg.'
+        assert (
+            bucket is not None
+        ), "S3 Bucket must be specified using the `bucket` kwarg."
         self.bucket = bucket
         self.aws_profile = aws_profile
         self.use_opinel = use_opinel
@@ -71,18 +75,17 @@ class S3Client(FileSystemClient):
 
         # Ensure self.host is updated with correct AWS region
         import boto3
-        self.host = 'autoscaling.{}.amazonaws.com'.format(
-            (session or boto3.Session(profile_name=self.aws_profile)).region_name or 'us-east-1'
-        )
+
+        self.host = f"autoscaling.{(session or boto3.Session(profile_name=self.aws_profile)).region_name or 'us-east-1'}.amazonaws.com"
 
         # Mask logging from botocore's vendored libraries
-        logging.getLogger('botocore.vendored').setLevel(100)
+        logging.getLogger("botocore.vendored").setLevel(100)
 
     @override
     def _connect(self):
         self._session = self._session or self._get_boto3_session()
-        self._client = self._session.client('s3')
-        self._resource = self._session.resource('s3')
+        self._client = self._session.client("s3")
+        self._resource = self._session.resource("s3")
 
     def _get_boto3_session(self):
         import boto3
@@ -94,9 +97,9 @@ class S3Client(FileSystemClient):
             self._credentials = read_creds(self.aws_profile)
 
             return boto3.Session(
-                aws_access_key_id=self._credentials['AccessKeyId'],
-                aws_secret_access_key=self._credentials['SecretAccessKey'],
-                aws_session_token=self._credentials['SessionToken'],
+                aws_access_key_id=self._credentials["AccessKeyId"],
+                aws_secret_access_key=self._credentials["SecretAccessKey"],
+                aws_session_token=self._credentials["SessionToken"],
                 profile_name=self.aws_profile,
             )
 
@@ -108,14 +111,17 @@ class S3Client(FileSystemClient):
             return False
         # Check if still able to perform requests against AWS
         import botocore
+
         try:
             self._client.list_buckets()
+            return True
         except botocore.exceptions.ClientError as e:
             if len(e.args) > 0:
-                if 'ExpiredToken' in e.args[0] or 'InvalidToken' in e.args[0]:
+                if "ExpiredToken" in e.args[0] or "InvalidToken" in e.args[0]:
                     return False
-                elif 'AccessDenied' in e.args[0]:
+                if "AccessDenied" in e.args[0]:
                     return True
+            return False
 
     @override
     def _disconnect(self):
@@ -137,36 +143,36 @@ class S3Client(FileSystemClient):
 
     def _s3_path(self, path):
         if path.startswith(self.path_separator):
-            path = path[len(self.path_separator):]
+            path = path[len(self.path_separator) :]
         if path.endswith(self.path_separator):
-            path = path[:-len(self.path_separator)]
+            path = path[: -len(self.path_separator)]
         return path
 
     @override
     def _isdir(self, path):
         response = next(iter(self.__dir_paginator(path)))
-        if 'CommonPrefixes' in response or 'Contents' in response:
+        if "CommonPrefixes" in response or "Contents" in response:
             return True
         return False
 
     @override
     def _isfile(self, path):
         try:
-            self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or '')
+            self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or "")
             return True
-        except:
+        except:  # pylint: disable=bare-except
             return False
 
     # Directory handling and enumeration
 
     def __dir_paginator(self, path):
         path = self._s3_path(path)
-        paginator = self._client.get_paginator('list_objects')
+        paginator = self._client.get_paginator("list_objects")
         iterator = paginator.paginate(
             Bucket=self.bucket,
-            Prefix=path + (self.path_separator if path else ''),
+            Prefix=path + (self.path_separator if path else ""),
             Delimiter=self.path_separator,
-            PaginationConfig={'PageSize': 500}
+            PaginationConfig={"PageSize": 500},
         )
         return iterator
 
@@ -175,24 +181,28 @@ class S3Client(FileSystemClient):
         iterator = self.__dir_paginator(path)
 
         for response_data in iterator:
-            for prefix in response_data.get('CommonPrefixes', []):
+            for prefix in response_data.get("CommonPrefixes", []):
                 yield FileSystemFileDesc(
                     fs=self,
-                    path=prefix['Prefix'][:-len(self.path_separator)],
-                    name=prefix['Prefix'][:-len(self.path_separator)].split(self.path_separator)[-1],  # Remove trailing slash
-                    type='directory',
+                    path=prefix["Prefix"][: -len(self.path_separator)],
+                    name=prefix["Prefix"][: -len(self.path_separator)].split(
+                        self.path_separator
+                    )[
+                        -1
+                    ],  # Remove trailing slash
+                    type="directory",
                 )
-            for prefix in response_data.get('Contents', []):
-                if self.skip_hadoop_artifacts and prefix['Key'].endswith('_$folder$'):
+            for prefix in response_data.get("Contents", []):
+                if self.skip_hadoop_artifacts and prefix["Key"].endswith("_$folder$"):
                     continue
                 yield FileSystemFileDesc(
                     fs=self,
-                    path=prefix['Key'],
-                    name=prefix['Key'].split(self.path_separator)[-1],
-                    type='file',
-                    bytes=prefix['Size'],
-                    owner=prefix['Owner']['DisplayName'] if 'Owner' in prefix else None,
-                    last_modified=prefix['LastModified']
+                    path=prefix["Key"],
+                    name=prefix["Key"].split(self.path_separator)[-1],
+                    type="file",
+                    bytes=prefix["Size"],
+                    owner=prefix["Owner"]["DisplayName"] if "Owner" in prefix else None,
+                    last_modified=prefix["LastModified"],
                 )
 
     # TODO: Interestingly, directly using Amazon S3 methods seems slower than generic approach. Hypothesis: keys is not asynchronous.
@@ -225,24 +235,30 @@ class S3Client(FileSystemClient):
             bucket = self._resource.Bucket(self.bucket)
             to_delete = []
             for obj in bucket.objects.filter(Prefix=path + self.path_separator):
-                to_delete.append({'Key': obj.key})
-                if len(to_delete) == 1000:  # Maximum number of simultaneous deletes is 1000
-                    self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
+                to_delete.append({"Key": obj.key})
+                if (
+                    len(to_delete) == 1000
+                ):  # Maximum number of simultaneous deletes is 1000
+                    self._client.delete_objects(
+                        Bucket=self.bucket, Delete={"Objects": to_delete}
+                    )
                     to_delete = []
-            self._client.delete_objects(Bucket=self.bucket, Delete={'Objects': to_delete})
+            self._client.delete_objects(
+                Bucket=self.bucket, Delete={"Objects": to_delete}
+            )
         self._client.delete_object(Bucket=self.bucket, Key=path)
 
     # File handling
     @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         if not self.isfile(path):
-            raise FileNotFoundError("File `{}` does not exist.".format(path))
+            raise FileNotFoundError(f"File `{path}` does not exist.")
 
         obj = self._resource.Object(self.bucket, self._s3_path(path))
-        body = obj.get()['Body'].read()
+        body = obj.get()["Body"].read()
 
         if not binary:
-            body = body.decode('utf-8')
+            body = body.decode("utf-8")
         if offset > 0:
             body = body[offset:]
         if size >= 0:
@@ -251,12 +267,14 @@ class S3Client(FileSystemClient):
 
     @override
     def _file_append_(self, path, s, binary):
-        raise NotImplementedError("Support for S3 append operation has yet to be implemented.")
+        raise NotImplementedError(
+            "Support for S3 append operation has yet to be implemented."
+        )
 
     @override
     def _file_write_(self, path, s, binary):
         obj = self._resource.Object(self.bucket, self._s3_path(path))
         if not binary:
-            s = s.encode('utf-8')
+            s = s.encode("utf-8")
         obj.put(Body=s)
         return True

@@ -2,7 +2,6 @@ from omniduct.databases.base import DatabaseClient
 
 
 class StubDatabaseClient(DatabaseClient):
-
     PROTOCOLS = []
     DEFAULT_PORT = None
 
@@ -25,7 +24,7 @@ class StubDatabaseClient(DatabaseClient):
     def _execute(self, statement, cursor, wait, session_properties, **kwargs):
         raise NotImplementedError
 
-    def _table_list(self, **kwargs):
+    def _table_list(self, namespace, **kwargs):
         raise NotImplementedError
 
     def _table_exists(self, table, **kwargs):

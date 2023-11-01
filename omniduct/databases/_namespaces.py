@@ -2,7 +2,7 @@ import re
 from collections import OrderedDict
 
 
-class ParsedNamespaces(object):
+class ParsedNamespaces:
     """
     A namespace parser for DatabaseClient subclasses.
 
@@ -21,7 +21,7 @@ class ParsedNamespaces(object):
     """
 
     @classmethod
-    def from_name(cls, name, namespaces, quote_char='"', separator='.', defaults=None):
+    def from_name(cls, name, namespaces, quote_char='"', separator=".", defaults=None):
         """
         Return an instance of `ParsedNamespaces` from a given name.
 
@@ -54,35 +54,38 @@ class ParsedNamespaces(object):
             extra_namespaces = set(name.namespaces).difference(namespaces)
             if extra_namespaces:
                 raise ValueError(
-                    "ParsedNamespace is not encapsulated by the namespaces "
-                    "provided to this constructor. It has extra namespaces: {}."
-                    .format(extra_namespaces)
+                    f"ParsedNamespace is not encapsulated by the namespaces provided to this constructor. It has extra namespaces: {extra_namespaces}."
                 )
             parsed = name.as_dict()
 
         elif isinstance(name, str):
             namespace_matcher = re.compile(
                 r"([^{sep}{qc}]+)|{qc}([^`]*?){qc}".format(
-                    qc=re.escape(quote_char),
-                    sep=re.escape(separator)
+                    qc=re.escape(quote_char), sep=re.escape(separator)
                 )
             )
 
-            names = [''.join(t) for t in namespace_matcher.findall(name)] if name else []
+            names = (
+                ["".join(t) for t in namespace_matcher.findall(name)] if name else []
+            )
             if len(names) > len(namespaces):
                 raise ValueError(
-                    "Name '{}' has too many namespaces. Should be of form: <{}>."
-                    .format(name, ">{sep}<".format(sep=separator).join(namespaces))
+                    f"Name '{name}' has too many namespaces. Should be of form: <{'>{separator}<'.join(namespaces)}>."
                 )
 
-            parsed = OrderedDict(reversed([
-                (namespace, names.pop() if names else None)
-                for namespace in namespaces[::-1]
-            ]))
+            parsed = OrderedDict(
+                reversed(
+                    [
+                        (namespace, names.pop() if names else None)
+                        for namespace in namespaces[::-1]
+                    ]
+                )
+            )
 
         else:
-            raise ValueError("Cannot construct `ParsedNamespaces` instance from "
-                             "name of type: `{}`.".format(type(name)))
+            raise ValueError(
+                f"Cannot construct `ParsedNamespaces` instance from name of type: `{type(name)}`."
+            )
 
         for namespace in namespaces[::-1]:
             if not parsed.get(namespace) and namespace in defaults:
@@ -92,11 +95,10 @@ class ParsedNamespaces(object):
 
         return cls(parsed, quote_char=quote_char, separator=separator)
 
-    def __init__(self, names, namespaces=None, quote_char='"', separator='.'):
+    def __init__(self, names, namespaces=None, quote_char='"', separator="."):
         if namespaces:
             names = OrderedDict(
-                (namespace, names.get(namespace, None))
-                for namespace in namespaces
+                (namespace, names.get(namespace, None)) for namespace in namespaces
             )
 
         self._names = names
@@ -104,15 +106,15 @@ class ParsedNamespaces(object):
         self._separator = separator
 
     def __getattr__(self, name):
-        if '_names' in self.__dict__ and name in self._names:
+        if "_names" in self.__dict__ and name in self._names:
             return self._names[name]
         raise AttributeError(name)
 
     def __setattr__(self, name, value):
-        if '_names' in self.__dict__ and name in self._names:
+        if "_names" in self.__dict__ and name in self._names:
             self._names[name] = value
         else:
-            super(ParsedNamespaces, self).__setattr__(name, value)
+            super().__setattr__(name, value)
 
     def __bool__(self):
         return bool(self.name)
@@ -136,9 +138,7 @@ class ParsedNamespaces(object):
         names = self._names.copy()
         names.popitem()
         return ParsedNamespaces(
-            names=names,
-            quote_char=self._quote_char,
-            separator=self._separator
+            names=names, quote_char=self._quote_char, separator=self._separator
         )
 
     def as_dict(self):
@@ -152,9 +152,7 @@ class ParsedNamespaces(object):
             separator = self._separator
 
         names = [
-            self._names[namespace]
-            for namespace, name in self._names.items()
-            if name
+            self._names[namespace] for namespace, name in self._names.items() if name
         ]
         if len(names) == 0:
             return ""
@@ -168,4 +166,4 @@ class ParsedNamespaces(object):
         return self.name
 
     def __repr__(self):
-        return "Namespace<{}>".format(self.name)
+        return f"Namespace<{self.name}>"

@@ -1,11 +1,9 @@
 import datetime
 import functools
-import sys
 from abc import abstractmethod
 
 import dateutil
 import pandas
-import six
 import yaml
 from decorator import decorator
 from interface_meta import quirk_docs
@@ -18,22 +16,22 @@ from omniduct.utils.decorators import function_args_as_kwargs, require_connectio
 from ._serializers import PickleSerializer
 
 config.register(
-    'cache_fail_hard',
-    description='Raise an exception if a cache fails to save (otherwise errors are logged and suppressed).',
-    default=False
+    "cache_fail_hard",
+    description="Raise an exception if a cache fails to save (otherwise errors are logged and suppressed).",
+    default=False,
 )
 
 
 def cached_method(
-        key,
-        namespace=lambda self, kwargs: (
-            self.cache_namespace or "{}.{}".format(self.__class__.__name__, self.name)
-        ),
-        cache=lambda self, kwargs: self.cache,
-        use_cache=lambda self, kwargs: kwargs.pop('use_cache', True),
-        renew=lambda self, kwargs: kwargs.pop('renew', False),
-        serializer=lambda self, kwargs: PickleSerializer(),
-        metadata=lambda self, kwargs: None
+    key,
+    namespace=lambda self, kwargs: (
+        self.cache_namespace or f"{self.__class__.__name__}.{self.name}"
+    ),
+    cache=lambda self, kwargs: self.cache,
+    use_cache=lambda self, kwargs: kwargs.pop("use_cache", True),
+    renew=lambda self, kwargs: kwargs.pop("renew", False),
+    serializer=lambda self, kwargs: PickleSerializer(),
+    metadata=lambda self, kwargs: None,
 ):
     """
     Wrap a method of a `Duct` class and add caching capabilities.
@@ -73,7 +71,7 @@ def cached_method(
     @decorator
     def wrapped(method, self, *args, **kwargs):
         kwargs = function_args_as_kwargs(method, self, *args, **kwargs)
-        kwargs.pop('self')
+        kwargs.pop("self")
 
         _key = key(self, kwargs)
         _namespace = namespace(self, kwargs)
@@ -86,25 +84,26 @@ def cached_method(
         if _cache is None or not _use_cache:
             return method(self, **kwargs)
 
-        if _cache.has_key(_key, namespace=_namespace) and not _renew:  # noqa: has_key is not of a dictionary here
+        if (
+            _cache.has_key(_key, namespace=_namespace) and not _renew
+        ):  # noqa: has_key is not of a dictionary here
             try:
-                return _cache.get(
-                    _key,
-                    namespace=_namespace,
-                    serializer=_serializer
+                return _cache.get(_key, namespace=_namespace, serializer=_serializer)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.warning(
+                    "Failed to retrieve results from cache [%s]. Renewing the cache...",
+                    e,
                 )
-            except:
-                logger.warning("Failed to retrieve results from cache. Renewing the cache...")
                 if config.cache_fail_hard:
-                    six.reraise(*sys.exc_info())
+                    raise
             finally:
-                logger.caveat('Loaded from cache')
+                logger.caveat("Loaded from cache")
 
         # Renewing/creating cache
         value = method(self, **kwargs)
         if value is None:
             logger.warning("Method value returned None. Not saving to cache.")
-            return
+            return None
 
         try:
             _cache.set(
@@ -112,19 +111,17 @@ def cached_method(
                 value=value,
                 namespace=_namespace,
                 serializer=_serializer,
-                metadata=_metadata
+                metadata=_metadata,
             )
             # Return from cache every time, just in case serialization operation was
             # destructive (e.g. reading from cursors)
-            return _cache.get(
-                _key,
-                namespace=_namespace,
-                serializer=_serializer
+            return _cache.get(_key, namespace=_namespace, serializer=_serializer)
+        except:  # pylint: disable=bare-except
+            logger.warning(
+                "Failed to save results to cache. If needed, please save them manually."
             )
-        except:
-            logger.warning("Failed to save results to cache. If needed, please save them manually.")
             if config.cache_fail_hard:
-                six.reraise(*sys.exc_info())
+                raise
             return value  # As a last resort, return value object (which could be mutated by serialization).
 
     return wrapped
@@ -137,8 +134,8 @@ class Cache(Duct):
 
     DUCT_TYPE = Duct.Type.CACHE
 
-    @quirk_docs('_init', mro=True)
-    def __init__(self, **kwargs):
+    @quirk_docs("_init", mro=True)
+    def __init__(self, **kwargs):  # pylint: disable=super-init-not-called
         Duct.__init_with_kwargs__(self, kwargs)
         self._init(**kwargs)
 
@@ -165,12 +162,18 @@ class Cache(Duct):
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         try:
-            with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='wb', create=True) as fh:
+            with self._get_stream_for_key(
+                namespace,
+                key,
+                f"data{serializer.file_extension}",
+                mode="wb",
+                create=True,
+            ) as fh:
                 serializer.serialize(value, fh)
             self.set_metadata(key, metadata, namespace=namespace, replace=True)
-        except:
+        except:  # pylint: disable=bare-except
             self.unset(key, namespace=namespace)
-            six.reraise(*sys.exc_info())
+            raise
 
     @require_connection
     def set_metadata(self, key, metadata, namespace=None, replace=False):
@@ -189,13 +192,15 @@ class Cache(Duct):
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if replace:
-            orig_metadata = {'created': datetime.datetime.utcnow()}
+            orig_metadata = {"created": datetime.datetime.utcnow()}
         else:
             orig_metadata = self.get_metadata(key, namespace=namespace)
 
         orig_metadata.update(metadata or {})
 
-        with self._get_stream_for_key(namespace, key, 'metadata', mode='w', create=True) as fh:
+        with self._get_stream_for_key(
+            namespace, key, "metadata", mode="w", create=True
+        ) as fh:
             yaml.safe_dump(orig_metadata, fh, default_flow_style=False)
 
     @require_connection
@@ -215,12 +220,22 @@ class Cache(Duct):
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
         if not self._has_key(namespace, key):
-            raise KeyError("{} (namespace: {})".format(key, namespace))
+            raise KeyError(f"{key} (namespace: {namespace})")
         try:
-            with self._get_stream_for_key(namespace, key, 'data{}'.format(serializer.file_extension), mode='rb', create=False) as fh:
+            with self._get_stream_for_key(
+                namespace,
+                key,
+                f"data{serializer.file_extension}",
+                mode="rb",
+                create=False,
+            ) as fh:
                 return serializer.deserialize(fh)
         finally:
-            self.set_metadata(key, namespace=namespace, metadata={'last_accessed': datetime.datetime.utcnow()})
+            self.set_metadata(
+                key,
+                namespace=namespace,
+                metadata={"last_accessed": datetime.datetime.utcnow()},
+            )
 
     @require_connection
     def get_bytecount(self, key, namespace=None):
@@ -240,7 +255,7 @@ class Cache(Duct):
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
-            raise KeyError("{} (namespace: {})".format(key, namespace))
+            raise KeyError(f"{key} (namespace: {namespace})")
         return self._get_bytecount_for_key(namespace, key)
 
     @require_connection
@@ -257,11 +272,13 @@ class Cache(Duct):
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
-            raise KeyError("{} (namespace: {})".format(key, namespace))
+            raise KeyError(f"{key} (namespace: {namespace})")
         try:
-            with self._get_stream_for_key(namespace, key, 'metadata', mode='r', create=False) as fh:
+            with self._get_stream_for_key(
+                namespace, key, "metadata", mode="r", create=False
+            ) as fh:
                 return yaml.safe_load(fh)
-        except:
+        except:  # pylint: disable=bare-except
             return {}
 
     @require_connection
@@ -275,7 +292,7 @@ class Cache(Duct):
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
-            raise KeyError("{} (namespace: {})".format(key, namespace))
+            raise KeyError(f"{key} (namespace: {namespace})")
         self._remove_key(namespace, key)
 
     @require_connection
@@ -288,7 +305,7 @@ class Cache(Duct):
         """
         namespace = self._namespace(namespace)
         if not self._has_namespace(namespace):
-            raise KeyError("namespace: {}".format(namespace))
+            raise KeyError(f"namespace: {namespace}")
         self._remove_namespace(namespace)
 
     # Top-level descriptions
@@ -392,34 +409,37 @@ class Cache(Duct):
         for namespace in namespaces:
             for key in self.keys(namespace=namespace):
                 usage = {
-                    'bytes': self.get_bytecount(key, namespace=namespace),
-                    'namespace': namespace,
-                    'key': key,
-                    'created': None,
-                    'last_accessed': None
+                    "bytes": self.get_bytecount(key, namespace=namespace),
+                    "namespace": namespace,
+                    "key": key,
+                    "created": None,
+                    "last_accessed": None,
                 }
                 usage.update(self.get_metadata(key, namespace=namespace))
                 out.append(usage)
 
-        required_columns = ['bytes', 'namespace', 'key', 'created', 'last_accessed']
+        required_columns = ["bytes", "namespace", "key", "created", "last_accessed"]
         if out:
             df = pandas.DataFrame(out)
-            order = required_columns + sorted(set(df.columns).difference(required_columns))
-            return (
-                df
-                .sort_values('last_accessed', ascending=False)
-                .reset_index(drop=True)
-                [order]
+            order = required_columns + sorted(
+                set(df.columns).difference(required_columns)
             )
+            return df.sort_values("last_accessed", ascending=False).reset_index(
+                drop=True
+            )[order]
 
-        return pandas.DataFrame(
-            data=[],
-            columns=required_columns
-        )
+        return pandas.DataFrame(data=[], columns=required_columns)
 
     # Cache pruning
 
-    def prune(self, namespaces=None, max_age=None, max_bytes=None, total_bytes=None, total_count=None):
+    def prune(
+        self,
+        namespaces=None,
+        max_age=None,
+        max_bytes=None,
+        total_bytes=None,
+        total_count=None,
+    ):
         """
         Remove keys from the cache in order to satisfy nominated constraints.
 
@@ -441,7 +461,9 @@ class Cache(Duct):
                 constraint will be applied after max_age and max_bytes.
         """
         usage = self.describe(namespaces=namespaces)
-        if usage.shape[0] == 0:  # Abort early if the cache is empty (and hence has no index, which would cause problems later on)
+        if (
+            usage.shape[0] == 0
+        ):  # Abort early if the cache is empty (and hence has no index, which would cause problems later on)
             return
 
         constraints = []
@@ -450,36 +472,54 @@ class Cache(Duct):
         if max_age is not None:
             if isinstance(max_age, int):
                 max_age = datetime.timedelta(max_age)
-            if isinstance(max_age, (datetime.timedelta, dateutil.relativedelta.relativedelta)):
+            if isinstance(
+                max_age, (datetime.timedelta, dateutil.relativedelta.relativedelta)
+            ):
                 max_age = datetime.datetime.now() - max_age
             if not isinstance(max_age, (datetime.datetime, datetime.date)):
-                raise ValueError("Invalid type specified for `max_age`: {}".format(max_age.__repr__()))
+                raise ValueError(
+                    f"Invalid type specified for `max_age`: {repr(max_age)}"
+                )
             constraints.append(usage.last_accessed < max_age)
 
         if max_bytes is not None:
             if not isinstance(max_bytes, int):
-                raise ValueError("Invalid type specified for `max_bytes`: {}".format(max_bytes.__repr__()))
+                raise ValueError(
+                    f"Invalid type specified for `max_bytes`: {repr(max_bytes)}"
+                )
             constraints.append(usage.bytes > max_bytes)
 
         if constraints:
             to_unset = usage[functools.reduce(lambda x, y: x | y, constraints, False)]
-            for i, row in to_unset.iterrows():
-                logger.info("Unsetting key '{}' (namespace: '{}')...".format(row.key, row.namespace))
+            for _, row in to_unset.iterrows():
+                logger.info(
+                    f"Unsetting key '{row.key}' (namespace: '{row.namespace}')..."
+                )
                 self.unset(row.key, namespace=row.namespace)
 
         # Unset keys according to global constraints
         if total_bytes is not None or total_count is not None:
             if total_bytes is not None and not isinstance(total_bytes, int):
-                raise ValueError("Invalid type specified for `total_bytes`: {}".format(total_bytes.__repr__()))
+                raise ValueError(
+                    f"Invalid type specified for `total_bytes`: {repr(total_bytes)}"
+                )
             if total_count is not None and not isinstance(total_count, int):
-                raise ValueError("Invalid type specified for `total_count`: {}".format(total_bytes.__repr__()))
-            usage = self.describe(namespaces=namespaces).assign(cum_bytes=lambda x: x.bytes.cumsum())
+                raise ValueError(
+                    f"Invalid type specified for `total_count`: {repr(total_bytes)}"
+                )
+            usage = self.describe(namespaces=namespaces).assign(
+                cum_bytes=lambda x: x.bytes.cumsum()
+            )
 
             unset_index = total_count if total_count is not None else len(usage)
             if total_bytes is not None:
-                unset_index = min(unset_index, usage.cum_bytes.searchsorted(total_bytes, side='right'))
-            for i, row in usage.loc[unset_index:].iterrows():
-                logger.info("Unsetting key '{}' (namespace: '{}')...".format(row.key, row.namespace))
+                unset_index = min(
+                    unset_index, usage.cum_bytes.searchsorted(total_bytes, side="right")
+                )
+            for _, row in usage.loc[unset_index:].iterrows():
+                logger.info(
+                    f"Unsetting key '{row.key}' (namespace: '{row.namespace}')..."
+                )
                 self.unset(row.key, namespace=row.namespace)
 
     # Methods for subclasses to implement

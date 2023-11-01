@@ -2,9 +2,7 @@ import getpass
 import re
 from abc import abstractmethod
 
-import six
 from interface_meta import quirk_docs, override
-from future.utils import raise_with_traceback
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
@@ -18,7 +16,7 @@ except ImportError:  # Python 2
     from urlparse import urlparse, urlunparse
 
 
-class PortForwardingRegister(object):
+class PortForwardingRegister:
     """
     A register of all port forwards initiated by a particular Duct.
     """
@@ -38,7 +36,7 @@ class PortForwardingRegister(object):
             tuple, None: A tuple of local port and implementation-specific
                 connection artifact, if it exists, and `None` otherwise.
         """
-        return self._register.get('{}:{}'.format(remote_host, remote_port))
+        return self._register.get(f"{remote_host}:{remote_port}")
 
     def lookup_port(self, remote_host, remote_port):
         """
@@ -55,6 +53,7 @@ class PortForwardingRegister(object):
         entry = self.lookup(remote_host, remote_port)
         if entry is not None:
             return entry[0]
+        return None
 
     def reverse_lookup(self, local_port):
         """
@@ -69,7 +68,7 @@ class PortForwardingRegister(object):
         """
         for key, (port, connection) in self._register.items():
             if port == local_port:
-                return key.split(':') + [connection]
+                return key.split(":") + [connection]
         return None
 
     def register(self, remote_host, remote_port, local_port, connection):
@@ -82,9 +81,11 @@ class PortForwardingRegister(object):
             local_port (int): The local port.
             connection (object): Implementation-specific connection artifact.
         """
-        key = '{}:{}'.format(remote_host, remote_port)
+        key = f"{remote_host}:{remote_port}"
         if key in self._register:
-            raise RuntimeError("Remote host/port combination ({}) is already registered.".format(key))
+            raise RuntimeError(
+                f"Remote host/port combination ({key}) is already registered."
+            )
         self._register[key] = (local_port, connection)
 
     def deregister(self, remote_host, remote_port):
@@ -99,7 +100,7 @@ class PortForwardingRegister(object):
             tuple: A tuple of local port and implementation-specific
                 connection artifact, if it exists, and `None` otherwise.
         """
-        return self._register.pop('{}:{}'.format(remote_host, remote_port))
+        return self._register.pop(f"{remote_host}:{remote_port}")
 
 
 class RemoteClient(FileSystemClient):
@@ -110,6 +111,7 @@ class RemoteClient(FileSystemClient):
         smartcard (dict): Mapping of smartcard names to system libraries
             compatible with `ssh-add -s '<system library>' ...`.
     """
+
     __doc_attrs = """
     smartcard (dict): Mapping of smartcard names to system libraries
         compatible with `ssh-add -s '<system library>' ...`.
@@ -118,8 +120,10 @@ class RemoteClient(FileSystemClient):
     DUCT_TYPE = Duct.Type.REMOTE
     DEFAULT_PORT = None
 
-    @quirk_docs('_init', mro=True)
-    def __init__(self, smartcards=None, **kwargs):
+    @quirk_docs("_init", mro=True)
+    def __init__(
+        self, smartcards=None, **kwargs
+    ):  # pylint: disable=super-init-not-called
         """
         Args:
             smartcards (dict): Mapping of smartcard names to system libraries
@@ -157,13 +161,10 @@ class RemoteClient(FileSystemClient):
         """
         try:
             Duct.connect(self)
-        except DuctServerUnreachable as e:
-            raise_with_traceback(e)
-        except DuctAuthenticationError as e:
+        except DuctAuthenticationError:
             if self.smartcards and self.prepare_smartcards():
                 Duct.connect(self)
-            else:
-                raise_with_traceback(e)
+            raise
         return self
 
     def prepare_smartcards(self):
@@ -189,26 +190,34 @@ class RemoteClient(FileSystemClient):
     def _prepare_smartcard(self, name, filename):
         import pexpect
 
-        remover = pexpect.spawn('ssh-add -e "{}"'.format(filename))
+        remover = pexpect.spawn(f'ssh-add -e "{filename}"')
         i = remover.expect(["Card removed:", "Could not remove card", pexpect.TIMEOUT])
         if i == 2:
-            raise RuntimeError("Unable to reset card using ssh-agent. Output of ssh-agent was: \n{}\n\n"
-                               "Please report this error!".format(remover.before))
+            raise RuntimeError(
+                f"Unable to reset card using ssh-agent. Output of ssh-agent was: \n{remover.before}\n\nPlease report this error!"
+            )
 
-        adder = pexpect.spawn('ssh-add -s "{}" -t 14400'.format(filename))
-        i = adder.expect(['Enter passphrase for PKCS#11:', pexpect.TIMEOUT])
+        adder = pexpect.spawn(f'ssh-add -s "{filename}" -t 14400')
+        i = adder.expect(["Enter passphrase for PKCS#11:", pexpect.TIMEOUT])
         if i == 0:
-            adder.sendline(getpass.getpass('Please enter your passcode to unlock your "{}" smartcard: '.format(name)))
+            adder.sendline(
+                getpass.getpass(
+                    f'Please enter your passcode to unlock your "{name}" smartcard: '
+                )
+            )
         else:
-            raise RuntimeError("Unable to add card using ssh-agent. Output of ssh-agent was: \n{}\n\n"
-                               "Please report this error!".format(remover.before))
-        i = adder.expect(['Card added:', pexpect.TIMEOUT])
+            raise RuntimeError(
+                f"Unable to add card using ssh-agent. Output of ssh-agent was: \n{remover.before}\n\nPlease report this error!"
+            )
+        i = adder.expect(["Card added:", pexpect.TIMEOUT])
         if i != 0:
-            raise RuntimeError("Unexpected error while adding card. Check your passcode and try again.")
+            raise RuntimeError(
+                "Unexpected error while adding card. Check your passcode and try again."
+            )
 
         return True
 
-    @quirk_docs('_execute')
+    @quirk_docs("_execute")
     @require_connection
     def execute(self, cmd, **kwargs):
         """
@@ -232,20 +241,30 @@ class RemoteClient(FileSystemClient):
     # Port forwarding code
 
     def _extract_host_and_ports(self, remote_host, remote_port, local_port):
-        assert remote_host is None or isinstance(remote_host, six.string_types), "Remote host, if specified, must be a string of form 'hostname(:port)'."
-        assert remote_port is None or isinstance(remote_port, int), "Remote port, if specified, must be an integer."
-        assert local_port is None or isinstance(local_port, int), "Local port, if specified, must be an integer."
+        assert remote_host is None or isinstance(
+            remote_host, str
+        ), "Remote host, if specified, must be a string of form 'hostname(:port)'."
+        assert remote_port is None or isinstance(
+            remote_port, int
+        ), "Remote port, if specified, must be an integer."
+        assert local_port is None or isinstance(
+            local_port, int
+        ), "Local port, if specified, must be an integer."
 
         host = port = None
         if remote_host is not None:
-            m = re.match(r'(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?', remote_host)
-            assert m, "Host not valid: {}. Must be a string of form 'hostname(:port)'.".format(remote_host)
+            m = re.match(
+                r"(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?", remote_host
+            )
+            assert (
+                m
+            ), f"Host not valid: {remote_host}. Must be a string of form 'hostname(:port)'."
 
-            host = m.group('host')
-            port = m.group('port') or remote_port
+            host = m.group("host")
+            port = m.group("port") or remote_port
         return host, port, local_port
 
-    @quirk_docs('_port_forward_start')
+    @quirk_docs("_port_forward_start")
     @require_connection
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
@@ -268,12 +287,16 @@ class RemoteClient(FileSystemClient):
         """
 
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(
+            remote_host, remote_port, local_port
+        )
         assert remote_host is not None, "Remote host must be specified."
         assert remote_port is not None, "Remote port must be specified."
 
         # Actual port forwarding
-        registered_port = self.__port_forwarding_register.lookup_port(remote_host, remote_port)
+        registered_port = self.__port_forwarding_register.lookup_port(
+            remote_host, remote_port
+        )
         if registered_port is not None:
             if local_port is not None and registered_port != local_port:
                 self.port_forward_stop(registered_port)
@@ -283,12 +306,18 @@ class RemoteClient(FileSystemClient):
         if local_port is None:
             local_port = get_free_local_port()
         else:
-            assert is_local_port_free(local_port), "Specified local port is in use, and cannot be used."
+            assert is_local_port_free(
+                local_port
+            ), "Specified local port is in use, and cannot be used."
 
         if not self.is_port_bound(remote_host, remote_port):
-            raise DuctServerUnreachable("Server specified for port forwarding ({}:{}) is unreachable via '{}' ({}).".format(remote_host, remote_port, self.name, self.__class__.__name__))
+            raise DuctServerUnreachable(
+                f"Server specified for port forwarding ({remote_host}:{remote_port}) is unreachable via '{self.name}' ({self.__class__.__name__})."
+            )
         connection = self._port_forward_start(local_port, remote_host, remote_port)
-        self.__port_forwarding_register.register(remote_host, remote_port, local_port, connection)
+        self.__port_forwarding_register.register(
+            remote_host, remote_port, local_port, connection
+        )
 
         return local_port
 
@@ -308,16 +337,24 @@ class RemoteClient(FileSystemClient):
                 port forwarding.
         """
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(
+            remote_host, remote_port, local_port
+        )
 
-        assert remote_host is not None and remote_port is not None or local_port is not None, "Either remote host and port must be specified, or the local port must be specified."
+        assert (
+            remote_host is not None
+            and remote_port is not None
+            or local_port is not None
+        ), "Either remote host and port must be specified, or the local port must be specified."
 
         if remote_host is not None and remote_port is not None:
-            return self.__port_forwarding_register.lookup(remote_host, remote_port) is not None
-        else:
-            return self.__port_forwarding_register.reverse_lookup(local_port) is not None
+            return (
+                self.__port_forwarding_register.lookup(remote_host, remote_port)
+                is not None
+            )
+        return self.__port_forwarding_register.reverse_lookup(local_port) is not None
 
-    @quirk_docs('_port_forward_stop')
+    @quirk_docs("_port_forward_stop")
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
         """
         Disconnect an existing port forward connection.
@@ -333,14 +370,26 @@ class RemoteClient(FileSystemClient):
             local_port (int, None): The port used locally.
         """
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self._extract_host_and_ports(remote_host, remote_port, local_port)
+        remote_host, remote_port, local_port = self._extract_host_and_ports(
+            remote_host, remote_port, local_port
+        )
 
-        assert remote_host is not None and remote_port is not None or local_port is not None, "Either remote host and port must be specified, or the local port must be specified."
+        assert (
+            remote_host is not None
+            and remote_port is not None
+            or local_port is not None
+        ), "Either remote host and port must be specified, or the local port must be specified."
 
         if remote_host is not None and remote_port is not None:
-            local_port, connection = self.__port_forwarding_register.lookup(remote_host, remote_port)
+            local_port, connection = self.__port_forwarding_register.lookup(
+                remote_host, remote_port
+            )
         else:
-            remote_host, remote_port, connection = self.__port_forwarding_register.reverse_lookup(local_port)
+            (
+                remote_host,
+                remote_port,
+                connection,
+            ) = self.__port_forwarding_register.reverse_lookup(local_port)
 
         self._port_forward_stop(local_port, remote_host, remote_port, connection)
         self.__port_forwarding_register.deregister(remote_host, remote_port)
@@ -367,7 +416,11 @@ class RemoteClient(FileSystemClient):
             str: A local uri that tunnels all traffic to the remote host.
         """
         parsed_uri = urlparse(uri)
-        return urlunparse(parsed_uri._replace(netloc='localhost:{}'.format(self.port_forward(parsed_uri.netloc))))
+        return urlunparse(
+            parsed_uri._replace(
+                netloc=f"localhost:{self.port_forward(parsed_uri.netloc)}"
+            )
+        )
 
     def show_port_forwards(self):
         """
@@ -375,8 +428,16 @@ class RemoteClient(FileSystemClient):
         """
         if len(self.__port_forwarding_register._register) == 0:
             print("No port forwards currently in use.")
-        for remote_host, (local_port, _) in self.__port_forwarding_register._register.items():
-            print("localhost:{}".format(local_port), "->", remote_host, "(on {})".format(self._host))
+        for remote_host, (
+            local_port,
+            _,
+        ) in self.__port_forwarding_register._register.items():
+            print(
+                f"localhost:{local_port}",
+                "->",
+                remote_host,
+                f"(on {self._host})",
+            )
 
     @abstractmethod
     def _port_forward_start(self, local_port, remote_host, remote_port):
@@ -386,7 +447,7 @@ class RemoteClient(FileSystemClient):
     def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
         raise NotImplementedError
 
-    @quirk_docs('_is_port_bound')
+    @quirk_docs("_is_port_bound")
     @require_connection
     def is_port_bound(self, host, port):
         """

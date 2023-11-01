@@ -1,6 +1,6 @@
 import json
+from urllib.parse import urljoin
 
-from future.moves.urllib.parse import urljoin
 from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
@@ -29,8 +29,15 @@ class RestClientBase(Duct):
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
-    @quirk_docs('_init', mro=True)
-    def __init__(self, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
+    @quirk_docs("_init", mro=True)
+    def __init__(  # pylint: disable=super-init-not-called
+        self,
+        server_protocol="http",
+        assume_json=False,
+        endpoint_prefix="",
+        default_timeout=None,
+        **kwargs,
+    ):
         """
         Args:
             server_protocol (str): The protocol to use when connecting to the
@@ -39,6 +46,9 @@ class RestClientBase(Duct):
                 instances of this class (default: `False`).
             endpoint_prefix (str): The base_url path relative to the host at
                 which the API is accessible (default: `''`).
+            default_timeout (optional float): The number of seconds to wait for
+                a response. Will be used except where overridden by specific
+                requests.
             **kwargs (dict): Additional keyword arguments passed on to
                 subclasses.
         """
@@ -47,13 +57,14 @@ class RestClientBase(Duct):
         self.server_protocol = server_protocol
         self.assume_json = assume_json
         self.endpoint_prefix = endpoint_prefix
+        self.default_timeout = default_timeout
 
         self._init(**kwargs)
 
     def _init(self):
         pass
 
-    def __call__(self, endpoint, method='get', **kwargs):
+    def __call__(self, endpoint, method="get", **kwargs):
         if self.assume_json:
             return self.request_json(endpoint, method=method, **kwargs)
         return self.request(endpoint, method=method, **kwargs)
@@ -61,13 +72,16 @@ class RestClientBase(Duct):
     @property
     def base_url(self):
         """str: The base url of the REST API."""
-        url = urljoin('{}://{}:{}'.format(self.server_protocol, self.host, self.port or 80), self.endpoint_prefix)
-        if not url.endswith('/'):
-            url += '/'
+        url = urljoin(
+            f"{self.server_protocol}://{self.host}:{self.port or 80}",
+            self.endpoint_prefix,
+        )
+        if not url.endswith("/"):
+            url += "/"
         return url
 
     @require_connection
-    def request(self, endpoint, method='get', **kwargs):
+    def request(self, endpoint, method="get", **kwargs):
         """
         Request data from a nominated endpoint.
 
@@ -81,10 +95,13 @@ class RestClientBase(Duct):
             requests.Response: The response object associated with this request.
         """
         import requests
-        url = urljoin(self.base_url, endpoint)
-        return requests.request(method, url, **kwargs)
 
-    def request_json(self, endpoint, method='get', **kwargs):
+        url = urljoin(self.base_url, endpoint)
+        return requests.request(
+            method, url, **{"timeout": self.default_timeout, **kwargs}
+        )
+
+    def request_json(self, endpoint, method="get", **kwargs):
         """
         Request JSON data from a nominated endpoint.
 
@@ -100,9 +117,13 @@ class RestClientBase(Duct):
         request = self.request(endpoint, method=method, **kwargs)
         if not request.status_code == 200:
             try:
-                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, json.dumps(request.json())))
-            except:
-                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
+                raise RuntimeError(
+                    f"Server responded with HTTP response code {request.status_code}, with content: {json.dumps(request.json())}."
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                raise RuntimeError(
+                    f"Server responded with HTTP response code {request.status_code}, with content: {request.content.decode('utf-8')}."
+                ) from e
         return request.json()
 
     @override
@@ -122,4 +143,5 @@ class RestClient(RestClientBase):
     """
     A trivial implementation of `RestClientBase` for basic REST access.
     """
-    PROTOCOLS = ['rest']
+
+    PROTOCOLS = ["rest"]

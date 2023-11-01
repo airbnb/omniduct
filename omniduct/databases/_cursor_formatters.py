@@ -1,17 +1,16 @@
 import csv
 import io
-import six
 
 from omniduct.utils.debug import logger
 
 COLUMN_NAME_FORMATTERS = {
     None: lambda x: x,
-    'lowercase': lambda x: x.lower(),
-    'uppercase': lambda x: x.upper()
+    "lowercase": lambda x: x.lower(),
+    "uppercase": lambda x: x.upper(),
 }
 
 
-class CursorFormatter(object):
+class CursorFormatter:
     """
     An abstract base class for all cursor formatters.
 
@@ -35,7 +34,8 @@ class CursorFormatter(object):
         """
         self.cursor = cursor
         self.column_name_formatter = (
-            column_name_formatter if callable(column_name_formatter)
+            column_name_formatter
+            if callable(column_name_formatter)
             else COLUMN_NAME_FORMATTERS[column_name_formatter]
         )
         self._init(**kwargs)
@@ -99,10 +99,14 @@ class CursorFormatter(object):
         return row
 
     def _format_dump(self, data):
-        raise NotImplementedError("{} does not support formatting dumped data.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support formatting dumped data."
+        )
 
     def _format_row(self, row):
-        raise NotImplementedError("{} does not support formatting streaming data.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support formatting streaming data."
+        )
 
 
 class PandasCursorFormatter(CursorFormatter):
@@ -125,9 +129,10 @@ class PandasCursorFormatter(CursorFormatter):
         if self.date_fields is not None:
             try:
                 df = pd.io.sql._parse_date_columns(df, self.date_fields)
-            except Exception as e:
-                logger.warning('Unable to parse date columns. Perhaps your version of pandas is outdated.'
-                               'Original error message was: {}: {}'.format(e.__class__.__name__, str(e)))
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.warning(
+                    f"Unable to parse date columns. Perhaps your version of pandas is outdated.Original error message was: {e.__class__.__name__}: {str(e)}"
+                )
 
         if self.index_fields is not None:
             df.set_index(self.index_fields, inplace=True)
@@ -184,16 +189,16 @@ class CsvCursorFormatter(CursorFormatter):
     """
 
     FORMAT_PARAMS = {
-        'delimiter': ',',
-        'doublequote': False,
-        'escapechar': '\\',
-        'lineterminator': '\r\n',
-        'quotechar': '"',
-        'quoting': csv.QUOTE_MINIMAL
+        "delimiter": ",",
+        "doublequote": False,
+        "escapechar": "\\",
+        "lineterminator": "\r\n",
+        "quotechar": '"',
+        "quoting": csv.QUOTE_MINIMAL,
     }
 
     def _init(self, include_header=True):
-        self.output = io.StringIO() if six.PY3 else io.BytesIO()
+        self.output = io.StringIO()
         self.include_header = include_header
         self.writer = csv.writer(self.output, **self.FORMAT_PARAMS)
 
@@ -225,17 +230,17 @@ class HiveCursorFormatter(CsvCursorFormatter):
     """
 
     FORMAT_PARAMS = {
-        'delimiter': '\t',
-        'doublequote': False,
-        'escapechar': '',
-        'lineterminator': '\n',
-        'quotechar': '',
-        'quoting': csv.QUOTE_NONE
+        "delimiter": "\t",
+        "doublequote": False,
+        "escapechar": "",
+        "lineterminator": "\n",
+        "quotechar": "",
+        "quoting": csv.QUOTE_NONE,
     }
 
-    def _init(self):
+    def _init(self):  # pylint: disable=arguments-differ
         CsvCursorFormatter._init(self, include_header=False)
 
     # Convert null values to '\N'.
     def _prepare_row(self, row):
-        return [r'\N' if v is None else str(v).replace('\t', r'\t') for v in row]
+        return [r"\N" if v is None else str(v).replace("\t", r"\t") for v in row]

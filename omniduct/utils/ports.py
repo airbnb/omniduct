@@ -42,7 +42,7 @@ def get_free_local_port():
     s.bind(("", 0))
     free_port = s.getsockname()[1]
     s.close()
-    logger.info('found port {0}'.format(free_port))
+    logger.info(f"found port {free_port}")
     return free_port
 
 
@@ -52,7 +52,7 @@ def is_port_bound(hostname, port, timeout=None):
         s.settimeout(timeout)
     try:
         s.connect((hostname, port))
-    except:
+    except:  # pylint: disable=bare-except
         return False
     finally:
         s.close()
@@ -66,13 +66,12 @@ def naive_load_balancer(hosts, port):
     random.shuffle(hosts)
 
     # Check if host is available and if so return it
-    pattern = re.compile(r'(?P<host>[^\:]+)(?::(?P<port>[0-9]{1,5}))?')
+    pattern = re.compile(r"(?P<host>[^\:]+)(?::(?P<port>[0-9]{1,5}))?")
     for host in hosts:
         m = pattern.match(host)
-        if is_port_bound(m.group('host'), int(m.group('port') or port), timeout=1):
+        if is_port_bound(m.group("host"), int(m.group("port") or port), timeout=1):
             return host
-        else:
-            logger.warning("Avoiding down or inaccessible host: '{}'.".format(host))
+        logger.warning(f"Avoiding down or inaccessible host: '{host}'.")
 
     raise RuntimeError(
         "Unable to connect to any of the hosts associated with this service. "

@@ -1,4 +1,3 @@
-import six
 import yaml
 from interface_meta import override
 
@@ -13,10 +12,10 @@ class FileSystemCache(Cache):
     An implementation of `Cache` that wraps around a `FilesystemClient`.
     """
 
-    PROTOCOLS = ['filesystem_cache']
+    PROTOCOLS = ["filesystem_cache"]
 
     @override
-    def _init(self, path, fs=None):
+    def _init(self, path, fs=None):  # pylint: disable=arguments-differ
         """
         path (str): The top-level path of the cache in the filesystem.
         fs (FileSystemClient, str): The filesystem client to use as the
@@ -30,51 +29,53 @@ class FileSystemCache(Cache):
         self.path = path
         # Currently config is not used, but will be in future versions
         self._config = None
-        self.connection_fields += ('fs',)
+        self.connection_fields += ("fs",)
 
     @override
     def _prepare(self):
         Cache._prepare(self)
 
         if self.registry is not None:
-            if isinstance(self.fs, six.string_types):
-                self.fs = self.registry.lookup(self.fs, kind=FileSystemCache.Type.FILESYSTEM)
-        assert isinstance(self.fs, FileSystemClient), "Provided cache is not an instance of `omniduct.filesystems.base.FileSystemClient`."
+            if isinstance(self.fs, str):
+                self.fs = self.registry.lookup(  # pylint: disable=attribute-defined-outside-init
+                    self.fs, kind=FileSystemCache.Type.FILESYSTEM
+                )
+        assert isinstance(
+            self.fs, FileSystemClient
+        ), "Provided cache is not an instance of `omniduct.filesystems.base.FileSystemClient`."
 
         self._prepare_cache()
 
     def _prepare_cache(self):
-        config_path = self.fs.path_join(self.path, 'config')
+        config_path = self.fs.path_join(self.path, "config")
         if self.fs.exists(config_path):
             with self.fs.open(config_path) as fh:
                 try:
                     return yaml.safe_load(fh)
-                except yaml.error.YAMLError:
+                except yaml.error.YAMLError as e:
                     raise RuntimeError(
-                        "Path nominated for cache ('{}') has a corrupt "
-                        "configuration. Please manually empty or delete this "
-                        "path cache, and try again.".format(self.path)
-                    )
+                        f"Path nominated for cache ('{self.path}') has a corrupt "
+                        "configuration. Please manually empty or delete this path "
+                        "cache, and try again."
+                    ) from e
 
         # Cache needs initialising
         if self.fs.exists(self.path):
             if not self.fs.isdir(self.path):
                 raise RuntimeError(
-                    "Path nominated for cache ('{}') is not a directory.".format(self.path)
+                    f"Path nominated for cache ('{self.path}') is not a directory."
                 )
-            elif self.fs.listdir(self.path):
+            if self.fs.listdir(self.path):
                 raise RuntimeError(
-                    "Cache directory ({}) needs to be initialised, and is not "
-                    "empty. Please manually delete and/or empty this path, and "
-                    "try again.".format(self.path)
+                    f"Cache directory ({self.path}) needs to be initialised, and is not empty. Please manually delete and/or empty this path, and try again."
                 )
         else:  # Create cache directory
             self.fs.mkdir(self.path, recursive=True, exist_ok=True)
 
         # Write config file to mark cache as initialised
-        with self.fs.open(config_path, 'w') as fh:
-            yaml.safe_dump({'version': 1}, fh, default_flow_style=False)
-        return {'version': 1}
+        with self.fs.open(config_path, "w") as fh:
+            yaml.safe_dump({"version": 1}, fh, default_flow_style=False)
+        return {"version": 1}
 
     @override
     def _connect(self):
@@ -92,13 +93,13 @@ class FileSystemCache(Cache):
     @override
     def _namespace(self, namespace):
         if namespace is None:
-            return '__default__'
-        assert isinstance(namespace, str) and namespace != 'config'
+            return "__default__"
+        assert isinstance(namespace, str) and namespace != "config"
         return namespace
 
     @override
     def _get_namespaces(self):
-        return [d for d in self.fs.listdir(self.path) if d != 'config']
+        return [d for d in self.fs.listdir(self.path) if d != "config"]
 
     @override
     def _has_namespace(self, namespace):
@@ -118,15 +119,14 @@ class FileSystemCache(Cache):
 
     @override
     def _remove_key(self, namespace, key):
-        return self.fs.remove(self.fs.path_join(self.path, namespace, key), recursive=True)
+        return self.fs.remove(
+            self.fs.path_join(self.path, namespace, key), recursive=True
+        )
 
     @override
     def _get_bytecount_for_key(self, namespace, key):
         path = self.fs.path_join(self.path, namespace, key)
-        return sum([
-            f.bytes
-            for f in self.fs.dir(path)
-        ])
+        return sum(f.bytes for f in self.fs.dir(path))
 
     @override
     def _get_stream_for_key(self, namespace, key, stream_name, mode, create):

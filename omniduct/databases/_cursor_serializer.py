@@ -13,17 +13,17 @@ class CursorSerializer(Serializer):
         """str: The file extension to use when storing in the cache."""
         return ".pickled_cursor"
 
-    def serialize(self, cursor, fh):
+    def serialize(self, obj, fh):
         """
         Serialize a cursor object into a nominated file handle.
 
         Args:
-            cursor (DB-API 2.0 cursor): The cursor to serialize.
+            obj (DB-API 2.0 cursor): The cursor to serialize.
             fh (binary file handle): A file-like object opened in binary mode
                 capable of being written into.
         """
-        description = cursor.description
-        rows = cursor.fetchall()
+        description = obj.description
+        rows = obj.fetchall()
         pickle.dump((description, rows), fh)
 
     def deserialize(self, fh):
@@ -42,7 +42,7 @@ class CursorSerializer(Serializer):
         return CachedCursor(description, rows)
 
 
-class CachedCursor(object):
+class CachedCursor:
     """
     A DB-API 2.0 cursor implementation atop of static data.
 
@@ -58,7 +58,7 @@ class CachedCursor(object):
 
     @property
     def iter(self):
-        if not getattr(self, '_iter'):
+        if not getattr(self, "_iter"):
             self._iter = (row for row in self._rows)
         return self._iter
 
@@ -75,13 +75,13 @@ class CachedCursor(object):
     def close(self):
         pass
 
-    def execute(operation, parameters=None):
+    def execute(self, operation, parameters=None):
         raise NotImplementedError(
             "Cached cursors are not connected to a database, and cannot be "
             "used for database operations."
         )
 
-    def executemany(operation, seq_of_parameters=None):
+    def executemany(self, operation, seq_of_parameters=None):
         raise NotImplementedError(
             "Cached cursors are not connected to a database, and cannot be "
             "used for database operations."

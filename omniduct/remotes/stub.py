@@ -2,7 +2,6 @@ from omniduct.remotes.base import RemoteClient
 
 
 class StubFsClient(RemoteClient):
-
     PROTOCOLS = []
     DEFAULT_PORT = None
 

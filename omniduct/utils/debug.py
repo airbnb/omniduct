@@ -6,19 +6,19 @@ import sys
 import time
 
 import progressbar
-import six
 from decorator import decorate
-from future.utils import raise_with_traceback
 
 from .config import config
 
-config.register('logging_level',
-                description='Set the default logging level.',
-                default=logging.INFO,
-                onchange=lambda level: logger.setLevel(level, context='omniduct'))
+config.register(
+    "logging_level",
+    description="Set the default logging level.",
+    default=logging.INFO,
+    onchange=lambda level: logger.setLevel(level, context="omniduct"),
+)
 
 
-class StatusLogger(object):
+class StatusLogger:
     """
     StatusLogger is a wrapper around `logging.Logger` that allows for consistent
     treatment of logging messages. While not strictly required,
@@ -38,11 +38,13 @@ class StatusLogger(object):
         self.__scopes = []
 
         ch = LoggingHandler()
-        formatter = logging.Formatter("%(levelname)s: %(name)s (%(funcName)s:%(lineno)s): %(message)s")
+        formatter = logging.Formatter(
+            "%(levelname)s: %(name)s (%(funcName)s:%(lineno)s): %(message)s"
+        )
         ch.setFormatter(formatter)
 
-        self.setLevel(config.logging_level, context='omniduct')
-        omniductLogger = self.__get_logger_instance(context='omniduct')
+        self.setLevel(config.logging_level, context="omniduct")
+        omniductLogger = self.__get_logger_instance(context="omniduct")
         omniductLogger.addHandler(ch)
         omniductLogger.propagate = False
 
@@ -58,49 +60,58 @@ class StatusLogger(object):
 
     def _scope_enter(self, name, timed=False, extra=None):
         if config.logging_level < logging.INFO:
-            print("\t" * len(self.__scopes) + "Entering manual scope: {}".format(name), file=sys.stderr)
-        props = {'name': name}
+            print(
+                "\t" * len(self.__scopes) + f"Entering manual scope: {name}",
+                file=sys.stderr,
+            )
+        props = {"name": name}
         if timed:
-            props['time'] = time.time()
+            props["time"] = time.time()
         if extra is not None:
-            props['extra'] = extra
-        props['caveats'] = []
+            props["extra"] = extra
+        props["caveats"] = []
         self.__scopes.append(props)
 
     def _scope_exit(self, success=True):
         if self._progress_bar is not None:
             self.progress(100, complete=True)
         props = self.__scopes[-1]
-        if 'time' in props:
+        if "time" in props:
             logger.warning(
-                "{} after {} on {}.".format(
-                    'Complete' if success else 'Failed',
-                    self.__get_time(time.time() - props['time']),
-                    time.strftime('%Y-%m-%d')
-                ) + (' CAVEATS: {}.'.format('; '.join(props['caveats'])) if props['caveats'] else '')
+                f"{'Complete' if success else 'Failed'} after {self.__get_time(time.time() - props['time'])} on {time.strftime('%Y-%m-%d')}."
+                + (
+                    f" CAVEATS: {'; '.join(props['caveats'])}."
+                    if props["caveats"]
+                    else ""
+                )
             )
         scope = self.__scopes.pop()
         if config.logging_level < logging.INFO:
-            print("\t" * len(self.__scopes) + "Exited manual scope: {}".format(scope['name']), file=sys.stderr)
-        elif 'has_logged' in scope:
+            print(
+                "\t" * len(self.__scopes) + f"Exited manual scope: {scope['name']}",
+                file=sys.stderr,
+            )
+        elif "has_logged" in scope:
             if len(self.__scopes) != 0:
-                self.current_scope_props['has_logged'] = self.current_scope_props.get('has_logged') or props.get('has_logged', False)
+                self.current_scope_props["has_logged"] = self.current_scope_props.get(
+                    "has_logged"
+                ) or props.get("has_logged", False)
 
     def __get_time(self, seconds):
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
 
         if h > 0:
-            return "{:.0f} hrs, {:.0f} min".format(h, m)
+            return f"{h:.0f} hrs, {m:.0f} min"
         if m > 0:
-            return "{:.0f} min, {:.0f} sec".format(m, s)
-        return "{:.2f} sec".format(s)
+            return f"{m:.0f} min, {s:.0f} sec"
+        return f"{s:.2f} sec"
 
     def caveat(self, caveat):
         if len(self.__scopes) == 0:
-            self.warning("CAVEAT: {}".format(caveat))
+            self.warning(f"CAVEAT: {caveat}")
         else:
-            self.current_scope_props['caveats'].append(caveat)
+            self.current_scope_props["caveats"].append(caveat)
 
     @property
     def current_scopes(self):
@@ -125,10 +136,18 @@ class StatusLogger(object):
                 prefix = ": ".join(self.current_scopes) + ": "
             else:
                 prefix = "\t" * len(self.current_scopes)
-            self._progress_bar = progressbar.ProgressBar(widgets=[prefix, progressbar.widgets.RotatingMarker() if indeterminate else progressbar.widgets.Bar(), progressbar.widgets.Timer(format=' %(elapsed)s')],
-                                                         redirect_stderr=True,
-                                                         redirect_stdout=True,
-                                                         max_value=100).start()
+            self._progress_bar = progressbar.ProgressBar(
+                widgets=[
+                    prefix,
+                    progressbar.widgets.RotatingMarker()
+                    if indeterminate
+                    else progressbar.widgets.Bar(),
+                    progressbar.widgets.Timer(format=" %(elapsed)s"),
+                ],
+                redirect_stderr=True,
+                redirect_stdout=True,
+                max_value=100,
+            ).start()
 
         return self._progress_bar
 
@@ -137,7 +156,9 @@ class StatusLogger(object):
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
         """
-        complete = complete or (self.current_scope_props is None)  # Only leave progress bar open if within a scope
+        complete = complete or (
+            self.current_scope_props is None
+        )  # Only leave progress bar open if within a scope
         if config.logging_level <= logging.INFO:
             self.__get_progress_bar(indeterminate=indeterminate).update(progress)
             if complete:
@@ -155,10 +176,10 @@ class StatusLogger(object):
             try:
                 caller = inspect.stack()[2]
                 context = inspect.getmodule(caller.frame).__name__
-            except:
-                context = 'omniduct'
-        if not context == 'omniduct' and not context.startswith('omniduct.'):
-            context = 'omniduct.external.{}'.format(context)
+            except:  # pylint: disable=bare-except
+                context = "omniduct"
+        if context != "omniduct" and not context.startswith("omniduct."):
+            context = f"omniduct.external.{context}"
         return logging.getLogger(context)
 
     def __getattr__(self, name):
@@ -182,13 +203,14 @@ def detect_scopes():
     current_frame = inspect.currentframe()
 
     while current_frame is not None:
-        if current_frame.f_code.co_name == 'logging_scope':
-            scopes.append(current_frame.f_locals['name'])
+        if current_frame.f_code.co_name == "logging_scope":
+            scopes.append(current_frame.f_locals["name"])
         else:
             argvalues = inspect.getargvalues(current_frame)
-            if 'self' in argvalues.args and getattr(argvalues.locals['self'].__class__, 'AUTO_LOGGING_SCOPE',
-                                                    False):
-                scopes.append(argvalues.locals['self'])
+            if "self" in argvalues.args and getattr(
+                argvalues.locals["self"].__class__, "AUTO_LOGGING_SCOPE", False
+            ):
+                scopes.append(argvalues.locals["self"])
         current_frame = current_frame.f_back
 
     out_scopes = []
@@ -197,12 +219,18 @@ def detect_scopes():
         if scope not in seen:
             out_scopes.append(
                 scope
-                if isinstance(scope, six.string_types) else
-                (getattr(scope, "LOGGING_SCOPE", None) or getattr(scope, "name", None) or scope.__class__.__name__))
+                if isinstance(scope, str)
+                else (
+                    getattr(scope, "LOGGING_SCOPE", None)
+                    or getattr(scope, "name", None)
+                    or scope.__class__.__name__
+                )
+            )
             seen.add(scope)
     return out_scopes
 
 
+# pylint: disable-next=abstract-method
 class LoggingHandler(logging.Handler):
     """
     An implementation of Logging.Handler to render the logging methods shown in Omniduct and derivatives.
@@ -210,50 +238,57 @@ class LoggingHandler(logging.Handler):
 
     def __init__(self, level=logging.NOTSET):
         logging.Handler.__init__(self, level=level)
-        self.setFormatter(logging.Formatter("%(levelname)s: %(name)s (%(funcName)s:%(lineno)s): %(message)s"))
+        self.setFormatter(
+            logging.Formatter(
+                "%(levelname)s: %(name)s (%(funcName)s:%(lineno)s): %(message)s"
+            )
+        )
 
     def format_simple(self, record):
-        return "{}".format(record.getMessage())
+        return f"{record.getMessage()}"
 
     def handle(self, record):
         try:
             scopes = logger.current_scopes
-        except:
+        except:  # pylint: disable=bare-except
             scopes = []
 
         if config.logging_level < logging.INFO:  # Print everything verbosely
-            prefix = '\t' * len(scopes)
-            self._overwrite(prefix + self.format(record),
-                            overwritable=False,
-                            truncate=False)
+            prefix = "\t" * len(scopes)
+            self._overwrite(
+                prefix + self.format(record), overwritable=False, truncate=False
+            )
         else:
             prefix = ""
-            important = (record.levelno >= logging.WARNING or
-                         logger._progress_bar is not None or
-                         len(scopes) == 0)
+            important = (
+                record.levelno >= logging.WARNING
+                or logger._progress_bar is not None
+                or len(scopes) == 0
+            )
 
             if len(scopes) > 0:
                 prefix = ": ".join(scopes) + ": "
                 if logger.current_scope_props is not None:
-                    logger.current_scope_props['has_logged'] = True
+                    logger.current_scope_props["has_logged"] = True
 
-            self._overwrite(prefix + self.format_simple(record),
-                            overwritable=not important,
-                            truncate=not important
-                            )
+            self._overwrite(
+                prefix + self.format_simple(record),
+                overwritable=not important,
+                truncate=not important,
+            )
 
         sys.stderr.flush()
 
     def _overwrite(self, text, overwritable=True, truncate=True, file=sys.stderr):
-        w, h = progressbar.utils.get_terminal_size()
-        file.write('\r' + ' ' * w + '\r')  # Clear current line
+        w, _ = progressbar.utils.get_terminal_size()
+        file.write("\r" + " " * w + "\r")  # Clear current line
         if overwritable:
-            text.replace('\n', ' ')
+            text.replace("\n", " ")
         if truncate:
             if len(text) > w:
-                text = text[:w - 3] + '...'
+                text = text[: w - 3] + "..."
         if not overwritable:
-            text += '\n'
+            text += "\n"
         file.write(text)
 
 
@@ -264,17 +299,19 @@ def logging_scope(name, *wargs, **wkwargs):
     supported keyword arguments are "timed", in which case when the scope closes,
     the duration of the call is shown.
     """
+
     def logging_scope(func, *args, **kwargs):
         logger._scope_enter(name, *wargs, **wkwargs)
         success = True
         try:
             f = func(*args, **kwargs)
             return f
-        except Exception as e:
+        except Exception:  # pylint: disable=broad-exception-caught
             success = False
-            raise_with_traceback(e)
+            raise
         finally:
             logger._scope_exit(success)
+
     return lambda func: decorate(func, logging_scope)
 
 

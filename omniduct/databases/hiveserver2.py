@@ -1,3 +1,5 @@
+# pylint: disable=abstract-method,consider-using-f-string
+
 from __future__ import absolute_import
 
 import json
@@ -45,32 +47,36 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             `.connect()` methods of the drivers.
     """
 
-    PROTOCOLS = ['hiveserver2']
+    PROTOCOLS = ["hiveserver2"]
     DEFAULT_PORT = 3623
     SUPPORTS_SESSION_PROPERTIES = True
-    NAMESPACE_NAMES = ['schema', 'table']
-    NAMESPACE_QUOTECHAR = '`'
-    NAMESPACE_SEPARATOR = '.'
+    NAMESPACE_NAMES = ["schema", "table"]
+    NAMESPACE_QUOTECHAR = "`"
+    NAMESPACE_SEPARATOR = "."
 
     @property
     @override
     def NAMESPACE_DEFAULT(self):
-        return {
-            'schema': self.schema
-        }
+        return {"schema": self.schema}
 
     @property
     @override
     def NAMESPACE_DEFAULTS_WRITE(self):
         defaults = self.NAMESPACE_DEFAULTS_READ.copy()
-        defaults['schema'] = self.username
+        defaults["schema"] = self.username
         return defaults
 
     @override
-    def _init(self, schema=None, driver='pyhive', auth_mechanism='NOSASL',
-              push_using_hive_cli=False, default_table_props=None,
-              thrift_transport=None, **connection_options
-              ):
+    def _init(
+        self,
+        schema=None,
+        driver="pyhive",
+        auth_mechanism="NOSASL",
+        push_using_hive_cli=False,
+        default_table_props=None,
+        thrift_transport=None,
+        **connection_options,
+    ):
         """
         schema (str, None): The default database/schema to use for queries (will
             default to server-default if not specified).
@@ -102,57 +108,73 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self.default_table_props = default_table_props or {}
         self._thrift_transport = thrift_transport
         self.__hive = None
-        self.connection_fields += ('schema',)
+        self.connection_fields += ("schema",)
 
-        assert self.driver in ('pyhive', 'impyla'), "Supported drivers are pyhive and impyla."
+        assert self.driver in (
+            "pyhive",
+            "impyla",
+        ), "Supported drivers are pyhive and impyla."
 
     @override
     def _connect(self):
         from sqlalchemy import create_engine, MetaData
-        if self.driver == 'pyhive':
+
+        if self.driver == "pyhive":
             try:
                 import pyhive.hive
-            except ImportError:
-                raise ImportError("""
-                    Omniduct is attempting to use the 'pyhive' driver, but it
-                    is not installed. Please either install the pyhive package,
-                    or reconfigure this Duct to use the 'impyla' driver.
-                    """)
-            self.__hive = pyhive.hive.connect(host=None if self._thrift_transport else self.host,
-                                              port=None if self._thrift_transport else self.port,
-                                              auth=None if self._thrift_transport else self.auth_mechanism,
-                                              database=self.schema,
-                                              username=self.username,
-                                              password=None if self._thrift_transport else self.password,
-                                              thrift_transport=self._thrift_transport,
-                                              **self.connection_options)
-            self._sqlalchemy_engine = create_engine('hive://{}:{}/{}'.format(self.host, self.port, self.schema))
+            except ImportError as e:
+                raise ImportError(
+                    "Omniduct is attempting to use the 'pyhive' driver, but it "
+                    "is not installed. Please either install the pyhive package, "
+                    "or reconfigure this Duct to use the 'impyla' driver."
+                ) from e
+            # pylint: disable-next=attribute-defined-outside-init
+            self.__hive = pyhive.hive.connect(
+                host=None if self._thrift_transport else self.host,
+                port=None if self._thrift_transport else self.port,
+                auth=None if self._thrift_transport else self.auth_mechanism,
+                database=self.schema,
+                username=self.username,
+                password=None if self._thrift_transport else self.password,
+                thrift_transport=self._thrift_transport,
+                **self.connection_options,
+            )
+            self._sqlalchemy_engine = create_engine(
+                f"hive://{self.host}:{self.port}/{self.schema}"
+            )
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
-        elif self.driver == 'impyla':
+        elif self.driver == "impyla":
             try:
                 import impala.dbapi
-            except ImportError:
-                raise ImportError("""
-                    Omniduct is attempting to use the 'impyla' driver, but it
-                    is not installed. Please either install the impyla package,
-                    or reconfigure this Duct to use the 'pyhive' driver.
-                    """)
-            self.__hive = impala.dbapi.connect(host=self.host,
-                                               port=self.port,
-                                               auth_mechanism=self.auth_mechanism,
-                                               database=self.schema,
-                                               user=self.username,
-                                               password=self.password,
-                                               **self.connection_options)
-            self._sqlalchemy_engine = create_engine('impala://{}:{}/{}'.format(self.host, self.port, self.schema))
+            except ImportError as e:
+                raise ImportError(
+                    "Omniduct is attempting to use the 'impyla' driver, but it "
+                    "is not installed. Please either install the impyla package, "
+                    "or reconfigure this Duct to use the 'pyhive' driver."
+                ) from e
+            # pylint: disable-next=attribute-defined-outside-init
+            self.__hive = impala.dbapi.connect(
+                host=self.host,
+                port=self.port,
+                auth_mechanism=self.auth_mechanism,
+                database=self.schema,
+                user=self.username,
+                password=self.password,
+                **self.connection_options,
+            )
+            self._sqlalchemy_engine = create_engine(
+                f"impala://{self.host}:{self.port}/{self.schema}"
+            )
             self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     def __hive_cursor(self):
-        if self.driver == 'impyla':  # Impyla seems to have all manner of connection issues, attempt to restore connection
+        if (
+            self.driver == "impyla"
+        ):  # Impyla seems to have all manner of connection issues, attempt to restore connection
             try:
                 with Timeout(1):
                     return self.__hive.cursor()
-            except:
+            except:  # pylint: disable=bare-except
                 self._connect()
         return self.__hive.cursor()
 
@@ -162,23 +184,25 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     @override
     def _disconnect(self):
-        logger.info('Disconnecting from Hive coordinator...')
+        logger.info("Disconnecting from Hive coordinator...")
         try:
             self.__hive.close()
-        except:
+        except:  # pylint: disable=bare-except
             pass
+        # pylint: disable-next=attribute-defined-outside-init
         self.__hive = None
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
+        # pylint: disable-next=attribute-defined-outside-init
         self._schemas = None
 
     @override
     def _statement_prepare(self, statement, session_properties, **kwargs):
         return (
             "\n".join(
-                "SET {key} = {value};".format(key=key, value=value)
-                for key, value in session_properties.items()
-            ) + statement
+                f"SET {key} = {value};" for key, value in session_properties.items()
+            )
+            + statement
         )
 
     @override
@@ -191,18 +215,22 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         cursor = cursor or self.__hive_cursor()
         log_offset = 0
 
-        if self.driver == 'pyhive':
+        if self.driver == "pyhive":
             from TCLIService.ttypes import TOperationState  # noqa: F821
-            cursor.execute(statement, **{'async': True})
+
+            cursor.execute(statement, **{"async": True})
 
             if wait:
                 status = cursor.poll().operationState
-                while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
+                while status in (
+                    TOperationState.INITIALIZED_STATE,
+                    TOperationState.RUNNING_STATE,
+                ):
                     log_offset = self._log_status(cursor, log_offset)
                     time.sleep(poll_interval)
                     status = cursor.poll().operationState
 
-        elif self.driver == 'impyla':
+        elif self.driver == "impyla":
             cursor.execute_async(statement)
             if wait:
                 while cursor.is_executing():
@@ -213,33 +241,37 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     @override
     def _cursor_empty(self, cursor):
-        if self.driver == 'impyla':
+        if self.driver == "impyla":
             return not cursor.has_result_set
-        elif self.driver == 'pyhive':
+        if self.driver == "pyhive":
             return cursor.description is None
         return False
 
     def _cursor_wait(self, cursor, poll_interval=1):
         from TCLIService.ttypes import TOperationState  # noqa: F821
+
         status = cursor.poll().operationState
-        while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
+        while status in (
+            TOperationState.INITIALIZED_STATE,
+            TOperationState.RUNNING_STATE,
+        ):
             time.sleep(poll_interval)
             status = cursor.poll().operationState
 
     def _log_status(self, cursor, log_offset=0):
-        matcher = re.compile('[0-9/]+ [0-9:]+ (INFO )?')
+        matcher = re.compile("[0-9/]+ [0-9:]+ (INFO )?")
 
-        if self.driver == 'pyhive':
+        if self.driver == "pyhive":
             log = cursor.fetch_logs()
         else:
-            log = cursor.get_log().strip().split('\n')
+            log = cursor.get_log().strip().split("\n")
 
         for line in log[log_offset:]:
             if not line:
                 continue
             m = matcher.match(line)
             if m:
-                line = line[len(m.group(0)):]
+                line = line[len(m.group(0)) :]
             logger.info(line)
 
         return len(log)
@@ -248,23 +280,30 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         statements = []
 
-        if if_exists == 'fail' and self.table_exists(table):
-            raise RuntimeError("Table {} already exists!".format(table))
-        elif if_exists == 'replace':
-            statements.append('DROP TABLE IF EXISTS {};'.format(table))
-        elif if_exists == 'append':
-            raise NotImplementedError("Append operations have not been implemented for {}.".format(self.__class__.__name__))
+        if if_exists == "fail" and self.table_exists(table):
+            raise RuntimeError(f"Table {table} already exists!")
+        if if_exists == "replace":
+            statements.append(f"DROP TABLE IF EXISTS {table};")
+        elif if_exists == "append":
+            raise NotImplementedError(
+                f"Append operations have not been implemented for {self.__class__.__name__}."
+            )
 
-        statements.append("CREATE TABLE {table} AS ({statement})".format(
-            table=table,
-            statement=statement
-        ))
-        return self.execute('\n'.join(statements), **kwargs)
+        statements.append(f"CREATE TABLE {table} AS ({statement})")
+        return self.execute("\n".join(statements), **kwargs)
 
     @override
     def _dataframe_to_table(
-        self, df, table, if_exists='fail', use_hive_cli=None,
-        partition=None, sep=chr(1), table_props=None, dtype_overrides=None, **kwargs
+        self,
+        df,
+        table,
+        if_exists="fail",
+        use_hive_cli=None,
+        partition=None,
+        sep=chr(1),
+        table_props=None,
+        dtype_overrides=None,
+        **kwargs,
     ):
         """
         If `use_hive_cli` (or if not specified `.push_using_hive_cli`) is
@@ -322,30 +361,38 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 )
             try:
                 return _pandas.to_sql(
-                    df=df, name=table.table, schema=table.schema, con=self._sqlalchemy_engine,
-                    index=False, if_exists=if_exists, **kwargs
+                    df=df,
+                    name=table.table,
+                    schema=table.schema,
+                    con=self._sqlalchemy_engine,
+                    index=False,
+                    if_exists=if_exists,
+                    **kwargs,
                 )
             except Exception as e:
                 raise RuntimeError(
                     "Push unsuccessful. Your version of Hive may be too old to "
                     "support the `INSERT` keyword. You might want to try setting "
-                    "`.push_using_hive_cli = True` if your local or remote "
-                    "machine has access to the `hive` CLI executable. The "
-                    "original exception was: {}".format(e.args[0])
-                )
+                    "`.push_using_hive_cli = True` if your local or remote machine "
+                    "has access to the `hive` CLI executable. The original "
+                    f"exception was: {e}"
+                ) from e
 
         # Try using Hive CLI
 
         # If `partition` is specified, the associated columns must not be
         # present in the dataframe.
-        assert len(set(partition).intersection(df.columns)) == 0, "The dataframe to be uploaded must not have any partitioned fields. Please remove the field(s): {}.".format(','.join(set(partition).intersection(df.columns)))
+        assert (
+            len(set(partition).intersection(df.columns)) == 0
+        ), f"The dataframe to be uploaded must not have any partitioned fields. Please remove the field(s): {','.join(set(partition).intersection(df.columns))}."
 
         # Save dataframe to file and send it to the remote server if necessary
-        temp_dir = tempfile.mkdtemp(prefix='omniduct_hiveserver2')
-        tmp_fname = os.path.join(temp_dir, 'data_{}.csv'.format(time.time()))
-        logger.info('Saving dataframe to file... {}'.format(tmp_fname))
-        df.fillna(r'\N').to_csv(tmp_fname, index=False, header=False,
-                                sep=sep, encoding='utf-8')
+        temp_dir = tempfile.mkdtemp(prefix="omniduct_hiveserver2")
+        tmp_fname = os.path.join(temp_dir, f"data_{time.time()}.csv")
+        logger.info(f"Saving dataframe to file... {tmp_fname}")
+        df.fillna(r"\N").to_csv(
+            tmp_fname, index=False, header=False, sep=sep, encoding="utf-8"
+        )
 
         if self.remote:
             logger.info("Uploading data to remote host...")
@@ -355,14 +402,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         auto_table_props = set(self.default_table_props).difference(table_props)
         if len(auto_table_props) > 0:
             logger.warning(
-                "In addition to any specified table properties, this "
-                "HiveServer2Client has added the following default table "
-                "properties:\n{default_props}\nTo override them, please "
-                "specify overrides using: `.push(..., table_props={{...}}).`"
-                .format(default_props=json.dumps({
-                    prop: value for prop, value in self.default_table_props.items()
-                    if prop in auto_table_props
-                }, indent=True))
+                f"In addition to any specified table properties, this HiveServer2Client has added the following default table properties:\n{json.dumps({prop: value for prop, value in self.default_table_props.items() if prop in auto_table_props}, indent=True)}\nTo override them, please specify overrides using: `.push(..., table_props={{...}}).`"
             )
 
         tblprops = self.default_table_props.copy()
@@ -370,60 +410,49 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         cts = self._create_table_statement_from_df(
             df=df,
             table=table,
-            drop=(if_exists == 'replace') and not partition,
+            drop=(if_exists == "replace") and not partition,
             text=True,
             sep=sep,
             table_props=tblprops,
             partition_cols=list(partition),
-            dtype_overrides=dtype_overrides
+            dtype_overrides=dtype_overrides,
         )
 
         # Generate load data statement.
         partition_clause = (
-            ''
+            ""
             if not partition
-            else 'PARTITION ({})'.format(
-                ','.join("{key} = '{value}'".format(key=key, value=value) for key, value in partition.items())
+            else "PARTITION ({})".format(
+                ",".join(f"{key} = '{value}'" for key, value in partition.items())
             )
         )
-        lds = '\nLOAD DATA LOCAL INPATH "{path}" {overwrite} INTO TABLE {table} {partition_clause};'.format(
-            path=os.path.basename(tmp_fname) if self.remote else tmp_fname,
-            overwrite="OVERWRITE" if if_exists == "replace" else "",
-            table=table,
-            partition_clause=partition_clause
-        )
+        lds = f"\nLOAD DATA LOCAL INPATH \"{os.path.basename(tmp_fname) if self.remote else tmp_fname}\" {'OVERWRITE' if if_exists == 'replace' else ''} INTO TABLE {table} {partition_clause};"
 
         # Run create table statement and load data statments
         logger.info(
-            "Creating hive table `{table}` if it does not "
-            "already exist, and inserting the provided data{partition}."
-            .format(
-                table=table,
-                partition=" into {}".format(partition_clause) if partition_clause else ""
-            )
+            f"Creating hive table `{table}` if it does not already exist, and inserting the provided data{f' into {partition_clause}' if partition_clause else ''}."
         )
         try:
-            stmts = '\n'.join([cts, lds])
+            stmts = "\n".join([cts, lds])
             logger.debug(stmts)
             proc = self._run_in_hivecli(stmts)
             if proc.returncode != 0:
-                raise RuntimeError(proc.stderr.decode('utf-8'))
+                raise RuntimeError(proc.stderr.decode("utf-8"))
         finally:
             # Clean up files
             if self.remote:
-                self.remote.execute('rm -rf {}'.format(tmp_fname))
+                self.remote.execute(f"rm -rf {tmp_fname}")
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-        logger.info("Successfully uploaded dataframe {partition}`{table}`.".format(
-            table=table,
-            partition="into {} of ".format(partition_clause) if partition_clause else ""
-        ))
+        logger.info(
+            f"Successfully uploaded dataframe {f'into {partition_clause} of ' if partition_clause else ''}`{table}`."
+        )
+        return None
 
     @override
-    def _table_list(self, namespace, like='*', **kwargs):
+    def _table_list(self, namespace, like="*", **kwargs):
         schema = namespace.name or self.schema
-        return self.query("SHOW TABLES IN {0} '{1}'".format(schema, like),
-                          **kwargs)
+        return self.query(f"SHOW TABLES IN {schema} '{like}'", **kwargs)
 
     @override
     def _table_exists(self, table, **kwargs):
@@ -431,48 +460,53 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         try:
             self.table_desc(table, **kwargs)
             return True
-        except:
+        except:  # pylint: disable=bare-except
             return False
         finally:
             logger.disabled = False
 
     @override
     def _table_drop(self, table, **kwargs):
-        return self.execute("DROP TABLE {table}".format(table=table))
+        return self.execute(f"DROP TABLE {table}")
 
     @override
     def _table_desc(self, table, **kwargs):
-        records = self.query("DESCRIBE {0}".format(table), **kwargs)
+        records = self.query(f"DESCRIBE {table}", **kwargs)
+
+        if not records:
+            raise RuntimeError(f"Table {table} does not appear to have any fields.")
 
         # pretty hacky but hive doesn't return DESCRIBE results in a nice format
         # TODO is there any information we should pull out of DESCRIBE EXTENDED
+        i = 0
         for i, record in enumerate(records):
-            if record[0] == '':
+            if record[0] == "":
                 break
 
-        columns = ['col_name', 'data_type', 'comment']
+        columns = ["col_name", "data_type", "comment"]
         fields_df = pd.DataFrame(records[:i], columns=columns)
 
-        partitions_df = pd.DataFrame(records[i + 4:], columns=columns)
-        partitions_df['comment'] = "PARTITION " + partitions_df['comment']
+        partitions_df = pd.DataFrame(records[i + 4 :], columns=columns)
+        partitions_df["comment"] = "PARTITION " + partitions_df["comment"]
 
         return pd.concat((fields_df, partitions_df))
 
     @override
     def _table_head(self, table, n=10, **kwargs):
-        return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
+        return self.query(f"SELECT * FROM {table} LIMIT {n}", **kwargs)
 
     @override
     def _table_props(self, table, **kwargs):
-        return self.query('SHOW TBLPROPERTIES {0}'.format(table), **kwargs)
+        return self.query(f"SHOW TBLPROPERTIES {table}", **kwargs)
 
     def _run_in_hivecli(self, cmd):
         """Run a query using hive cli in a subprocess."""
         # Turn hive command into quotable string.
-        double_escaped = re.sub('\\' * 2, '\\' * 4, cmd)
-        backtick_escape = '\\\\\\`' if self.remote else '\\`'
-        sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped)) \
-                                 .replace('`', backtick_escape)
+        double_escaped = re.sub("\\" * 2, "\\" * 4, cmd)
+        backtick_escape = "\\\\\\`" if self.remote else "\\`"
+        sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped)).replace(
+            "`", backtick_escape
+        )
         # Execute command in a subprocess.
         if self.remote:
             proc = self.remote.execute(sys_cmd)
@@ -481,10 +515,18 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return proc
 
     @classmethod
-    def _create_table_statement_from_df(cls, df, table, drop=False,
-                                        text=True, sep=chr(1), loc=None,
-                                        table_props=None, partition_cols=None,
-                                        dtype_overrides=None):
+    def _create_table_statement_from_df(
+        cls,
+        df,
+        table,
+        drop=False,
+        text=True,
+        sep=chr(1),
+        loc=None,
+        table_props=None,
+        partition_cols=None,
+        dtype_overrides=None,
+    ):
         """
         Return create table statement for new hive table based on pandas dataframe.
 
@@ -512,40 +554,39 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # dtype kind to hive type mapping dict.
         DTYPE_KIND_HIVE_TYPE = {
-            'b': 'BOOLEAN',  # boolean
-            'i': 'BIGINT',   # signed integer
-            'u': 'BIGINT',   # unsigned integer
-            'f': 'DOUBLE',   # floating-point
-            'c': 'STRING',   # complex floating-point
-            'O': 'STRING',   # object
-            'S': 'STRING',   # (byte-)string
-            'U': 'STRING',   # Unicode
-            'V': 'STRING'    # void
+            "b": "BOOLEAN",  # boolean
+            "i": "BIGINT",  # signed integer
+            "u": "BIGINT",  # unsigned integer
+            "f": "DOUBLE",  # floating-point
+            "c": "STRING",  # complex floating-point
+            "O": "STRING",  # object
+            "S": "STRING",  # (byte-)string
+            "U": "STRING",  # Unicode
+            "V": "STRING",  # void
         }
 
         # Sanitise column names and map numpy/pandas data-types to hive types.
         columns = []
         for col, dtype in df.dtypes.iteritems():
-            col_sanitized = re.sub(r'\W', '', col.lower().replace(' ', '_'))
+            col_sanitized = re.sub(r"\W", "", col.lower().replace(" ", "_"))
             hive_type = dtype_overrides.get(col) or DTYPE_KIND_HIVE_TYPE.get(dtype.kind)
             if hive_type is None:
-                hive_type = DTYPE_KIND_HIVE_TYPE['O']
+                hive_type = DTYPE_KIND_HIVE_TYPE["O"]
                 logger.warning(
-                    'Unable to determine hive type for dataframe column {col} of pandas dtype {dtype}. '
-                    'Defaulting to hive type {hive_type}. If other column type is desired, '
-                    'please specify via `dtype_overrides`'
-                    .format(**locals())
+                    "Unable to determine hive type for dataframe column {col} of pandas dtype {dtype}. "
+                    "Defaulting to hive type {hive_type}. If other column type is desired, "
+                    "please specify via `dtype_overrides`".format(**locals())
                 )
-            columns.append(
-                '  {column}  {type}'.format(column=col_sanitized, type=hive_type)
-            )
+            columns.append(f"  {col_sanitized}  {hive_type}")
 
-        partition_columns = ['{} STRING'.format(col) for col in partition_cols]
+        # pylint: disable-next=possibly-unused-variable
+        partition_columns = [f"{col} STRING" for col in partition_cols]
 
-        tblprops = ["'{key}' = '{value}'".format(key=key, value=value) for key, value in table_props.items()]
-        tblprops = "TBLPROPERTIES({})".format(",".join(tblprops)) if len(tblprops) > 0 else ""
+        tblprops = [f"'{key}' = '{value}'" for key, value in table_props.items()]
+        tblprops = f"TBLPROPERTIES({','.join(tblprops)})" if len(tblprops) > 0 else ""
 
-        cmd = Template("""
+        cmd = Template(
+            """
         {% if drop %}
         DROP TABLE IF EXISTS {{ table }};
         {% endif -%}
@@ -571,6 +612,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         {%- endif %}
         {{ tblprops }}
         ;
-        """).render(**locals())
+        """
+        ).render(**locals())
 
         return cmd

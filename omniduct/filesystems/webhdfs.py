@@ -7,12 +7,6 @@ from interface_meta import override
 from .base import FileSystemClient, FileSystemFileDesc
 from .local import LocalFsClient
 
-# Python 2 compatibility imports
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
-
 
 class WebHdfsClient(FileSystemClient):
     """
@@ -23,12 +17,18 @@ class WebHdfsClient(FileSystemClient):
             the HDFS cluster in form "<hostname>:<port>".
     """
 
-    PROTOCOLS = ['webhdfs']
+    PROTOCOLS = ["webhdfs"]
     DEFAULT_PORT = 50070
 
     @override
-    def _init(self, namenodes=None, auto_conf=False, auto_conf_cluster=None,
-              auto_conf_path=None, **kwargs):
+    def _init(
+        self,
+        namenodes=None,
+        auto_conf=False,
+        auto_conf_cluster=None,
+        auto_conf_path=None,
+        **kwargs,
+    ):
         """
         namenodes (list<str>): A list of hosts that are acting as namenodes for
             the HDFS cluster in form "<hostname>:<port>".
@@ -48,31 +48,41 @@ class WebHdfsClient(FileSystemClient):
         if auto_conf:
             from ._webhdfs_helpers import CdhHdfsConfParser
 
-            assert auto_conf_cluster is not None, "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
+            assert (
+                auto_conf_cluster is not None
+            ), "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
 
             def get_host_and_set_namenodes(duct, cluster, conf_path):
-                conf_parser = CdhHdfsConfParser(duct.remote or LocalFsClient(), conf_path=conf_path)
+                conf_parser = CdhHdfsConfParser(
+                    duct.remote or LocalFsClient(), conf_path=conf_path
+                )
                 duct.namenodes = conf_parser.namenodes(cluster)
                 return random.choice(duct.namenodes)
 
-            self._host = partial(get_host_and_set_namenodes, cluster=auto_conf_cluster, conf_path=auto_conf_path)
+            self._host = partial(
+                get_host_and_set_namenodes,
+                cluster=auto_conf_cluster,
+                conf_path=auto_conf_path,
+            )
         elif not self._host and namenodes:
             self._host = random.choice(self.namenodes)
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
-        self.prepared_fields += ('namenodes',)
+        self.prepared_fields += ("namenodes",)
 
     @override
     def _connect(self):
         from ._webhdfs_helpers import OmniductPyWebHdfsClient
+
+        # pylint: disable-next=attribute-defined-outside-init
         self.__webhdfs = OmniductPyWebHdfsClient(
             host=self._host,
             port=self._port,
             remote=self.remote,
             namenodes=self.namenodes,
             user_name=self.username,
-            **self.__webhdfs_kwargs
+            **self.__webhdfs_kwargs,
         )
 
     @override
@@ -81,11 +91,12 @@ class WebHdfsClient(FileSystemClient):
             if self.remote and not self.remote.is_connected():
                 return False
             return self.__webhdfs is not None
-        except:
+        except:  # pylint: disable=bare-except
             return False
 
     @override
     def _disconnect(self):
+        # pylint: disable-next=attribute-defined-outside-init
         self.__webhdfs = None
 
     # Path properties and helpers
@@ -95,12 +106,13 @@ class WebHdfsClient(FileSystemClient):
 
     @override
     def _path_separator(self):
-        return '/'
+        return "/"
 
     # File node properties
     @override
     def _exists(self, path):
         from pywebhdfs.errors import FileNotFound
+
         try:
             self.__webhdfs.get_file_dir_status(path)
             return True
@@ -110,18 +122,20 @@ class WebHdfsClient(FileSystemClient):
     @override
     def _isdir(self, path):
         from pywebhdfs.errors import FileNotFound
+
         try:
             stats = self.__webhdfs.get_file_dir_status(path)
-            return stats['FileStatus']['type'] == 'DIRECTORY'
+            return stats["FileStatus"]["type"] == "DIRECTORY"
         except FileNotFound:
             return False
 
     @override
     def _isfile(self, path):
         from pywebhdfs.errors import FileNotFound
+
         try:
             stats = self.__webhdfs.get_file_dir_status(path)
-            return stats['FileStatus']['type'] == 'FILE'
+            return stats["FileStatus"]["type"] == "FILE"
         except FileNotFound:
             return False
 
@@ -129,27 +143,27 @@ class WebHdfsClient(FileSystemClient):
     @override
     def _dir(self, path):
         files = self.__webhdfs.list_dir(path)
-        for f in files['FileStatuses']['FileStatus']:
+        for f in files["FileStatuses"]["FileStatus"]:
             yield FileSystemFileDesc(
                 fs=self,
-                path=posixpath.join(path, f['pathSuffix']),
-                name=f['pathSuffix'],
-                type=f['type'].lower(),
-                bytes=f['length'],
-                owner=f['owner'],
-                group=f['group'],
-                last_modified=f['modificationTime'],
-                last_accessed=f['accessTime'],
-                permissions=f['permission'],
-                replication=f['replication']
+                path=posixpath.join(path, f["pathSuffix"]),
+                name=f["pathSuffix"],
+                type=f["type"].lower(),
+                bytes=f["length"],
+                owner=f["owner"],
+                group=f["group"],
+                last_modified=f["modificationTime"],
+                last_accessed=f["accessTime"],
+                permissions=f["permission"],
+                replication=f["replication"],
             )
 
     @override
     def _mkdir(self, path, recursive, exist_ok):
         if not recursive and not self._isdir(self.path_basename(path)):
-            raise IOError("No parent directory found for {}.".format(path))
+            raise IOError(f"No parent directory found for {path}.")
         if not exist_ok and self._exists(path):
-            raise IOError("Path already exists at {}.".format(path))
+            raise IOError(f"Path already exists at {path}.")
         self.__webhdfs.make_dir(path)
 
     @override
@@ -160,11 +174,13 @@ class WebHdfsClient(FileSystemClient):
     @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         if not self.isfile(path):
-            raise FileNotFoundError("File `{}` does not exist.".format(path))
+            raise FileNotFoundError(f"File `{path}` does not exist.")
 
-        read = self.__webhdfs.read_file(path, offset=offset, length='null' if size < 0 else size)
+        read = self.__webhdfs.read_file(
+            path, offset=offset, length="null" if size < 0 else size
+        )
         if not binary:
-            read = read.decode('utf-8')
+            read = read.decode("utf-8")
         return read
 
     @override

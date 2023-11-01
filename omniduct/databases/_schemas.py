@@ -1,3 +1,5 @@
+# pylint: disable=abstract-method
+
 from __future__ import absolute_import
 
 import pandas as pd
@@ -14,15 +16,15 @@ try:
     def get_columns(self, connection, table_name, schema=None, **kw):
         # Extend types supported by PrestoDialect as defined in PyHive
         type_map = {
-            'bigint': sql_types.BigInteger,
-            'integer': sql_types.Integer,
-            'boolean': sql_types.Boolean,
-            'double': sql_types.Float,
-            'varchar': sql_types.String,
-            'timestamp': sql_types.TIMESTAMP,
-            'date': sql_types.DATE,
-            'array<bigint>': sql_types.ARRAY(sql_types.Integer),
-            'array<varchar>': sql_types.ARRAY(sql_types.String)
+            "bigint": sql_types.BigInteger,
+            "integer": sql_types.Integer,
+            "boolean": sql_types.Boolean,
+            "double": sql_types.Float,
+            "varchar": sql_types.String,
+            "timestamp": sql_types.TIMESTAMP,
+            "date": sql_types.DATE,
+            "array<bigint>": sql_types.ARRAY(sql_types.Integer),
+            "array<varchar>": sql_types.ARRAY(sql_types.String),
         }
 
         rows = self._get_table_columns(connection, table_name, schema)
@@ -31,23 +33,29 @@ try:
             try:
                 coltype = type_map[row.Type]
             except KeyError:
-                logger.warn("Did not recognize type '%s' of column '%s'" % (row.Type, row.Column))
+                logger.warn(
+                    f"Did not recognize type '{row.Type}' of column '{row.Column}'"
+                )
                 coltype = sql_types.NullType
-            result.append({
-                'name': row.Column,
-                'type': coltype,
-                # newer Presto no longer includes this column
-                'nullable': getattr(row, 'Null', True),
-                'default': None,
-            })
+            result.append(
+                {
+                    "name": row.Column,
+                    "type": coltype,
+                    # newer Presto no longer includes this column
+                    "nullable": getattr(row, "Null", True),
+                    "default": None,
+                }
+            )
         return result
 
     PrestoDialect.get_columns = get_columns
 except ImportError:
-    logger.debug("Not monkey patching pyhive's PrestoDialect.get_columns due to missing dependencies.")
+    logger.debug(
+        "Not monkey patching pyhive's PrestoDialect.get_columns due to missing dependencies."
+    )
 
 
-class SchemasMixin(object):
+class SchemasMixin:
     """
     Attaches a tab-completable `.schemas` attribute to a `DatabaseClient` instance.
 
@@ -69,13 +77,13 @@ class SchemasMixin(object):
         from lazy_object_proxy import Proxy
 
         def get_schemas():
-            if not getattr(self, '_schemas', None):
-                assert getattr(self, '_sqlalchemy_metadata', None) is not None, (
-                    "`{class_name}` instances do not provide the required sqlalchemy metadata "
-                    "for schema exploration.".format(class_name=self.__class__.__name__)
-                )
+            if not getattr(self, "_schemas", None):
+                assert (
+                    getattr(self, "_sqlalchemy_metadata", None) is not None
+                ), f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy metadata for schema exploration."
                 self._schemas = Schemas(self._sqlalchemy_metadata)
             return self._schemas
+
         return Proxy(get_schemas)
 
 
@@ -88,8 +96,11 @@ class TableDesc(Table):
     def desc(self):
         """pandas.DataFrame: The description of this SQL table."""
         return pd.DataFrame(
-            [[col.name, col.type.compile(self.bind.dialect)] for col in self.columns.values()],
-            columns=['name', 'type']
+            [
+                [col.name, col.type.compile(self.bind.dialect)]
+                for col in self.columns.values()
+            ],
+            columns=["name", "type"],
         )
 
     def head(self, n=10):
@@ -122,7 +133,7 @@ class TableDesc(Table):
 
 
 # Define helpers to allow for table completion/etc
-class Schemas(object):
+class Schemas:
     """
     An object which has as its attributes all of the schemas in a nominated database.
 
@@ -140,7 +151,9 @@ class Schemas(object):
     def all(self):
         "list<str>: The list of schema names."
         if self._schema_names is None:
-            self._schema_names = sqlalchemy.inspect(self._metadata.bind).get_schema_names()
+            self._schema_names = sqlalchemy.inspect(
+                self._metadata.bind
+            ).get_schema_names()
         return self._schema_names
 
     def __dir__(self):
@@ -149,12 +162,14 @@ class Schemas(object):
     def __getattr__(self, value):
         if value in self.all:
             if value not in self._schema_cache:
-                self._schema_cache[value] = Schema(metadata=self._metadata, schema=value)
+                self._schema_cache[value] = Schema(
+                    metadata=self._metadata, schema=value
+                )
             return self._schema_cache[value]
-        raise AttributeError("No such schema {}".format(value))
+        raise AttributeError(f"No such schema {value}")
 
     def __repr__(self):
-        return "<Schemas: {} schemas>".format(len(self.all))
+        return f"<Schemas: {len(self.all)} schemas>"
 
     def __iter__(self):
         for schema in self.all:
@@ -164,7 +179,7 @@ class Schemas(object):
         return len(self.all)
 
 
-class Schema(object):
+class Schema:
     """
     An object which has as its attributes all of the tables in a nominated database schema.
 
@@ -184,7 +199,9 @@ class Schema(object):
     def all(self):
         """list<str>: The table names in this database schema."""
         if self._table_names is None:
-            self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(self._schema)
+            self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(
+                self._schema
+            )
         return self._table_names
 
     def __dir__(self):
@@ -194,13 +211,16 @@ class Schema(object):
         if table in self.all:
             if table not in self._table_cache:
                 self._table_cache[table] = TableDesc(
-                    '{}'.format(table), self._metadata, autoload=True, schema=self._schema
+                    f"{table}",
+                    self._metadata,
+                    autoload=True,
+                    schema=self._schema,
                 )
             return self._table_cache[table]
-        raise AttributeError("No such table {}".format(table))
+        raise AttributeError(f"No such table {table}")
 
     def __repr__(self):
-        return "<Schema `{}`: {} tables>".format(self._schema, len(self.all))
+        return f"<Schema `{self._schema}`: {len(self.all)} tables>"
 
     def __iter__(self):
         for schema in self.all:

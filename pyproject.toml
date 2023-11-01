@@ -1,0 +1,219 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omniduct"
+dynamic = ["version"]
+description = "A toolkit providing a uniform interface for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc)."
+readme = "README.md"
+license = ""
+authors = [
+    { name = "Matthew Wardrop", email = "mpwardrop@gmail.com" },
+    { name = "Dan Frank", email = "danfrankj@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "decorator",
+    "interface_meta>=1.1.0,<2",
+    "jinja2",
+    "lazy-object-proxy",
+    "packaging",
+    "pandas>=0.20.3",
+    "progressbar2>=3.30.0",
+    "python-dateutil",
+    "pyyaml",
+    "sqlalchemy",
+    "sqlparse",
+    "wrapt",
+]
+
+[project.optional-dependencies]
+all = [
+    "boto3",
+    "coverage",
+    "flake8",
+    "mock",
+    "nose",
+    "paramiko",
+    "pexpect",
+    "pexpect",
+    "pydruid>=0.4.0",
+    "pyexasol",
+    "pyfakefs",
+    "pyhive[hive]>=0.4",
+    "pyhive[presto]>=0.4",
+    "pyspark",
+    "pywebhdfs",
+    "requests",
+    "requests",
+    "snowflake-sqlalchemy",
+    "sphinx",
+    "sphinx_autobuild",
+    "sphinx_rtd_theme",
+    "thrift>=0.10.0",
+]
+docs = [
+    "sphinx",
+    "sphinx_autobuild",
+    "sphinx_rtd_theme",
+]
+druid = [
+    "pydruid>=0.4.0",
+]
+exasol = [
+    "pyexasol",
+]
+hiveserver2 = [
+    "pyhive[hive]>=0.4",
+    "thrift>=0.10.0",
+]
+presto = [
+    "pyhive[presto]>=0.4",
+]
+pyspark = [
+    "pyspark",
+]
+rest = [
+    "requests",
+]
+s3 = [
+    "boto3",
+]
+snowflake = [
+    "snowflake-sqlalchemy",
+]
+ssh = [
+    "pexpect",
+]
+ssh_paramiko = [
+    "paramiko",
+    "pexpect",
+]
+test = [
+    "coverage",
+    "flake8",
+    "mock",
+    "nose",
+    "pyfakefs",
+]
+webhdfs = [
+    "pywebhdfs",
+    "requests",
+]
+
+[project.urls]
+Homepage = "https://github.com/airbnb/omniduct"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "omniduct/_version_info.py"
+
+# Build target configuration
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "docs",
+    "example_wrapper",
+    "omniduct",
+    "tests",
+    "LICENSE",
+    "README.md",
+    "MANIFEST.in",
+    "pyproject.toml",
+]
+
+# Testing configuration
+
+[tool.hatch.envs.default]
+dependencies = [
+    "mock",
+    "pyfakefs",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "requests",
+]
+
+[tool.hatch.envs.default.scripts]
+tests = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=omniduct --cov-report=xml -vv {args:tests}"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["37", "38", "39", "310", "311", "312"]
+
+[tool.hatch.envs.lint]
+detached=true
+dependencies = [
+    "black==23.10.1",
+    "flake8==6.1.0",
+    "flake8-pyproject",
+    "pylint==2.17.4",
+]
+
+[tool.hatch.envs.lint.scripts]
+check = [
+    "flake8 omniduct tests",
+    "pylint omniduct",
+    "black --check omniduct tests",
+]
+format = "black omniduct tests"
+
+# Linter and format configuration
+
+[tool.flake8]
+ignore = [
+    "C901","E203","E501","E712","E722","E731","W503","W504","W601"
+]
+max-complexity = 25
+max-line-length = 160
+import-order-style = "edited"
+application-import-names = "formulaic"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "cyclic-import",
+    "duplicate-code",
+    "eval-used",
+    "fixme",
+    "import-error",
+    "import-outside-toplevel",
+    "invalid-name",
+    "line-too-long",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "no-member",
+    "protected-access",
+    "redefined-outer-name",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-public-methods",
+    "too-many-return-statements",
+    "too-many-statements",
+    "ungrouped-imports",
+    "unnecessary-lambda-assignment",
+    "unused-argument",
+    "use-dict-literal",
+]
