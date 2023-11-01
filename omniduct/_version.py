@@ -36,7 +36,7 @@ __dependencies__ = [
     "wrapt",  # Object proxying for conveniently exposing ducts in registry
     # Database querying libraries
     "jinja2",  # Templating support in databases
-    "pandas>=0.17.1",  # Various results including database queries are returned as pandas dataframes
+    "pandas>=0.20.3",  # Various results including database queries are returned as pandas dataframes
     "sqlparse",  # Neatening of SQL based queries (mainly to avoid missing the cache)
     "sqlalchemy",  # Various integration endpoints in the database stack
     # Utility libraries
