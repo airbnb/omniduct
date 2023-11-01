@@ -43,13 +43,15 @@ class ConfigurationRegistry(object):
 
         * If not specified, these fields default to None.
         """
-        if key in dir(self):
+        if key in dir(self.__class__):
             raise KeyError("Key `{0}` cannot be registered as it conflicts with a method of OmniductConfiguration.".format(key))
         if key in self._register:
-            logger.warn("Overwriting existing key `{0}`, previously registered by {1}".format(key, self._register[key]['host']))
+            logger.debug(
+                "Overwriting existing omniduct registry key `{0}`, previously registered by {1}".format(key, self._register[key]['host'])
+            )
 
         try:
-            caller_frame = inspect.current_frame().f_back
+            caller_frame = inspect.currentframe().f_back
             host = inspect.getmodule(caller_frame).__name__
         except:
             host = 'unknown'
