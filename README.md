@@ -2,7 +2,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/omniduct.svg)](https://pypi.org/project/omniduct/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/omniduct.svg)
 ![PyPI - Status](https://img.shields.io/pypi/status/omniduct.svg)
-[![Build Status](https://travis-ci.org/airbnb/omniduct.svg?branch=master)](https://travis-ci.org/airbnb/omniduct)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/airbnb/omniduct/tests.yml?branch=main)](https://github.com/airbnb/omniduct/actions?query=workflow%3A%22Run+Tests%22)
 [![Documentation Status](https://readthedocs.org/projects/omniduct/badge/?version=latest)](http://omniduct.readthedocs.io/en/latest/?badge=latest)
 
 
@@ -19,6 +19,3 @@ It provides:
 - Automatic port forwarding of remote services over SSH where connections cannot be made directly.
 - Convenient IPython magic functions for interfacing with data providers from within IPython and Jupyter Notebook sessions.
 - Utility classes and methods to assist in maintaining registries of useful services.
-
-**Note:** Omniduct 1.1.x is the last version series to support Python 2. Going
-forward it will support Python 3.6+.
