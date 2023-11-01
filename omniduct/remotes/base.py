@@ -4,7 +4,6 @@ from abc import abstractmethod
 
 import six
 from interface_meta import quirk_docs, override
-from future.utils import raise_with_traceback
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
@@ -163,13 +162,10 @@ class RemoteClient(FileSystemClient):
         """
         try:
             Duct.connect(self)
-        except DuctServerUnreachable as e:
-            raise_with_traceback(e)
-        except DuctAuthenticationError as e:
+        except DuctAuthenticationError:
             if self.smartcards and self.prepare_smartcards():
                 Duct.connect(self)
-            else:
-                raise_with_traceback(e)
+            raise
         return self
 
     def prepare_smartcards(self):

@@ -10,7 +10,6 @@ from builtins import input
 from enum import Enum
 
 import six
-from future.utils import raise_with_traceback, with_metaclass
 from interface_meta import InterfaceMeta, quirk_docs
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
@@ -19,7 +18,7 @@ from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
 
 
-class Duct(with_metaclass(InterfaceMeta, object)):
+class Duct(metaclass=InterfaceMeta):
     """
     The abstract base class for all protocol implementations.
 
@@ -244,9 +243,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 object.__setattr__(self, "_Duct__getting", False)
         except AttributeError:
             pass
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except:  # pylint: disable=bare-except
             object.__setattr__(self, "_Duct__getting", False)
-            raise_with_traceback(e)
+            raise
         return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
@@ -501,9 +500,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         if not self.is_connected():
             try:
                 self._connect()
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except:  # pylint: disable=bare-except
                 self.reset()
-                raise_with_traceback(e)
+                raise
         self.__connected = True
         if self.host:
             logger.info(

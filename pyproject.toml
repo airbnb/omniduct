@@ -30,7 +30,6 @@ classifiers = [
 requires-python = ">=3.7"
 dependencies = [
     "decorator",
-    "future",
     "interface_meta>=1.1.0,<2",
     "jinja2",
     "lazy-object-proxy",

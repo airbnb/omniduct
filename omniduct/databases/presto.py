@@ -10,7 +10,6 @@ import sys
 import pandas.io.sql
 import six
 from interface_meta import override
-from future.utils import raise_with_traceback
 
 from omniduct.utils.debug import logger
 
@@ -218,7 +217,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             if isinstance(exception, type):
                 exception = exception(exception_args)
 
-            return raise_with_traceback(exception, traceback)
+            raise exception.with_traceback(traceback)
 
     @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):

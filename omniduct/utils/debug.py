@@ -8,7 +8,6 @@ import time
 import progressbar
 import six
 from decorator import decorate
-from future.utils import raise_with_traceback
 
 from .config import config
 
@@ -308,9 +307,9 @@ def logging_scope(name, *wargs, **wkwargs):
         try:
             f = func(*args, **kwargs)
             return f
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             success = False
-            return raise_with_traceback(e)
+            raise
         finally:
             logger._scope_exit(success)
 
