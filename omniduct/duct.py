@@ -149,9 +149,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
         atexit.register(self.disconnect)
         self.__prepared = False
-        self.__getting = False
+        self.__getting = False  # pylint: disable=unused-private-member
         self.__connected = False
-        self.__disconnecting = False
+        self.__disconnecting = False  # pylint: disable=unused-private-member
         self.__cached_auth = {}
         self.__prepreparation_values = {}
 
@@ -170,9 +170,9 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                     and cls.__name__ != cls._protocols[key].__name__
                 ):
                     logger.info(
-                        "Ignoring attempt by class `{}` to register key '{}', which is already registered for class `{}`.".format(
-                            cls.__name__, key, cls._protocols[key].__name__
-                        )
+                        f"Ignoring attempt by class `{cls.__name__}` to register "
+                        f"key '{key}', which is already registered for class "
+                        f"`{cls._protocols[key].__name__}`."
                     )
                 else:
                     cls._protocols[key] = cls
@@ -196,12 +196,12 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         """
         if protocol not in cls._protocols:
             raise DuctProtocolUnknown(
-                "Missing `Duct` implementation for protocol: '{}'.".format(protocol)
+                f"Missing `Duct` implementation for protocol: '{protocol}'."
             )
         return functools.partial(cls._protocols[protocol], protocol=protocol)
 
     @property
-    def __prepare_triggers(self):
+    def __prepare_triggers(self):  # pylint: disable=unused-private-member
         return ("cache",) + object.__getattribute__(self, "connection_fields")
 
     @classmethod
@@ -244,7 +244,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 object.__setattr__(self, "_Duct__getting", False)
         except AttributeError:
             pass
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             object.__setattr__(self, "_Duct__getting", False)
             raise_with_traceback(e)
         return object.__getattribute__(self, key)
@@ -258,9 +258,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 and self.is_connected()
             ):
                 logger.warn(
-                    "Disconnecting prior to changing field that connection is based on: {}.".format(
-                        key
-                    )
+                    f"Disconnecting prior to changing field that connection is based on: {key}."
                 )
                 self.disconnect()
                 self.__prepared = False
@@ -396,7 +394,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         at runtime using: `duct.port = <port>`.
         """
         if self.remote:
-            return self.remote.port_forward("{}:{}".format(self._host, self._port))
+            return self.remote.port_forward(f"{self._host}:{self._port}")
         return self._port
 
     @port.setter
@@ -416,12 +414,12 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         if self._username is True:
             if "username" not in self.__cached_auth:
                 self.__cached_auth["username"] = input(
-                    "Enter username for '{}':".format(self.name)
+                    f"Enter username for '{self.name}':"
                 )
             return self.__cached_auth["username"]
-        elif self._username is False:
+        if self._username is False:
             return None
-        elif not self._username:
+        if not self._username:
             try:
                 username = os.getlogin()
             except OSError:
@@ -446,10 +444,10 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         if self._password is True:
             if "password" not in self.__cached_auth:
                 self.__cached_auth["password"] = getpass.getpass(
-                    "Enter password for '{}':".format(self.name)
+                    f"Enter password for '{self.name}':"
                 )
             return self.__cached_auth["password"]
-        elif self._password is False:
+        if self._password is False:
             return None
         return self._password
 
@@ -470,16 +468,15 @@ class Duct(with_metaclass(InterfaceMeta, object)):
             if self.remote and not self.remote.is_port_bound(self._host, self._port):
                 self.disconnect()
                 raise DuctServerUnreachable(
-                    "Remote '{}' cannot connect to '{}:{}'. Please check your settings before trying again.".format(
-                        self.remote.name, self._host, self._port
-                    )
+                    f"Remote '{self.remote.name}' cannot connect to "
+                    f"'{self._host}:{self._port}'. Please check your settings "
+                    "before trying again."
                 )
-            elif not self.remote:
+            if not self.remote:
                 self.disconnect()
                 raise DuctServerUnreachable(
-                    "Cannot connect to '{}:{}' on your current connection. Please check your connection before trying again.".format(
-                        self.host, self.port
-                    )
+                    f"Cannot connect to '{self.host}:{self.port}' on your current "
+                    "connection. Please check your connection before trying again."
                 )
 
     # Connection
@@ -497,27 +494,21 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         """
         if self.host:
             logger.info(
-                "Connecting to {host}:{port}{remote}.".format(
-                    host=self._host,
-                    port=self._port,
-                    remote="on {}".format(self.remote.host) if self.remote else "",
-                )
+                f"Connecting to {self._host}:{self._port}"
+                f"{f'on {self.remote.host}' if self.remote else ''}."
             )
         self.__assert_server_reachable()
         if not self.is_connected():
             try:
                 self._connect()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 self.reset()
                 raise_with_traceback(e)
         self.__connected = True
         if self.host:
             logger.info(
-                "Connected to {host}:{port}{remote}.".format(
-                    host=self._host,
-                    port=self._port,
-                    remote="on {}".format(self.remote.host) if self.remote else "",
-                )
+                f"Connected to {self._host}:{self._port}"
+                f"{f'on {self.remote.host}' if self.remote else ''}."
             )
         return self
 
@@ -544,7 +535,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         if self.remote:
             if not self.remote.has_port_forward(self._host, self._port):
                 return False
-            elif not is_port_bound(self.host, self.port):
+            if not is_port_bound(self.host, self.port):
                 self.disconnect()
                 return False
 
@@ -569,18 +560,18 @@ class Duct(with_metaclass(InterfaceMeta, object)):
             `Duct` instance: A reference to this object.
         """
         if not self.__prepared:
-            return
-        self.__disconnecting = True
+            return None
+        self.__disconnecting = True  # pylint: disable=unused-private-member
         self.__connected = False
 
         try:
             self._disconnect()
 
             if self.remote and self.remote.has_port_forward(self._host, self._port):
-                logger.info("Freeing up local port {0}...".format(self.port))
+                logger.info(f"Freeing up local port {self.port}...")
                 self.remote.port_forward_stop(local_port=self.port)
         finally:
-            self.__disconnecting = False
+            self.__disconnecting = False  # pylint: disable=unused-private-member
 
         return self
 

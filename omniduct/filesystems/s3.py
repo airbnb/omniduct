@@ -1,14 +1,9 @@
+# pylint: disable=attribute-defined-outside-init
 import logging
 
 from interface_meta import override
 
 from omniduct.filesystems.base import FileSystemClient, FileSystemFileDesc
-
-# Python 2 compatibility imports
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 class S3Client(FileSystemClient):
@@ -79,12 +74,9 @@ class S3Client(FileSystemClient):
         self._client = None
 
         # Ensure self.host is updated with correct AWS region
-        import boto3
+        import boto3  # pylint: disable=import-error
 
-        self.host = "autoscaling.{}.amazonaws.com".format(
-            (session or boto3.Session(profile_name=self.aws_profile)).region_name
-            or "us-east-1"
-        )
+        self.host = f"autoscaling.{(session or boto3.Session(profile_name=self.aws_profile)).region_name or 'us-east-1'}.amazonaws.com"
 
         # Mask logging from botocore's vendored libraries
         logging.getLogger("botocore.vendored").setLevel(100)
@@ -96,9 +88,10 @@ class S3Client(FileSystemClient):
         self._resource = self._session.resource("s3")
 
     def _get_boto3_session(self):
-        import boto3
+        import boto3  # pylint: disable=import-error
 
         if self.use_opinel:
+            # pylint: disable-next=import-error
             from opinel.utils.credentials import read_creds
 
             # Refresh access token, and attach credentials to current object for debugging
@@ -118,16 +111,18 @@ class S3Client(FileSystemClient):
         if self._client is None:
             return False
         # Check if still able to perform requests against AWS
-        import botocore
+        import botocore  # pylint: disable=import-error
 
         try:
             self._client.list_buckets()
+            return True
         except botocore.exceptions.ClientError as e:
             if len(e.args) > 0:
                 if "ExpiredToken" in e.args[0] or "InvalidToken" in e.args[0]:
                     return False
-                elif "AccessDenied" in e.args[0]:
+                if "AccessDenied" in e.args[0]:
                     return True
+            return False
 
     @override
     def _disconnect(self):
@@ -166,7 +161,7 @@ class S3Client(FileSystemClient):
         try:
             self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or "")
             return True
-        except:
+        except:  # pylint: disable=bare-except
             return False
 
     # Directory handling and enumeration
@@ -258,7 +253,7 @@ class S3Client(FileSystemClient):
     @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         if not self.isfile(path):
-            raise FileNotFoundError("File `{}` does not exist.".format(path))
+            raise FileNotFoundError(f"File `{path}` does not exist.")
 
         obj = self._resource.Object(self.bucket, self._s3_path(path))
         body = obj.get()["Body"].read()

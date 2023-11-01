@@ -1,3 +1,5 @@
+# pylint: disable=abstract-method
+
 from __future__ import absolute_import
 
 from interface_meta import override
@@ -29,12 +31,13 @@ class Neo4jClient(DatabaseClient):
     # Connection
     @override
     def _connect(self):
-        from neo4j.v1 import GraphDatabase
+        from neo4j.v1 import GraphDatabase  # pylint: disable=import-error
 
         logger.info("Connecting to Neo4J graph database ...")
         auth = (self.username, self.password) if self.username else None
+        # pylint: disable-next=attribute-defined-outside-init
         self.__driver = GraphDatabase.driver(
-            "bolt://{}:{}".format(self.host, self.port), auth=auth
+            f"bolt://{self.host}:{self.port}", auth=auth
         )  # TODO: Add kerberos support
 
     @override
@@ -46,9 +49,9 @@ class Neo4jClient(DatabaseClient):
         logger.info("Disconnecting from Neo4J graph database ...")
         try:
             self.__driver.close()
-        except Exception:
+        except:  # pylint: disable=bare-except
             pass
-        self.__driver = None
+        self.__driver = None  # pylint: disable=attribute-defined-outside-init
 
     # Querying
     @override
@@ -63,24 +66,24 @@ class Neo4jClient(DatabaseClient):
 
     @override
     def _table_exists(self, table, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
     def _table_drop(self, table, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
     def _table_desc(self, table, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
     def _table_head(self, table, n=10, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
     def _table_list(self, namespace, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
     def _table_props(self, table, **kwargs):
-        raise Exception("tables do not apply to the Neo4J graph database")
+        raise RuntimeError("tables do not apply to the Neo4J graph database")

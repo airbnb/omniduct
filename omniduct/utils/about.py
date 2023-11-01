@@ -2,7 +2,7 @@ import base64
 import textwrap
 
 import jinja2
-import six.moves.urllib as urllib
+from six.moves import urllib
 
 import omniduct
 
@@ -109,17 +109,19 @@ def show_about(
     }
 
     try:
-        from IPython import get_ipython
-        from IPython.display import display, HTML
+        from IPython import get_ipython  # pylint: disable=import-error
+        from IPython.display import display, HTML  # pylint: disable=import-error
 
         ip = get_ipython()
         if ip is not None and ip.has_trait("kernel"):
             return display(HTML(jinja2.Template(ABOUT_TEMPLATE_HTML).render(**context)))
-    except:
+    except:  # pylint: disable=bare-except
         pass
 
     # Textual fallback if HTML not running in a notebook
-    print(textwrap.dedent(jinja2.Template(ABOUT_TEMPLATE_TEXT).render(**context)))
+    return print(
+        textwrap.dedent(jinja2.Template(ABOUT_TEMPLATE_TEXT).render(**context))
+    )
 
 
 def get_image_url(uri):
@@ -136,11 +138,9 @@ def get_image_url(uri):
         str: The uri of the image suitable for rendering in a notebook.
     """
     if not uri:
-        return
+        return None
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme in ("", "file"):
         with open(parsed.path, "rb") as image:
-            return "data:image/png;base64,{}".format(
-                base64.b64encode(image.read()).decode()
-            )
+            return f"data:image/png;base64,{base64.b64encode(image.read()).decode()}"
     return uri

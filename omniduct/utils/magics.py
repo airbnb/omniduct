@@ -30,7 +30,7 @@ def process_line_cell_arguments(f):
 
 
 def _process_line_arguments(line_arguments):
-    from IPython import get_ipython
+    from IPython import get_ipython  # pylint: disable=import-error
 
     args = []
     kwargs = {}
@@ -41,13 +41,11 @@ def _process_line_arguments(line_arguments):
             key, value = arg.split("=")
             value = eval(value, get_ipython().user_ns)
             if key in kwargs:
-                raise ValueError("Duplicate keyword argument `{}`.".format(key))
+                raise ValueError(f"Duplicate keyword argument `{key}`.")
             kwargs[key] = value
         else:
             if reached_kwargs:
-                raise ValueError(
-                    "Positional argument `{}` after keyword argument.".format(arg)
-                )
+                raise ValueError(f"Positional argument `{arg}` after keyword argument.")
             args.append(arg)
     return args, kwargs
 
@@ -60,12 +58,12 @@ class MagicsProvider(with_metaclass(ABCMeta, object)):
             raise RuntimeError("Cannot register magics without a base_name.")
 
         try:
-            from IPython import get_ipython
+            from IPython import get_ipython  # pylint: disable=import-error
 
             ip = get_ipython()
             assert ip is not None
             has_ipython = True
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             has_ipython = False
 
         if has_ipython:

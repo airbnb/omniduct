@@ -11,7 +11,7 @@ COLUMN_NAME_FORMATTERS = {
 }
 
 
-class CursorFormatter(object):
+class CursorFormatter:
     """
     An abstract base class for all cursor formatters.
 
@@ -101,16 +101,12 @@ class CursorFormatter(object):
 
     def _format_dump(self, data):
         raise NotImplementedError(
-            "{} does not support formatting dumped data.".format(
-                self.__class__.__name__
-            )
+            f"{self.__class__.__name__} does not support formatting dumped data."
         )
 
     def _format_row(self, row):
         raise NotImplementedError(
-            "{} does not support formatting streaming data.".format(
-                self.__class__.__name__
-            )
+            f"{self.__class__.__name__} does not support formatting streaming data."
         )
 
 
@@ -134,12 +130,9 @@ class PandasCursorFormatter(CursorFormatter):
         if self.date_fields is not None:
             try:
                 df = pd.io.sql._parse_date_columns(df, self.date_fields)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(
-                    "Unable to parse date columns. Perhaps your version of pandas is outdated."
-                    "Original error message was: {}: {}".format(
-                        e.__class__.__name__, str(e)
-                    )
+                    f"Unable to parse date columns. Perhaps your version of pandas is outdated.Original error message was: {e.__class__.__name__}: {str(e)}"
                 )
 
         if self.index_fields is not None:
@@ -246,7 +239,7 @@ class HiveCursorFormatter(CsvCursorFormatter):
         "quoting": csv.QUOTE_NONE,
     }
 
-    def _init(self):
+    def _init(self):  # pylint: disable=arguments-differ
         CsvCursorFormatter._init(self, include_header=False)
 
     # Convert null values to '\N'.

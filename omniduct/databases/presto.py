@@ -1,3 +1,5 @@
+# pylint: disable=consider-using-f-string
+
 from __future__ import absolute_import
 
 import ast
@@ -97,9 +99,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         logging.getLogger("pyhive").setLevel(1000)  # Silence pyhive logging.
         logger.info("Connecting to Presto coordinator...")
         self._sqlalchemy_engine = create_engine(
-            "presto://{}:{}/{}/{}".format(
-                self.host, self.port, self.catalog, self.schema
-            )
+            f"presto://{self.host}:{self.port}/{self.catalog}/{self.schema}"
         )
         self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
@@ -107,7 +107,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     def _is_connected(self):
         try:
             return self.__presto is not None
-        except:
+        except:  # pylint: disable=bare-except
             return False
 
     @override
@@ -115,11 +115,11 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         logger.info("Disconnecting from Presto coordinator...")
         try:
             self.__presto.close()
-        except:
+        except:  # pylint: disable=bare-except
             pass
         self._sqlalchemy_engine = None
         self._sqlalchemy_metadata = None
-        self._schemas = None
+        self._schemas = None  # pylint: disable=attribute-defined-outside-init
 
     # Querying
     @override
@@ -129,12 +129,15 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         log and present the user with useful debugging information. If that fails,
         the full traceback will be raised instead.
         """
+        # pylint: disable-next=import-error
         from pyhive import (
             presto,
-        )  # Imported here due to slow import performance in Python 3
+        )
+
+        # pylint: disable-next=import-error
         from pyhive.exc import (
             DatabaseError,
-        )  # Imported here due to slow import performance in Python 3
+        )
 
         try:
             cursor = cursor or presto.Cursor(
@@ -197,14 +200,14 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                     )
                 )
 
-                class ErrContext(object):
+                class ErrContext:
                     def __repr__(self):
                         return context
 
                 # logged twice so that both notebook and console users see the error context
                 exception_args.args = [exception_args, ErrContext()]
                 logger.error(context)
-            except:
+            except:  # pylint: disable=bare-except
                 logger.warn(
                     (
                         "Omniduct was unable to parse the database error messages. Refer to the "
@@ -215,28 +218,22 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             if isinstance(exception, type):
                 exception = exception(exception_args)
 
-            raise_with_traceback(exception, traceback)
+            return raise_with_traceback(exception, traceback)
 
     @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         statements = []
 
         if if_exists == "fail" and self.table_exists(table):
-            raise RuntimeError("Table {} already exists!".format(table))
-        elif if_exists == "replace":
-            statements.append("DROP TABLE IF EXISTS {};\n".format(table))
+            raise RuntimeError(f"Table {table} already exists!")
+        if if_exists == "replace":
+            statements.append(f"DROP TABLE IF EXISTS {table};\n")
         elif if_exists == "append":
             raise NotImplementedError(
-                "Append operations have not been implemented for {}.".format(
-                    self.__class__.__name__
-                )
+                f"Append operations have not been implemented for {self.__class__.__name__}."
             )
 
-        statements.append(
-            "CREATE TABLE {table} AS ({statement})".format(
-                table=table, statement=statement
-            )
-        )
+        statements.append(f"CREATE TABLE {table} AS ({statement})")
         return self.execute("\n".join(statements), **kwargs)
 
     @override
@@ -271,7 +268,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @override
     def _table_exists(self, table, **kwargs):
-        from pyhive.exc import DatabaseError
+        from pyhive.exc import DatabaseError  # pylint: disable=import-error
 
         logger.disabled = True
         try:
@@ -284,11 +281,11 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @override
     def _table_drop(self, table, **kwargs):
-        return self.execute("DROP TABLE {table}".format(table=table))
+        return self.execute(f"DROP TABLE {table}")
 
     @override
     def _table_desc(self, table, **kwargs):
-        return self.query("DESCRIBE {0}".format(table), **kwargs)
+        return self.query(f"DESCRIBE {table}", **kwargs)
 
     @override
     def _table_partition_cols(self, table, **kwargs):
@@ -299,7 +296,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @override
     def _table_head(self, table, n=10, **kwargs):
-        return self.query("SELECT * FROM {} LIMIT {}".format(table, n), **kwargs)
+        return self.query(f"SELECT * FROM {table} LIMIT {n}", **kwargs)
 
     @override
     def _table_props(self, table, **kwargs):

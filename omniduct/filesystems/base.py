@@ -24,7 +24,7 @@ class FileSystemClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     @quirk_docs("_init", mro=True)
-    def __init__(
+    def __init__(  # pylint: disable=super-init-not-called
         self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs
     ):
         """
@@ -72,7 +72,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def path_home(self, path_home):
         if path_home is not None and not path_home.startswith(self.path_separator):
             raise ValueError(
-                "The home path must be absolute. Received: '{}'.".format(path_home)
+                f"The home path must be absolute. Received: '{path_home}'."
             )
         self.__path_home = path_home
 
@@ -133,13 +133,7 @@ class FileSystemClient(Duct, MagicsProvider):
             elif component.startswith(self.path_separator):
                 path = component
             else:
-                path = "{}{}{}".format(
-                    path,
-                    self.path_separator
-                    if not path.endswith(self.path_separator)
-                    else "",
-                    component,
-                )
+                path = f"{path}{self.path_separator if not path.endswith(self.path_separator) else ''}{component}"
         return path
 
     def path_basename(self, path):
@@ -197,7 +191,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 continue
             if component == ".":
                 continue
-            elif component == "..":
+            if component == "..":
                 if len(out_path) > 1:
                     out_path.pop()
                 else:
@@ -244,15 +238,11 @@ class FileSystemClient(Duct, MagicsProvider):
     def _assert_path_is_writable(self, path):
         if self.read_only:
             raise RuntimeError(
-                "This filesystem client is configured for read-only access. Set `{}`.`read_only` to `False` to override.".format(
-                    self.name
-                )
+                f"This filesystem client is configured for read-only access. Set `{self.name}`.`read_only` to `False` to override."
             )
         if not self.global_writes and not self._path_in_home_dir(path):
             raise RuntimeError(
-                "Attempt to write outside of home directory without setting `{}`.`global_writes` to `True`.".format(
-                    self.name
-                )
+                f"Attempt to write outside of home directory without setting `{self.name}`.`global_writes` to `True`."
             )
         return True
 
@@ -343,7 +333,7 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<FileSystemFileDesc>: The children of `path` represented as
             `FileSystemFileDesc` objects.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._dir(self._path(path))
 
     def listdir(self, path=None):
@@ -381,7 +371,7 @@ class FileSystemClient(Duct, MagicsProvider):
             pandas.DataFrame: A DataFrame representation of the contents of the
             nominated directory.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._showdir(self._path(path))
 
     def _showdir(self, path):
@@ -394,8 +384,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 .dropna(axis="columns", how="all")
                 .drop(axis=1, labels=["fs", "path"])
             )
-        else:
-            return "Directory has no contents."
+        return "Directory has no contents."
 
     @quirk_docs("_walk")
     @require_connection
@@ -415,7 +404,7 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<tuple>: A generator of tuples, each tuple being associated
             with one directory that is either `path` or one of its descendants.
         """
-        assert self.isdir(path), "'{}' is not a valid directory.".format(path)
+        assert self.isdir(path), f"'{path}' is not a valid directory."
         return self._walk(self._path(path))
 
     def _walk(self, path):
@@ -428,9 +417,9 @@ class FileSystemClient(Duct, MagicsProvider):
                 files.append(f.name)
         yield (path, dirs, files)
 
-        for dir in dirs:
+        for dirname in dirs:
             for walked in self._walk(
-                self._path(self.path_join(path, dir))
+                self._path(self.path_join(path, dirname))
             ):  # Note: using _walk directly here, which may fail if disconnected during walk.
                 yield walked
 
@@ -461,9 +450,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         assert self.isdir(
             path_prefix
-        ), "'{0}' is not a valid directory. Did you mean `.find(name='{0}')`?".format(
-            path_prefix
-        )
+        ), f"'{path_prefix}' is not a valid directory. Did you mean `.find(name='{path_prefix}')`?"
         return self._find(self._path(path_prefix), **attrs)
 
     def _find(self, path_prefix, **attrs):
@@ -471,7 +458,7 @@ class FileSystemClient(Duct, MagicsProvider):
             for attr, value in attrs.items():
                 if hasattr(value, "__call__") and not value(f.as_dict().get(attr)):
                     return False
-                elif value != f.as_dict().get(attr):
+                if value != f.as_dict().get(attr):
                     return False
             return True
 
@@ -482,9 +469,9 @@ class FileSystemClient(Duct, MagicsProvider):
             if is_match(f):
                 yield f
 
-        for dir in dirs:
+        for dirname in dirs:
             for match in self._find(
-                self._path(self.path_join(path_prefix, dir)), **attrs
+                self._path(self.path_join(path_prefix, dirname)), **attrs
             ):  # Note: using _find directly here, which may fail if disconnected during find.
                 yield match
 
@@ -527,12 +514,10 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         self._assert_path_is_writable(path)
         if not self.exists(path):
-            raise IOError("No file(s) exist at path '{}'.".format(path))
+            raise IOError(f"No file(s) exist at path '{path}'.")
         if self.isdir(path) and not recursive:
             raise IOError(
-                "Attempt to remove directory '{}' without passing `recursive=True`.".format(
-                    path
-                )
+                f"Attempt to remove directory '{path}' without passing `recursive=True`."
             )
         return self._remove(self._path(path), recursive)
 
@@ -677,7 +662,7 @@ class FileSystemClient(Duct, MagicsProvider):
         dest = fs._path(dest or self.path_basename(source))
 
         if dest.endswith(fs.path_separator):
-            assert fs.isdir(dest), "No such directory `{}`".format(dest)
+            assert fs.isdir(dest), f"No such directory `{dest}`"
             if not source.endswith(self.path_separator):
                 dest = fs.path_join(fs._path(dest), self.path_basename(source))
 
@@ -694,8 +679,8 @@ class FileSystemClient(Duct, MagicsProvider):
             targets.append((source, dest, True))
 
             for path, dirs, files in self.walk(source):
-                for dir in dirs:
-                    target_source = self.path_join(path, dir)
+                for dirname in dirs:
+                    target_source = self.path_join(path, dirname)
                     targets.append(
                         (
                             target_source,
@@ -772,25 +757,26 @@ class FileSystemClient(Duct, MagicsProvider):
     # Magics
     @override
     def _register_magics(self, base_name):
+        # pylint: disable-next=import-error
         from IPython.core.magic import register_line_magic, register_cell_magic
 
-        @register_line_magic("{}.listdir".format(base_name))
+        @register_line_magic(f"{base_name}.listdir")
         @process_line_arguments
         def listdir(path=""):
             return self.listdir(path)
 
-        @register_line_magic("{}.showdir".format(base_name))
+        @register_line_magic(f"{base_name}.showdir")
         @process_line_arguments
         def showdir(path=""):
             return self.showdir(path)
 
-        @register_line_magic("{}.read".format(base_name))
+        @register_line_magic(f"{base_name}.read")
         @process_line_arguments
         def read_file(path):
             with self.open(path) as f:
                 return f.read()
 
-        @register_cell_magic("{}.write".format(base_name))
+        @register_cell_magic(f"{base_name}.write")
         @process_line_arguments
         def write_file(cell, path):
             with self.open(path, "w") as f:
@@ -804,7 +790,7 @@ class FileSystemClient(Duct, MagicsProvider):
         return OmniductFileSystem(self)
 
 
-class FileSystemFile(object):
+class FileSystemFile:
     """
     A file-like implementation that is interchangeable with native Python file
     objects, allowing remote files to be treated identically to local files
@@ -848,8 +834,8 @@ class FileSystemFile(object):
             )
             assert sum(opt in mode for opt in ["r", "w", "a"]) == 1
             assert sum(opt in mode for opt in ["t", "b"]) < 2
-        except AssertionError:
-            raise ValueError("invalid mode: '{}'".format(mode))
+        except AssertionError as e:
+            raise ValueError(f"invalid mode: '{mode}'") from e
         self.__mode = mode
 
     @property
@@ -875,7 +861,7 @@ class FileSystemFile(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type, value, tb):  # pylint: disable=redefined-builtin
         self.close()
 
     def close(self):
@@ -990,8 +976,8 @@ class FileSystemFileDesc(
         fs,
         path,
         name,
-        type,
-        bytes=None,
+        type,  # pylint: disable=redefined-builtin
+        bytes=None,  # pylint: disable=redefined-builtin
         owner=None,
         group=None,
         permissions=None,

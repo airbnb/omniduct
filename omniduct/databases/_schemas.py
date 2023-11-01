@@ -1,3 +1,5 @@
+# pylint: disable=abstract-method
+
 from __future__ import absolute_import
 
 import pandas as pd
@@ -32,8 +34,7 @@ try:
                 coltype = type_map[row.Type]
             except KeyError:
                 logger.warn(
-                    "Did not recognize type '%s' of column '%s'"
-                    % (row.Type, row.Column)
+                    f"Did not recognize type '{row.Type}' of column '{row.Column}'"
                 )
                 coltype = sql_types.NullType
             result.append(
@@ -54,7 +55,7 @@ except ImportError:
     )
 
 
-class SchemasMixin(object):
+class SchemasMixin:
     """
     Attaches a tab-completable `.schemas` attribute to a `DatabaseClient` instance.
 
@@ -77,10 +78,9 @@ class SchemasMixin(object):
 
         def get_schemas():
             if not getattr(self, "_schemas", None):
-                assert getattr(self, "_sqlalchemy_metadata", None) is not None, (
-                    "`{class_name}` instances do not provide the required sqlalchemy metadata "
-                    "for schema exploration.".format(class_name=self.__class__.__name__)
-                )
+                assert (
+                    getattr(self, "_sqlalchemy_metadata", None) is not None
+                ), f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy metadata for schema exploration."
                 self._schemas = Schemas(self._sqlalchemy_metadata)
             return self._schemas
 
@@ -133,7 +133,7 @@ class TableDesc(Table):
 
 
 # Define helpers to allow for table completion/etc
-class Schemas(object):
+class Schemas:
     """
     An object which has as its attributes all of the schemas in a nominated database.
 
@@ -166,10 +166,10 @@ class Schemas(object):
                     metadata=self._metadata, schema=value
                 )
             return self._schema_cache[value]
-        raise AttributeError("No such schema {}".format(value))
+        raise AttributeError(f"No such schema {value}")
 
     def __repr__(self):
-        return "<Schemas: {} schemas>".format(len(self.all))
+        return f"<Schemas: {len(self.all)} schemas>"
 
     def __iter__(self):
         for schema in self.all:
@@ -179,7 +179,7 @@ class Schemas(object):
         return len(self.all)
 
 
-class Schema(object):
+class Schema:
     """
     An object which has as its attributes all of the tables in a nominated database schema.
 
@@ -211,16 +211,16 @@ class Schema(object):
         if table in self.all:
             if table not in self._table_cache:
                 self._table_cache[table] = TableDesc(
-                    "{}".format(table),
+                    f"{table}",
                     self._metadata,
                     autoload=True,
                     schema=self._schema,
                 )
             return self._table_cache[table]
-        raise AttributeError("No such table {}".format(table))
+        raise AttributeError(f"No such table {table}")
 
     def __repr__(self):
-        return "<Schema `{}`: {} tables>".format(self._schema, len(self.all))
+        return f"<Schema `{self._schema}`: {len(self.all)} tables>"
 
     def __iter__(self):
         for schema in self.all:

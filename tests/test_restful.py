@@ -11,4 +11,4 @@ class TestRestClient(unittest.TestCase):
         client = RestClient(server_protocol="http", host="localhost", port=80)
         client.request("/")
         mock_connect.assert_called_with()
-        mock_request.assert_called_with("get", "http://localhost:80/")
+        mock_request.assert_called_with("get", "http://localhost:80/", timeout=None)

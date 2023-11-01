@@ -48,7 +48,7 @@ class DummyDatabaseClient(DatabaseClient):
         raise NotImplementedError
 
 
-class DummyCursor(object):
+class DummyCursor:
     """
     This DBAPI2 compatible cursor wrapped around a Pandas DataFrame
     """

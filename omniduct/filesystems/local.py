@@ -1,11 +1,13 @@
+# pylint: disable=abstract-method # We export a different type of file-handle.
+
 import datetime
 import errno
 import os
 import shutil
-import six
 import sys
 from io import open
 
+import six
 from interface_meta import override
 
 from .base import FileSystemClient, FileSystemFileDesc
@@ -35,7 +37,7 @@ class LocalFsClient(FileSystemClient):
         assert (
             self.remote is None
         ), "LocalFsClient cannot be used in conjunction with a remote client."
-        super(LocalFsClient, self)._prepare()
+        super()._prepare()
 
     @override
     def _connect(self):

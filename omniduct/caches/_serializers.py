@@ -1,10 +1,9 @@
 import pickle
-from distutils.version import LooseVersion
 
 import pandas
 
 
-class Serializer(object):
+class Serializer:
     @property
     def file_extension(self):
         return ""
@@ -48,14 +47,8 @@ class PandasSerializer(Serializer):
     def file_extension(self):
         return ".pandas"
 
-    @classmethod
-    def serialize(cls, formatted_data, fh):
-        # compat: if pandas is old, to_pickle does not accept file handles
-        if LooseVersion(pandas.__version__) <= LooseVersion("0.20.3"):
-            fh.close()
-            fh = fh.name
-        return pandas.to_pickle(formatted_data, fh, compression=None)
+    def serialize(self, obj, fh):
+        return pandas.to_pickle(obj, fh, compression=None)
 
-    @classmethod
-    def deserialize(cls, fh):
+    def deserialize(self, fh):
         return pandas.read_pickle(fh, compression=None)

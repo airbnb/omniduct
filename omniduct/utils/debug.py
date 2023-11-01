@@ -20,7 +20,7 @@ config.register(
 )
 
 
-class StatusLogger(object):
+class StatusLogger:
     """
     StatusLogger is a wrapper around `logging.Logger` that allows for consistent
     treatment of logging messages. While not strictly required,
@@ -63,7 +63,7 @@ class StatusLogger(object):
     def _scope_enter(self, name, timed=False, extra=None):
         if config.logging_level < logging.INFO:
             print(
-                "\t" * len(self.__scopes) + "Entering manual scope: {}".format(name),
+                "\t" * len(self.__scopes) + f"Entering manual scope: {name}",
                 file=sys.stderr,
             )
         props = {"name": name}
@@ -80,13 +80,9 @@ class StatusLogger(object):
         props = self.__scopes[-1]
         if "time" in props:
             logger.warning(
-                "{} after {} on {}.".format(
-                    "Complete" if success else "Failed",
-                    self.__get_time(time.time() - props["time"]),
-                    time.strftime("%Y-%m-%d"),
-                )
+                f"{'Complete' if success else 'Failed'} after {self.__get_time(time.time() - props['time'])} on {time.strftime('%Y-%m-%d')}."
                 + (
-                    " CAVEATS: {}.".format("; ".join(props["caveats"]))
+                    f" CAVEATS: {'; '.join(props['caveats'])}."
                     if props["caveats"]
                     else ""
                 )
@@ -94,8 +90,7 @@ class StatusLogger(object):
         scope = self.__scopes.pop()
         if config.logging_level < logging.INFO:
             print(
-                "\t" * len(self.__scopes)
-                + "Exited manual scope: {}".format(scope["name"]),
+                "\t" * len(self.__scopes) + f"Exited manual scope: {scope['name']}",
                 file=sys.stderr,
             )
         elif "has_logged" in scope:
@@ -109,14 +104,14 @@ class StatusLogger(object):
         h, m = divmod(m, 60)
 
         if h > 0:
-            return "{:.0f} hrs, {:.0f} min".format(h, m)
+            return f"{h:.0f} hrs, {m:.0f} min"
         if m > 0:
-            return "{:.0f} min, {:.0f} sec".format(m, s)
-        return "{:.2f} sec".format(s)
+            return f"{m:.0f} min, {s:.0f} sec"
+        return f"{s:.2f} sec"
 
     def caveat(self, caveat):
         if len(self.__scopes) == 0:
-            self.warning("CAVEAT: {}".format(caveat))
+            self.warning(f"CAVEAT: {caveat}")
         else:
             self.current_scope_props["caveats"].append(caveat)
 
@@ -183,10 +178,10 @@ class StatusLogger(object):
             try:
                 caller = inspect.stack()[2]
                 context = inspect.getmodule(caller.frame).__name__
-            except:
+            except:  # pylint: disable=bare-except
                 context = "omniduct"
-        if not context == "omniduct" and not context.startswith("omniduct."):
-            context = "omniduct.external.{}".format(context)
+        if context != "omniduct" and not context.startswith("omniduct."):
+            context = f"omniduct.external.{context}"
         return logging.getLogger(context)
 
     def __getattr__(self, name):
@@ -237,6 +232,7 @@ def detect_scopes():
     return out_scopes
 
 
+# pylint: disable-next=abstract-method
 class LoggingHandler(logging.Handler):
     """
     An implementation of Logging.Handler to render the logging methods shown in Omniduct and derivatives.
@@ -251,12 +247,12 @@ class LoggingHandler(logging.Handler):
         )
 
     def format_simple(self, record):
-        return "{}".format(record.getMessage())
+        return f"{record.getMessage()}"
 
     def handle(self, record):
         try:
             scopes = logger.current_scopes
-        except:
+        except:  # pylint: disable=bare-except
             scopes = []
 
         if config.logging_level < logging.INFO:  # Print everything verbosely
@@ -286,7 +282,7 @@ class LoggingHandler(logging.Handler):
         sys.stderr.flush()
 
     def _overwrite(self, text, overwritable=True, truncate=True, file=sys.stderr):
-        w, h = progressbar.utils.get_terminal_size()
+        w, _ = progressbar.utils.get_terminal_size()
         file.write("\r" + " " * w + "\r")  # Clear current line
         if overwritable:
             text.replace("\n", " ")
@@ -312,9 +308,9 @@ def logging_scope(name, *wargs, **wkwargs):
         try:
             f = func(*args, **kwargs)
             return f
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             success = False
-            raise_with_traceback(e)
+            return raise_with_traceback(e)
         finally:
             logger._scope_exit(success)
 

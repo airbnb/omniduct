@@ -35,7 +35,7 @@ def check_dependencies(protocols, message=None):
     for dep in dependencies:
         m = re.match("^[a-z_][a-z0-9]*", dep)
         if not m:
-            logger.warning("Invalid dependency requested: {}".format(dep))
+            logger.warning(f"Invalid dependency requested: {dep}")
 
         package_name = m.group(0)
         accept_any_version = package_name == dep

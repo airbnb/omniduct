@@ -8,7 +8,7 @@ from omniduct.utils.magics import MagicsProvider
 from omniduct.utils.proxies import TreeProxy
 
 
-class DuctRegistry(object):
+class DuctRegistry:
     """
     A convenient registry for `Duct` instances.
 
@@ -30,7 +30,7 @@ class DuctRegistry(object):
             self.register_from_config(config)
 
     def __repr__(self):
-        return "<DuctRegistry with {} registered ducts>".format(len(self._registry))
+        return f"<DuctRegistry with {len(self._registry)} registered ducts>"
 
     # Registration methods
     def register(self, duct, name=None, override=False, register_magics=True):
@@ -61,17 +61,15 @@ class DuctRegistry(object):
             raise ValueError(
                 "`Duct` instances must be named to be registered. Please either specify a name to this method call, or add a name to the Duct using `duct.name = '...'`."
             )
-        names = [n.strip() for n in name.split(",")]
-        for name in names:
-            if name in self._registry and not override:
+        aliases = [n.strip() for n in name.split(",")]
+        for alias in aliases:
+            if alias in self._registry and not override:
                 raise ValueError(
-                    "`Duct` with the same name ('{}') already present in the registry. Please pass `override=True` if you want to override the existing instance, or `name='...'` to specify a new name.".format(
-                        name
-                    )
+                    f"`Duct` with the same name ('{alias}') already present in the registry. Please pass `override=True` if you want to override the existing instance, or `name='...'` to specify a new name."
                 )
             if register_magics and isinstance(duct, MagicsProvider):
-                duct.register_magics(base_name=name)
-            self._registry[name] = duct
+                duct.register_magics(base_name=alias)
+            self._registry[alias] = duct
         return duct
 
     def new(self, name, protocol, override=False, register_magics=True, **kwargs):
@@ -141,9 +139,7 @@ class DuctRegistry(object):
         duct = self._registry[name]
         if kind and duct.DUCT_TYPE != kind:
             raise DuctNotFound(
-                "Duct named '{}' exists, but is not of kind '{}'.".format(
-                    name, kind.value
-                )
+                f"Duct named '{name}' exists, but is not of kind '{kind.value}'."
             )
         return duct
 
@@ -254,7 +250,7 @@ class DuctRegistry(object):
             if "\n" in config:
                 config = yaml.safe_load(config)
             else:
-                with open(config) as f:
+                with open(config, encoding="utf-8") as f:
                     config = yaml.safe_load(f.read())
         config = self._process_config(config)
 
@@ -272,9 +268,9 @@ class DuctRegistry(object):
                 )
             except DuctProtocolUnknown as e:
                 logger.error(
-                    "Failed to configure `Duct` instance(s) '{}'. {}".format(
-                        "', '".join(names.split(",")), str(e)
-                    )
+                    "Failed to configure `Duct` instance(s) '%s'. %s",
+                    "', '".join(names.split(",")),
+                    e,
                 )
 
         return self
@@ -297,11 +293,9 @@ class DuctRegistry(object):
             yield kwargs
 
         elif isinstance(config, dict):
-            for name, subconfig in config.items():
-                for config in self._process_config(subconfig, name=name):
-                    yield config
+            for key, subconfig in config.items():
+                yield from self._process_config(subconfig, name=key)
 
         elif isinstance(config, list):
             for subconfig in config:
-                for config in self._process_config(subconfig):
-                    yield config
+                yield from self._process_config(subconfig)

@@ -1,5 +1,3 @@
-# flake8: noqa
-
 # Omniduct's automatic registration of Duct protocols requires that the subclass
 # implementation be loaded into memory. Any protocol that should be enabled by
 # default should be imported here.
@@ -18,3 +16,20 @@ from .filesystems.webhdfs import WebHdfsClient
 from .remotes.ssh import SSHClient
 from .remotes.ssh_paramiko import ParamikoSSHClient
 from .restful.base import RestClient
+
+__all__ = [
+    "FileSystemCache",
+    "DruidClient",
+    "ExasolClient",
+    "HiveServer2Client",
+    "Neo4jClient",
+    "PrestoClient",
+    "PySparkClient",
+    "SQLAlchemyClient",
+    "LocalFsClient",
+    "S3Client",
+    "WebHdfsClient",
+    "SSHClient",
+    "ParamikoSSHClient",
+    "RestClient",
+]

@@ -35,7 +35,7 @@ dependencies = [
     "jinja2",
     "lazy-object-proxy",
     "packaging",
-    "pandas>=0.17.1",
+    "pandas>=0.20.3",
     "progressbar2>=3.30.0",
     "python-dateutil",
     "pyyaml",
@@ -166,11 +166,13 @@ dependencies = [
     "black==23.10.1",
     "flake8==6.1.0",
     "flake8-pyproject",
+    "pylint==2.17.4",
 ]
 
 [tool.hatch.envs.lint.scripts]
 check = [
     "flake8 omniduct tests",
+    "pylint omniduct",
     "black --check omniduct tests",
 ]
 format = "black omniduct tests"
@@ -185,3 +187,34 @@ max-complexity = 25
 max-line-length = 160
 import-order-style = "edited"
 application-import-names = "formulaic"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "cyclic-import",
+    "duplicate-code",
+    "eval-used",
+    "fixme",
+    "import-outside-toplevel",
+    "invalid-name",
+    "line-too-long",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "no-member",
+    "protected-access",
+    "redefined-outer-name",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-public-methods",
+    "too-many-return-statements",
+    "too-many-statements",
+    "ungrouped-imports",
+    "unnecessary-lambda-assignment",
+    "unused-argument",
+    "use-dict-literal",
+]

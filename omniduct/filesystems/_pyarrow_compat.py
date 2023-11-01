@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 from pyarrow.filesystem import FileSystem
 from pyarrow.util import implements, _stringify_path
 

@@ -16,7 +16,7 @@ class FileSystemCache(Cache):
     PROTOCOLS = ["filesystem_cache"]
 
     @override
-    def _init(self, path, fs=None):
+    def _init(self, path, fs=None):  # pylint: disable=arguments-differ
         """
         path (str): The top-level path of the cache in the filesystem.
         fs (FileSystemClient, str): The filesystem client to use as the
@@ -38,7 +38,7 @@ class FileSystemCache(Cache):
 
         if self.registry is not None:
             if isinstance(self.fs, six.string_types):
-                self.fs = self.registry.lookup(
+                self.fs = self.registry.lookup(  # pylint: disable=attribute-defined-outside-init
                     self.fs, kind=FileSystemCache.Type.FILESYSTEM
                 )
         assert isinstance(
@@ -53,26 +53,22 @@ class FileSystemCache(Cache):
             with self.fs.open(config_path) as fh:
                 try:
                     return yaml.safe_load(fh)
-                except yaml.error.YAMLError:
+                except yaml.error.YAMLError as e:
                     raise RuntimeError(
-                        "Path nominated for cache ('{}') has a corrupt "
-                        "configuration. Please manually empty or delete this "
-                        "path cache, and try again.".format(self.path)
-                    )
+                        f"Path nominated for cache ('{self.path}') has a corrupt "
+                        "configuration. Please manually empty or delete this path "
+                        "cache, and try again."
+                    ) from e
 
         # Cache needs initialising
         if self.fs.exists(self.path):
             if not self.fs.isdir(self.path):
                 raise RuntimeError(
-                    "Path nominated for cache ('{}') is not a directory.".format(
-                        self.path
-                    )
+                    f"Path nominated for cache ('{self.path}') is not a directory."
                 )
-            elif self.fs.listdir(self.path):
+            if self.fs.listdir(self.path):
                 raise RuntimeError(
-                    "Cache directory ({}) needs to be initialised, and is not "
-                    "empty. Please manually delete and/or empty this path, and "
-                    "try again.".format(self.path)
+                    f"Cache directory ({self.path}) needs to be initialised, and is not empty. Please manually delete and/or empty this path, and try again."
                 )
         else:  # Create cache directory
             self.fs.mkdir(self.path, recursive=True, exist_ok=True)
@@ -131,7 +127,7 @@ class FileSystemCache(Cache):
     @override
     def _get_bytecount_for_key(self, namespace, key):
         path = self.fs.path_join(self.path, namespace, key)
-        return sum([f.bytes for f in self.fs.dir(path)])
+        return sum(f.bytes for f in self.fs.dir(path))
 
     @override
     def _get_stream_for_key(self, namespace, key, stream_name, mode, create):

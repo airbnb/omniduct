@@ -1,3 +1,5 @@
+# pylint: disable=import-error # protected via the webhdfs module.
+
 import json
 import xml.dom.minidom
 
@@ -36,7 +38,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     @property
     def host(self):
         host = "localhost" if self.remote else self._host
-        return "{}:{}".format(host, str(self.port))
+        return f"{host}:{str(self.port)}"
 
     @host.setter
     def host(self, host):
@@ -45,7 +47,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     @property
     def port(self):
         if self.remote:
-            return self.remote.port_forward("{}:{}".format(self._host, self._port))
+            return self.remote.port_forward(f"{self._host}:{self._port}")
         return self._port
 
     @port.setter
@@ -56,11 +58,9 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     def namenodes(self):
         if self.remote:
             return [
-                "localhost:{}".format(self.remote.port_forward(nn))
-                for nn in self._namenodes
+                f"localhost:{self.remote.port_forward(nn)}" for nn in self._namenodes
             ]
-        else:
-            return self._namenodes
+        return self._namenodes
 
     @namenodes.setter
     def namenodes(self, namenodes):
@@ -85,8 +85,6 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
         This is where the magic happens, and where omniduct handles redirects
         during federation and HA.
         """
-        import requests
-
         uri_without_host = self._create_uri(path, operation, **kwargs)
         hosts = self._resolve_federation(path)
         for host in hosts:
@@ -124,7 +122,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
         raise errors.ActiveHostNotFound(msg="Could not find active host")
 
 
-class CdhHdfsConfParser(object):
+class CdhHdfsConfParser:
     """
     This class serves to automatically extract HDFS cluster information from
     Cloudera configuration files.
@@ -143,6 +141,7 @@ class CdhHdfsConfParser(object):
     @property
     def config(self):
         if not hasattr(self, "_config"):
+            # pylint: disable-next=attribute-defined-outside-init
             self._config = self._get_config()
         return self._config
 
@@ -170,8 +169,8 @@ class CdhHdfsConfParser(object):
         return clusters
 
     def namenodes(self, cluster):
-        namenodes = self.config["dfs.ha.namenodes.{}".format(cluster)].split(",")
+        namenodes = self.config[f"dfs.ha.namenodes.{cluster}"].split(",")
         return [
-            self.config["dfs.namenode.http-address.{}.{}".format(cluster, namenode)]
+            self.config[f"dfs.namenode.http-address.{cluster}.{namenode}"]
             for namenode in namenodes
         ]

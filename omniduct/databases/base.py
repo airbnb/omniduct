@@ -5,7 +5,6 @@ import inspect
 import itertools
 import logging
 import os
-import sys
 from abc import abstractmethod
 
 import jinja2
@@ -98,6 +97,7 @@ class DatabaseClient(Duct, MagicsProvider):
         return self.NAMESPACE_DEFAULTS_READ
 
     @quirk_docs("_init", mro=True)
+    # pylint: disable-next=super-init-not-called
     def __init__(
         self,
         session_properties=None,
@@ -233,13 +233,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         if cleanup:
             statement = cls.statement_cleanup(statement)
-        if (
-            sys.version_info.major == 3
-            or sys.version_info.major == 2
-            and isinstance(statement, unicode)  # noqa: F821
-        ):
-            statement = statement.encode("utf8")
-        return hashlib.sha256(statement).hexdigest()
+        return hashlib.sha256(statement.encode("utf8")).hexdigest()
 
     @classmethod
     def statement_cleanup(cls, statement):
@@ -327,9 +321,9 @@ class DatabaseClient(Duct, MagicsProvider):
         )
         assert len(statements) > 0, "No non-empty statements were provided."
 
-        for statement in statements[:-1]:
+        for stmt in statements[:-1]:
             cursor = self._execute(
-                statement,
+                stmt,
                 cursor=cursor,
                 wait=True,
                 session_properties=session_properties,
@@ -347,7 +341,8 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope("Query", timed=True)
     @render_statement
-    def query(self, statement, format=None, format_opts={}, use_cache=True, **kwargs):
+    # pylint: disable-next=redefined-builtin
+    def query(self, statement, format=None, format_opts=None, use_cache=True, **kwargs):
         """
         Execute a statement against this database and collect formatted data.
 
@@ -367,6 +362,7 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             The results of the query formatted as nominated.
         """
+        format_opts = format_opts or {}
         cursor = self.execute(
             statement, wait=True, template=False, use_cache=use_cache, **kwargs
         )
@@ -379,7 +375,8 @@ class DatabaseClient(Duct, MagicsProvider):
         formatter = self._get_formatter(format, cursor, **format_opts)
         return formatter.dump()
 
-    def stream(self, statement, format=None, format_opts={}, batch=None, **kwargs):
+    # pylint: disable-next=redefined-builtin
+    def stream(self, statement, format=None, format_opts=None, batch=None, **kwargs):
         """
         Execute a statement against this database and stream formatted results.
 
@@ -402,6 +399,7 @@ class DatabaseClient(Duct, MagicsProvider):
             iterator: An iterator over objects of the nominated format or, if
                 batched, a list of such objects.
         """
+        format_opts = format_opts or {}
         cursor = self.execute(statement, wait=True, **kwargs)
         formatter = self._get_formatter(format, cursor, **format_opts)
 
@@ -416,15 +414,14 @@ class DatabaseClient(Duct, MagicsProvider):
         ):
             assert (
                 formatter in self.CURSOR_FORMATTERS
-            ), "Invalid format '{}'. Choose from: {}".format(
-                formatter, ",".join(self.CURSOR_FORMATTERS.keys())
-            )
+            ), f"Invalid format '{formatter}'. Choose from: {','.join(self.CURSOR_FORMATTERS.keys())}"
             formatter = self.CURSOR_FORMATTERS[formatter]
         format_opts = dict(
             itertools.chain(self._default_format_opts.items(), kwargs.items())
         )
         return formatter(cursor, **format_opts)
 
+    # pylint: disable-next=redefined-builtin
     def stream_to_file(self, statement, file, format="csv", fs=None, **kwargs):
         """
         Execute a statement against this database and stream results to a file.
@@ -553,7 +550,7 @@ class DatabaseClient(Duct, MagicsProvider):
             str: The requested template.
         """
         if name not in self._templates:
-            raise ValueError("No such template named: '{}'.".format(name))
+            raise ValueError(f"No such template named: '{name}'.")
         return self._templates[name]
 
     def template_variables(self, name_or_statement, by_name=False):
@@ -630,9 +627,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         if by_name:
             if name_or_statement not in self._templates:
-                raise ValueError(
-                    "No such template of name: '{}'.".format(name_or_statement)
-                )
+                raise ValueError(f"No such template of name: '{name_or_statement}'.")
             statement = self._templates[name_or_statement]
         else:
             statement = name_or_statement
@@ -656,8 +651,7 @@ class DatabaseClient(Duct, MagicsProvider):
         intersection = set(self._template_context.keys()) & set(context.keys())
         if intersection:
             logger.warning(
-                "The following default template context keys have been overridden "
-                "by the local context: {}.".format(intersection)
+                f"The following default template context keys have been overridden by the local context: {intersection}."
             )
 
         # Substitute in any other named statements recursively
@@ -894,8 +888,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     def _table_partition_cols(self, table, **kwargs):
         raise NotImplementedError(
-            "Database backend `{}` does not support, or has not implemented, "
-            "support for extracting partition columns.".format(self.__class__.__name__)
+            f"Database backend `{self.__class__.__name__}` does not support, or has not implemented, support for extracting partition columns."
         )
 
     @quirk_docs("_table_head")
@@ -970,7 +963,10 @@ class DatabaseClient(Duct, MagicsProvider):
 
         Documentation for these magics is provided online.
         """
+        # pylint: disable-next=import-error
         from IPython import get_ipython
+
+        # pylint: disable-next=import-error
         from IPython.core.magic import (
             register_line_magic,
             register_cell_magic,
@@ -1007,10 +1003,11 @@ class DatabaseClient(Duct, MagicsProvider):
             if executor != "query":
                 if variable is None:
                     return result
-                return
-            elif variable is None:
+                return None
+            if variable is None:
                 return result
 
+            # pylint: disable=redefined-builtin
             format = kwargs.get("format", self.DEFAULT_CURSOR_FORMATTER)
             if show == "head":
                 show = 10
@@ -1022,9 +1019,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 return None
             else:
                 raise ValueError(
-                    "Omniduct does not recognise the argument show='{0}' in cell magic.".format(
-                        show
-                    )
+                    f"Omniduct does not recognise the argument show='{show}' in cell magic."
                 )
 
             if format == "pandas" and transpose:
@@ -1036,22 +1031,22 @@ class DatabaseClient(Duct, MagicsProvider):
         def query_magic(*args, **kwargs):
             return statement_executor_magic("query", *args, **kwargs)
 
-        @register_line_cell_magic("{}.{}".format(base_name, "execute"))
+        @register_line_cell_magic(f"{base_name}.execute")
         @process_line_cell_arguments
         def execute_magic(*args, **kwargs):
             return statement_executor_magic("execute", *args, **kwargs)
 
-        @register_line_cell_magic("{}.{}".format(base_name, "stream"))
+        @register_line_cell_magic(f"{base_name}.stream")
         @process_line_cell_arguments
         def stream_magic(*args, **kwargs):
             return statement_executor_magic("stream", *args, **kwargs)
 
-        @register_cell_magic("{}.{}".format(base_name, "template"))
+        @register_cell_magic(f"{base_name}.template")
         @process_line_arguments
         def template_add(body, name):
             self.template_add(name, body)
 
-        @register_line_cell_magic("{}.{}".format(base_name, "render"))
+        @register_line_cell_magic(f"{base_name}.render")
         @process_line_cell_arguments
         def template_render_magic(
             body=None,
@@ -1084,21 +1079,20 @@ class DatabaseClient(Duct, MagicsProvider):
                     ip.user_ns[name] = rendered
 
             if show:
-                print(rendered)
-            else:
-                return rendered
+                return print(rendered)
+            return rendered
 
-        @register_line_magic("{}.{}".format(base_name, "desc"))
+        @register_line_magic(f"{base_name}.desc")
         @process_line_arguments
         def table_desc(table_name, **kwargs):
             return self.table_desc(table_name, **kwargs)
 
-        @register_line_magic("{}.{}".format(base_name, "head"))
+        @register_line_magic(f"{base_name}.head")
         @process_line_arguments
         def table_head(table_name, **kwargs):
             return self.table_head(table_name, **kwargs)
 
-        @register_line_magic("{}.{}".format(base_name, "props"))
+        @register_line_magic(f"{base_name}.props")
         @process_line_arguments
         def table_props(table_name, **kwargs):
             return self.table_props(table_name, **kwargs)

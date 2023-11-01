@@ -6,6 +6,7 @@ import re
 import tempfile
 from builtins import input
 from io import open
+from shlex import quote as escape_path
 
 import pandas as pd
 from interface_meta import override
@@ -17,15 +18,8 @@ from omniduct.utils.debug import logger
 from omniduct.utils.decorators import require_connection
 from omniduct.utils.processes import run_in_subprocess
 
-try:  # Python 3
-    from shlex import quote as escape_path
-except ImportError:  # Python 2.7
-    from pipes import quote as escape_path
 
-
-SSH_ASKPASS = "{omniduct_dir}/utils/ssh_askpass".format(
-    omniduct_dir=os.path.dirname(__file__)
-)
+SSH_ASKPASS = f"{os.path.dirname(__file__)}/utils/ssh_askpass"
 SESSION_SSH_USERNAME = None
 SESSION_REMOTE_HOST = None
 SESSION_SSH_ASKPASS = False
@@ -72,7 +66,7 @@ class SSHClient(RemoteClient):
         inspired by the `pxssh` module of `pexpect` (https://github.com/pexpect/pexpect).
         We have adjusted this workflow to our purposes.
         """
-        import pexpect
+        import pexpect  # pylint: disable=import-error
 
         # Create socket directory if it doesn't exist.
         socket_dir = os.path.dirname(self._socket_path)
@@ -115,17 +109,7 @@ class SSHClient(RemoteClient):
             if (
                 i == 0
             ):  # If host identification changed, arrest any further attempts to connect
-                error_message = (
-                    "Host identification for {} has changed! This is most likely "
-                    "due to the the server being redeployed or reconfigured but "
-                    "may also be due to a man-in-the-middle attack. If you trust "
-                    "your network connection, you should be safe to update the "
-                    "host keys for this host. To do this manually, please remove "
-                    "the line corresponding to this host in ~/.ssh/known_hosts; "
-                    "or call the `update_host_keys` method of this client.".format(
-                        self._host
-                    )
-                )
+                error_message = f"Host identification for {self._host} has changed! This is most likely due to the the server being redeployed or reconfigured but may also be due to a man-in-the-middle attack. If you trust your network connection, you should be safe to update the host keys for this host. To do this manually, please remove the line corresponding to this host in ~/.ssh/known_hosts; or call the `update_host_keys` method of this client."
                 if self.interactive:
                     logger.error(error_message)
                     auto_fix = input(
@@ -133,13 +117,12 @@ class SSHClient(RemoteClient):
                     )
                     if auto_fix == "y":
                         self.update_host_keys()
-                        return self.connect()
-                    else:
-                        raise RuntimeError(
-                            "Host keys not updated. Please update keys manually."
-                        )
-                else:
-                    raise RuntimeError(error_message)
+                        self.connect()
+                        return
+                    raise RuntimeError(
+                        "Host keys not updated. Please update keys manually."
+                    )
+                raise RuntimeError(error_message)
             if (
                 i == 1
             ):  # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
@@ -159,48 +142,42 @@ class SSHClient(RemoteClient):
                 raise RuntimeError(
                     "Received a second request to authorize host key. This should not have happened!"
                 )
-            elif i in (
+            if i in (
                 2,
                 3,
             ):  # Second request for password/passphrase or rejection of credentials. For now, give up.
                 raise DuctAuthenticationError(
                     "Invalid username and/or password, or private key is not unlocked."
                 )
-            elif i == 4:  # Another request for terminal type.
+            if i == 4:  # Another request for terminal type.
                 raise RuntimeError(
                     "Received a second request for terminal type. This should not have happened!"
                 )
-            elif i == 5:  # Timeout
+            if i == 5:  # Timeout
                 # In our instance, this means that we have not handled some or another aspect of the login procedure.
                 # Since we are expecting an EOF when we have successfully logged in, hanging means that the SSH login
                 # procedure is waiting for more information. Since we have no more to give, this means our login
                 # was unsuccessful.
                 raise RuntimeError(
-                    "SSH client seems to be awaiting more information, but we have no more to give. The "
-                    "messages received so far are:\n{}".format(expect.before)
+                    f"SSH client seems to be awaiting more information, but we have no more to give. The messages received so far are:\n{expect.before}"
                 )
-            elif i == 6:  # Connection closed by remote host
+            if i == 6:  # Connection closed by remote host
                 raise RuntimeError("Remote closed SSH connection")
-            elif i == 7:
+            if i == 7:
                 raise RuntimeError(
-                    "Cannot connect to {} on your current network connection".format(
-                        self.host
-                    )
+                    f"Cannot connect to {self.host} on your current network connection"
                 )
         finally:
             expect.close()
 
         # We should be logged in at this point, but let us make doubly sure
-        assert self._is_connected(), (
-            "Unexpected failure to establish a connection with the remote host with command: \n "
-            "{}\n\n Please report this!".format(cmd)
-        )
+        assert (
+            self._is_connected()
+        ), f"Unexpected failure to establish a connection with the remote host with command: \n {cmd}\n\n Please report this!"
 
     @override
     def _is_connected(self):
-        cmd = "ssh {login} -T -S {socket} -O check".format(
-            login=self._login_info, socket=self._socket_path
-        )
+        cmd = f"ssh {self._login_info} -T -S {self._socket_path} -O check"
         proc = run_in_subprocess(cmd)
 
         if proc.returncode != 0:
@@ -212,9 +189,7 @@ class SSHClient(RemoteClient):
     @override
     def _disconnect(self):
         # Send exit request to control socket.
-        cmd = "ssh {login} -T -S {socket} -O exit".format(
-            login=self._login_info, socket=self._socket_path
-        )
+        cmd = f"ssh {self._login_info} -T -S {self._socket_path} -O exit"
         run_in_subprocess(cmd)
 
     # RemoteClient implementation
@@ -231,11 +206,7 @@ class SSHClient(RemoteClient):
         config = dict(self._subprocess_config)
         config.update(kwargs)
 
-        cwd = (
-            'cd "{path}"\n'.format(path=escape_path(self.path_cwd))
-            if not skip_cwd
-            else ""
-        )
+        cwd = f'cd "{escape_path(self.path_cwd)}"\n' if not skip_cwd else ""
         return run_in_subprocess(
             template.format(
                 login=self._login_info, socket=self._socket_path, cwd=cwd, cmd=cmd
@@ -258,7 +229,7 @@ class SSHClient(RemoteClient):
         )
         proc = run_in_subprocess(cmd)
         if proc.returncode != 0:
-            raise Exception("Unable to port forward with command: {}".format(cmd))
+            raise RuntimeError(f"Unable to port forward with command: {cmd}")
         logger.info(proc.stderr or "Success")
         return proc
 
@@ -284,7 +255,7 @@ class SSHClient(RemoteClient):
     def _is_port_bound(self, host, port):
         return (
             self.execute(
-                "which nc; if [ $? -eq 0 ]; then nc -z -w2 {} {}; fi".format(host, port)
+                f"which nc; if [ $? -eq 0 ]; then nc -z -w2 {host} {port}; fi"
             ).returncode
             == 0
         )
@@ -303,31 +274,25 @@ class SSHClient(RemoteClient):
     # File node properties
     @override
     def _exists(self, path):
-        return (
-            self.execute("if [ ! -e {} ]; then exit 1; fi".format(path)).returncode == 0
-        )
+        return self.execute(f"if [ ! -e {path} ]; then exit 1; fi").returncode == 0
 
     @override
     def _isdir(self, path):
-        return (
-            self.execute("if [ ! -d {} ]; then exit 1; fi".format(path)).returncode == 0
-        )
+        return self.execute(f"if [ ! -d {path} ]; then exit 1; fi").returncode == 0
 
     @override
     def _isfile(self, path):
-        return (
-            self.execute("if [ ! -f {} ]; then exit 1; fi".format(path)).returncode == 0
-        )
+        return self.execute(f"if [ ! -f {path} ]; then exit 1; fi").returncode == 0
 
     # Directory handling and enumeration
     @override
     def _dir(self, path):
         # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
-        dir = pd.DataFrame(
+        contents = pd.DataFrame(
             sorted(
                 [
                     re.split(r"\s+", f)[:9]
-                    for f in self.execute("ls -Al {}".format(path))
+                    for f in self.execute(f"ls -Al {path}")
                     .stdout.decode("utf-8")
                     .strip()
                     .split("\n")[1:]
@@ -371,11 +336,11 @@ class SSHClient(RemoteClient):
                 minute=int(time.split(":")[1]) if time is not None else 0,
             )
 
-        if len(dir) == 0:  # Directory is empty
+        if len(contents) == 0:  # Directory is empty
             return
 
-        dir = (
-            dir.assign(
+        contents = (
+            contents.assign(
                 last_modified=lambda x: x.apply(convert_to_datetime, axis=1),
                 type=lambda x: x.apply(
                     lambda x: "directory" if x.file_mode.startswith("d") else "file",
@@ -387,7 +352,7 @@ class SSHClient(RemoteClient):
             .reset_index(drop=True)
         )
 
-        for i, row in dir.iterrows():
+        for _, row in contents.iterrows():
             yield FileSystemFileDesc(
                 fs=self,
                 path=posixpath.join(path, row.path),
@@ -407,24 +372,24 @@ class SSHClient(RemoteClient):
             return
         assert (
             self.execute(
-                "mkdir " + ("-p " if recursive else "") + '"{}"'.format(path)
+                "mkdir " + ("-p " if recursive else "") + f'"{path}"'
             ).returncode
             == 0
-        ), "Failed to create directory at: `{}`".format(path)
+        ), f"Failed to create directory at: `{path}`"
 
     @override
     def _remove(self, path, recursive):
         assert (
             self.execute(
-                "rm -f " + ("-r " if recursive else "") + '"{}"'.format(path)
+                "rm -f " + ("-r " if recursive else "") + f'"{path}"'
             ).returncode
             == 0
-        ), "Failed to remove file(s) at: `{}`".format(path)
+        ), f"Failed to remove file(s) at: `{path}`"
 
     # File handling
     @override
     def _file_read_(self, path, size=-1, offset=0, binary=False):
-        read = self.execute("cat {}".format(path)).stdout
+        read = self.execute(f"cat {path}").stdout
         if not binary:
             read = read.decode("utf-8")
         return read
@@ -489,6 +454,7 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             logger.info("Copying file to local...")
             dest = dest or posixpath.basename(source)
+            # pylint: disable-next=consider-using-f-string
             cmd = "scp -r -o ControlPath={socket} {login}:'{remote_file}' '{local_file}'".format(
                 socket=self._socket_path,
                 login=self._login_info,
@@ -498,7 +464,7 @@ class SSHClient(RemoteClient):
             proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or "Success")
         else:
-            return super(RemoteClient, self).download(source, dest, overwrite, fs)
+            super(RemoteClient, self).download(source, dest, overwrite, fs)
 
     @override
     @require_connection
@@ -537,6 +503,7 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             logger.info("Copying file from local...")
             dest = dest or posixpath.basename(source)
+            # pylint: disable-next=consider-using-f-string
             cmd = "scp -r -o ControlPath={socket} '{local_file}' {login}:'{remote_file}'".format(
                 socket=self._socket_path,
                 local_file=source.replace('"', r"\""),  # quote escaped for bash
@@ -546,7 +513,7 @@ class SSHClient(RemoteClient):
             proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or "Success")
         else:
-            return super(RemoteClient, self).upload(source, dest, overwrite, fs)
+            super(RemoteClient, self).upload(source, dest, overwrite, fs)
 
     # Helper methods
 
@@ -559,7 +526,7 @@ class SSHClient(RemoteClient):
         # On Linux the maximum socket path length is 108 characters, and on Mac OS X it is 104 characters, including
         # the final sentinel character (or so it seems). SSH appends a '.' character, followed by random sequence of 16
         # characters. We therefore need the rest of the path to be less than 86 characters.
-        return os.path.expanduser("~/.ssh/omniduct/{}".format(self._login_info))[:86]
+        return os.path.expanduser(f"~/.ssh/omniduct/{self._login_info}")[:86]
 
     @property
     def _subprocess_config(self):

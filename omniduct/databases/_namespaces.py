@@ -2,7 +2,7 @@ import re
 from collections import OrderedDict
 
 
-class ParsedNamespaces(object):
+class ParsedNamespaces:
     """
     A namespace parser for DatabaseClient subclasses.
 
@@ -54,10 +54,7 @@ class ParsedNamespaces(object):
             extra_namespaces = set(name.namespaces).difference(namespaces)
             if extra_namespaces:
                 raise ValueError(
-                    "ParsedNamespace is not encapsulated by the namespaces "
-                    "provided to this constructor. It has extra namespaces: {}.".format(
-                        extra_namespaces
-                    )
+                    f"ParsedNamespace is not encapsulated by the namespaces provided to this constructor. It has extra namespaces: {extra_namespaces}."
                 )
             parsed = name.as_dict()
 
@@ -73,9 +70,7 @@ class ParsedNamespaces(object):
             )
             if len(names) > len(namespaces):
                 raise ValueError(
-                    "Name '{}' has too many namespaces. Should be of form: <{}>.".format(
-                        name, ">{sep}<".format(sep=separator).join(namespaces)
-                    )
+                    f"Name '{name}' has too many namespaces. Should be of form: <{'>{separator}<'.join(namespaces)}>."
                 )
 
             parsed = OrderedDict(
@@ -89,8 +84,7 @@ class ParsedNamespaces(object):
 
         else:
             raise ValueError(
-                "Cannot construct `ParsedNamespaces` instance from "
-                "name of type: `{}`.".format(type(name))
+                f"Cannot construct `ParsedNamespaces` instance from name of type: `{type(name)}`."
             )
 
         for namespace in namespaces[::-1]:
@@ -120,7 +114,7 @@ class ParsedNamespaces(object):
         if "_names" in self.__dict__ and name in self._names:
             self._names[name] = value
         else:
-            super(ParsedNamespaces, self).__setattr__(name, value)
+            super().__setattr__(name, value)
 
     def __bool__(self):
         return bool(self.name)
@@ -172,4 +166,4 @@ class ParsedNamespaces(object):
         return self.name
 
     def __repr__(self):
-        return "Namespace<{}>".format(self.name)
+        return f"Namespace<{self.name}>"

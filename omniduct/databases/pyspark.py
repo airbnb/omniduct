@@ -1,3 +1,5 @@
+# pylint: disable=abstract-method
+
 from interface_meta import override
 
 from omniduct.databases.base import DatabaseClient
@@ -42,7 +44,7 @@ class PySparkClient(DatabaseClient):
 
     @override
     def _connect(self):
-        from pyspark.sql import SparkSession
+        from pyspark.sql import SparkSession  # pylint: disable=import-error
 
         builder = SparkSession.builder.appName(self.app_name)
         if self.master:
@@ -53,6 +55,7 @@ class PySparkClient(DatabaseClient):
             for key, value in self.config.items():
                 builder.config(key, value)
 
+        # pylint: disable-next=attribute-defined-outside-init
         self._spark_session = builder.getOrCreate()
 
     @override
@@ -68,8 +71,7 @@ class PySparkClient(DatabaseClient):
     def _statement_prepare(self, statement, session_properties, **kwargs):
         return (
             "\n".join(
-                "SET {key} = {value};".format(key=key, value=value)
-                for key, value in session_properties.items()
+                f"SET {key} = {value};" for key, value in session_properties.items()
             )
             + statement
         )
@@ -112,7 +114,7 @@ class PySparkClient(DatabaseClient):
         return HiveServer2Client._table_props(self, table, **kwargs)
 
 
-class SparkCursor(object):
+class SparkCursor:
     """
     This DBAPI2 compatible cursor wraps around a Spark DataFrame
     """
@@ -132,10 +134,8 @@ class SparkCursor(object):
     @property
     def description(self):
         return tuple(
-            [
-                (name, type_, None, None, None, None, None)
-                for name, type_ in self.df.dtypes
-            ]
+            (name, type_, None, None, None, None, None)
+            for name, type_ in self.df.dtypes
         )
 
     @property
@@ -145,10 +145,10 @@ class SparkCursor(object):
     def close(self):
         pass
 
-    def execute(operation, parameters=None):
+    def execute(self, operation, parameters=None):
         raise NotImplementedError
 
-    def executemany(operation, seq_of_parameters=None):
+    def executemany(self, operation, seq_of_parameters=None):
         raise NotImplementedError
 
     def fetchone(self):
