@@ -1,4 +1,3 @@
-import six
 import yaml
 
 from omniduct.duct import Duct
@@ -246,7 +245,7 @@ class DuctRegistry:
                 exception.
         """
         # Extract configuration from a file if necessary, and then process it.
-        if isinstance(config, six.string_types):
+        if isinstance(config, str):
             if "\n" in config:
                 config = yaml.safe_load(config)
             else:

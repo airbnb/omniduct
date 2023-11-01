@@ -8,7 +8,6 @@ import re
 import sys
 
 import pandas.io.sql
-import six
 from interface_meta import override
 
 from omniduct.utils.debug import logger
@@ -176,7 +175,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
             try:
                 message = e.args[0]
-                if isinstance(message, six.string_types):
+                if isinstance(message, str):
                     message = ast.literal_eval(
                         re.match("[^{]*({.*})[^}]*$", message).group(1)
                     )

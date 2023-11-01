@@ -6,7 +6,6 @@ import sys
 import time
 
 import progressbar
-import six
 from decorator import decorate
 
 from .config import config
@@ -220,7 +219,7 @@ def detect_scopes():
         if scope not in seen:
             out_scopes.append(
                 scope
-                if isinstance(scope, six.string_types)
+                if isinstance(scope, str)
                 else (
                     getattr(scope, "LOGGING_SCOPE", None)
                     or getattr(scope, "name", None)

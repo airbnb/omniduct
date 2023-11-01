@@ -4,10 +4,8 @@ import datetime
 import errno
 import os
 import shutil
-import sys
 from io import open
 
-import six
 from interface_meta import override
 
 from .base import FileSystemClient, FileSystemFileDesc
@@ -121,7 +119,7 @@ class LocalFsClient(FileSystemClient):
             os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
             if exc.errno != errno.EEXIST or not exist_ok or not os.path.isdir(path):
-                six.reraise(*sys.exc_info())
+                raise
 
     @override
     def _remove(self, path, recursive):

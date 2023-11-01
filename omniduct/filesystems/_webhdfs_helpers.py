@@ -1,10 +1,11 @@
 # pylint: disable=import-error # protected via the webhdfs module.
 
+import http.client
 import json
 import xml.dom.minidom
 
+
 import requests
-from six.moves import http_client
 
 from pywebhdfs import errors
 from pywebhdfs.webhdfs import (
@@ -100,7 +101,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
 
                     if (
                         allow_redirect
-                        and response.status_code == http_client.TEMPORARY_REDIRECT
+                        and response.status_code == http.client.TEMPORARY_REDIRECT
                     ):
                         uri = self._make_uri_local(response.headers["location"])
                     else:
@@ -108,7 +109,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
 
                 if (
                     not allow_redirect
-                    and response.status_code == http_client.TEMPORARY_REDIRECT
+                    and response.status_code == http.client.TEMPORARY_REDIRECT
                 ):
                     response.headers["location"] = self._make_uri_local(
                         response.headers["location"]

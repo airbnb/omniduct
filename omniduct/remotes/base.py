@@ -2,7 +2,6 @@ import getpass
 import re
 from abc import abstractmethod
 
-import six
 from interface_meta import quirk_docs, override
 
 from omniduct.duct import Duct
@@ -243,7 +242,7 @@ class RemoteClient(FileSystemClient):
 
     def _extract_host_and_ports(self, remote_host, remote_port, local_port):
         assert remote_host is None or isinstance(
-            remote_host, six.string_types
+            remote_host, str
         ), "Remote host, if specified, must be a string of form 'hostname(:port)'."
         assert remote_port is None or isinstance(
             remote_port, int

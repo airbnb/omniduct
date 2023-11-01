@@ -1,8 +1,8 @@
 import base64
 import textwrap
+import urllib.parse
 
 import jinja2
-from six.moves import urllib
 
 import omniduct
 

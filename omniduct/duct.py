@@ -9,7 +9,6 @@ from abc import abstractmethod
 from builtins import input
 from enum import Enum
 
-import six
 from interface_meta import InterfaceMeta, quirk_docs
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
@@ -217,11 +216,8 @@ class Duct(metaclass=InterfaceMeta):
             ]
         ):
             self._Duct__inited_using_kwargs[cls_parent] = True
-            if six.PY3:
-                argspec = inspect.getfullargspec(cls_parent.__init__)
-                keys = argspec.args[1:] + argspec.kwonlyargs
-            else:
-                keys = inspect.getargspec(cls_parent.__init__).args[1:]
+            argspec = inspect.getfullargspec(cls_parent.__init__)
+            keys = argspec.args[1:] + argspec.kwonlyargs
             params = {}
             for key in keys:
                 if key in kwargs:
@@ -312,10 +308,10 @@ class Duct(metaclass=InterfaceMeta):
 
         # If registry is present, lookup remotes and caches if necessary
         if self.registry is not None:
-            if self.remote and isinstance(self.remote, six.string_types):
+            if self.remote and isinstance(self.remote, str):
                 self.__prepreparation_values["remote"] = self.remote
                 self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
-            if self.cache and isinstance(self.cache, six.string_types):
+            if self.cache and isinstance(self.cache, str):
                 self.__prepreparation_values["cache"] = self.cache
                 self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
 

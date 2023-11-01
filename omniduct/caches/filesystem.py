@@ -1,4 +1,3 @@
-import six
 import yaml
 from interface_meta import override
 
@@ -37,7 +36,7 @@ class FileSystemCache(Cache):
         Cache._prepare(self)
 
         if self.registry is not None:
-            if isinstance(self.fs, six.string_types):
+            if isinstance(self.fs, str):
                 self.fs = self.registry.lookup(  # pylint: disable=attribute-defined-outside-init
                     self.fs, kind=FileSystemCache.Type.FILESYSTEM
                 )

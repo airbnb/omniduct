@@ -1,11 +1,9 @@
 import datetime
 import functools
-import sys
 from abc import abstractmethod
 
 import dateutil
 import pandas
-import six
 import yaml
 from decorator import decorator
 from interface_meta import quirk_docs
@@ -123,7 +121,7 @@ def cached_method(
                 "Failed to save results to cache. If needed, please save them manually."
             )
             if config.cache_fail_hard:
-                six.reraise(*sys.exc_info())
+                raise
             return value  # As a last resort, return value object (which could be mutated by serialization).
 
     return wrapped
