@@ -24,4 +24,4 @@ jobs:
         HATCH_INDEX_AUTH: ${{ secrets.PYPI_PUBLISH_TOKEN }}
       run: |
         hatch build
-        hatch
+        hatch publish
