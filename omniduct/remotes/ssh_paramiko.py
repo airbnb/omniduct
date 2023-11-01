@@ -37,7 +37,7 @@ class ParamikoSSHClient(RemoteClient):
 
     @override
     def _connect(self):
-        import paramiko  # pylint: disable=import-error
+        import paramiko
 
         # pylint: disable-next=attribute-defined-outside-init
         self.__client = paramiko.SSHClient()

@@ -109,8 +109,8 @@ def show_about(
     }
 
     try:
-        from IPython import get_ipython  # pylint: disable=import-error
-        from IPython.display import display, HTML  # pylint: disable=import-error
+        from IPython import get_ipython
+        from IPython.display import display, HTML
 
         ip = get_ipython()
         if ip is not None and ip.has_trait("kernel"):

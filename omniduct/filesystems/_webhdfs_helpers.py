@@ -1,5 +1,3 @@
-# pylint: disable=import-error # protected via the webhdfs module.
-
 import http.client
 import json
 import xml.dom.minidom

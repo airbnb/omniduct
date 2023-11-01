@@ -192,6 +192,7 @@ disable = [
     "duplicate-code",
     "eval-used",
     "fixme",
+    "import-error",
     "import-outside-toplevel",
     "invalid-name",
     "line-too-long",

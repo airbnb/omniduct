@@ -44,7 +44,7 @@ class PySparkClient(DatabaseClient):
 
     @override
     def _connect(self):
-        from pyspark.sql import SparkSession  # pylint: disable=import-error
+        from pyspark.sql import SparkSession
 
         builder = SparkSession.builder.appName(self.app_name)
         if self.master:

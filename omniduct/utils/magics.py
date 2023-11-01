@@ -28,7 +28,7 @@ def process_line_cell_arguments(f):
 
 
 def _process_line_arguments(line_arguments):
-    from IPython import get_ipython  # pylint: disable=import-error
+    from IPython import get_ipython
 
     args = []
     kwargs = {}
@@ -56,7 +56,7 @@ class MagicsProvider(metaclass=ABCMeta):
             raise RuntimeError("Cannot register magics without a base_name.")
 
         try:
-            from IPython import get_ipython  # pylint: disable=import-error
+            from IPython import get_ipython
 
             ip = get_ipython()
             assert ip is not None

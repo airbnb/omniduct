@@ -111,7 +111,7 @@ class WebHdfsClient(FileSystemClient):
     # File node properties
     @override
     def _exists(self, path):
-        from pywebhdfs.errors import FileNotFound  # pylint: disable=import-error
+        from pywebhdfs.errors import FileNotFound
 
         try:
             self.__webhdfs.get_file_dir_status(path)
@@ -121,7 +121,7 @@ class WebHdfsClient(FileSystemClient):
 
     @override
     def _isdir(self, path):
-        from pywebhdfs.errors import FileNotFound  # pylint: disable=import-error
+        from pywebhdfs.errors import FileNotFound
 
         try:
             stats = self.__webhdfs.get_file_dir_status(path)
@@ -131,7 +131,7 @@ class WebHdfsClient(FileSystemClient):
 
     @override
     def _isfile(self, path):
-        from pywebhdfs.errors import FileNotFound  # pylint: disable=import-error
+        from pywebhdfs.errors import FileNotFound
 
         try:
             stats = self.__webhdfs.get_file_dir_status(path)

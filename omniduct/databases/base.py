@@ -963,10 +963,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
         Documentation for these magics is provided online.
         """
-        # pylint: disable-next=import-error
         from IPython import get_ipython
-
-        # pylint: disable-next=import-error
         from IPython.core.magic import (
             register_line_magic,
             register_cell_magic,

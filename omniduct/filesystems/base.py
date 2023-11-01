@@ -757,7 +757,6 @@ class FileSystemClient(Duct, MagicsProvider):
     # Magics
     @override
     def _register_magics(self, base_name):
-        # pylint: disable-next=import-error
         from IPython.core.magic import register_line_magic, register_cell_magic
 
         @register_line_magic(f"{base_name}.listdir")

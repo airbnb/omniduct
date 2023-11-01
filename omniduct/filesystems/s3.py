@@ -74,7 +74,7 @@ class S3Client(FileSystemClient):
         self._client = None
 
         # Ensure self.host is updated with correct AWS region
-        import boto3  # pylint: disable=import-error
+        import boto3
 
         self.host = f"autoscaling.{(session or boto3.Session(profile_name=self.aws_profile)).region_name or 'us-east-1'}.amazonaws.com"
 
@@ -88,10 +88,9 @@ class S3Client(FileSystemClient):
         self._resource = self._session.resource("s3")
 
     def _get_boto3_session(self):
-        import boto3  # pylint: disable=import-error
+        import boto3
 
         if self.use_opinel:
-            # pylint: disable-next=import-error
             from opinel.utils.credentials import read_creds
 
             # Refresh access token, and attach credentials to current object for debugging
@@ -111,7 +110,7 @@ class S3Client(FileSystemClient):
         if self._client is None:
             return False
         # Check if still able to perform requests against AWS
-        import botocore  # pylint: disable=import-error
+        import botocore
 
         try:
             self._client.list_buckets()

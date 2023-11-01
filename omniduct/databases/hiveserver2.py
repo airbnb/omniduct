@@ -216,7 +216,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         log_offset = 0
 
         if self.driver == "pyhive":
-            # pylint: disable-next=import-error
             from TCLIService.ttypes import TOperationState  # noqa: F821
 
             cursor.execute(statement, **{"async": True})
@@ -249,7 +248,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         return False
 
     def _cursor_wait(self, cursor, poll_interval=1):
-        # pylint: disable-next=import-error
         from TCLIService.ttypes import TOperationState  # noqa: F821
 
         status = cursor.poll().operationState

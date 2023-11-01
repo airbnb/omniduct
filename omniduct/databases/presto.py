@@ -127,15 +127,8 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         log and present the user with useful debugging information. If that fails,
         the full traceback will be raised instead.
         """
-        # pylint: disable-next=import-error
-        from pyhive import (
-            presto,
-        )
-
-        # pylint: disable-next=import-error
-        from pyhive.exc import (
-            DatabaseError,
-        )
+        from pyhive import presto
+        from pyhive.exc import DatabaseError
 
         try:
             cursor = cursor or presto.Cursor(
@@ -266,7 +259,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @override
     def _table_exists(self, table, **kwargs):
-        from pyhive.exc import DatabaseError  # pylint: disable=import-error
+        from pyhive.exc import DatabaseError
 
         logger.disabled = True
         try:

@@ -46,7 +46,7 @@ class ExasolClient(DatabaseClient):
 
     @override
     def _connect(self):
-        import pyexasol  # pylint: disable=import-error
+        import pyexasol
 
         logger.info("Connecting to Exasol ...")
         # pylint: disable-next=attribute-defined-outside-init

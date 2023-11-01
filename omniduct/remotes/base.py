@@ -188,7 +188,7 @@ class RemoteClient(FileSystemClient):
         return smartcard_added
 
     def _prepare_smartcard(self, name, filename):
-        import pexpect  # pylint: disable=import-error
+        import pexpect
 
         remover = pexpect.spawn(f'ssh-add -e "{filename}"')
         i = remover.expect(["Card removed:", "Could not remove card", pexpect.TIMEOUT])

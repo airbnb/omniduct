@@ -31,7 +31,7 @@ class Neo4jClient(DatabaseClient):
     # Connection
     @override
     def _connect(self):
-        from neo4j.v1 import GraphDatabase  # pylint: disable=import-error
+        from neo4j.v1 import GraphDatabase
 
         logger.info("Connecting to Neo4J graph database ...")
         auth = (self.username, self.password) if self.username else None

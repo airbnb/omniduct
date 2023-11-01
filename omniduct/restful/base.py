@@ -94,7 +94,7 @@ class RestClientBase(Duct):
         Returns:
             requests.Response: The response object associated with this request.
         """
-        import requests  # pylint: disable=import-error
+        import requests
 
         url = urljoin(self.base_url, endpoint)
         return requests.request(

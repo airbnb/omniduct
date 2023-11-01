@@ -66,7 +66,7 @@ class SSHClient(RemoteClient):
         inspired by the `pxssh` module of `pexpect` (https://github.com/pexpect/pexpect).
         We have adjusted this workflow to our purposes.
         """
-        import pexpect  # pylint: disable=import-error
+        import pexpect
 
         # Create socket directory if it doesn't exist.
         socket_dir = os.path.dirname(self._socket_path)
