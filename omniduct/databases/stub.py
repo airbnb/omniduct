@@ -2,7 +2,6 @@ from omniduct.databases.base import DatabaseClient
 
 
 class StubDatabaseClient(DatabaseClient):
-
     PROTOCOLS = []
     DEFAULT_PORT = None
 

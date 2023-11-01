@@ -19,14 +19,17 @@ from omniduct.duct import Duct
 from omniduct.filesystems.local import LocalFsClient
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.decorators import require_connection
-from omniduct.utils.magics import (MagicsProvider, process_line_arguments,
-                                   process_line_cell_arguments)
+from omniduct.utils.magics import (
+    MagicsProvider,
+    process_line_arguments,
+    process_line_cell_arguments,
+)
 
 from . import _cursor_formatters
 from ._cursor_serializer import CursorSerializer
 from ._namespaces import ParsedNamespaces
 
-logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 
 @decorator
@@ -37,10 +40,10 @@ def render_statement(method, self, statement, *args, **kwargs):
     This decorator expects to act as wrapper on functions which
     takes statements as the second argument.
     """
-    if kwargs.pop('template', True):
+    if kwargs.pop("template", True):
         statement = self.template_render(
             statement,
-            context=kwargs.pop('context', {}),
+            context=kwargs.pop("context", {}),
             by_name=False,
         )
     return method(self, statement, *args, **kwargs)
@@ -65,18 +68,18 @@ class DatabaseClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     CURSOR_FORMATTERS = {
-        'pandas': _cursor_formatters.PandasCursorFormatter,
-        'hive': _cursor_formatters.HiveCursorFormatter,
-        'csv': _cursor_formatters.CsvCursorFormatter,
-        'tuple': _cursor_formatters.TupleCursorFormatter,
-        'dict': _cursor_formatters.DictCursorFormatter,
-        'raw': _cursor_formatters.RawCursorFormatter,
+        "pandas": _cursor_formatters.PandasCursorFormatter,
+        "hive": _cursor_formatters.HiveCursorFormatter,
+        "csv": _cursor_formatters.CsvCursorFormatter,
+        "tuple": _cursor_formatters.TupleCursorFormatter,
+        "dict": _cursor_formatters.DictCursorFormatter,
+        "raw": _cursor_formatters.RawCursorFormatter,
     }
-    DEFAULT_CURSOR_FORMATTER = 'pandas'
+    DEFAULT_CURSOR_FORMATTER = "pandas"
     SUPPORTS_SESSION_PROPERTIES = False
-    NAMESPACE_NAMES = ['database', 'table']
+    NAMESPACE_NAMES = ["database", "table"]
     NAMESPACE_QUOTECHAR = '"'
-    NAMESPACE_SEPARATOR = '.'
+    NAMESPACE_SEPARATOR = "."
 
     NAMESPACE_DEFAULT = None  # DEPRECATED (use NAMESPACE_DEFAULTS_READ instead): Will be removed in Omniduct 2.0.0
 
@@ -94,10 +97,14 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         return self.NAMESPACE_DEFAULTS_READ
 
-    @quirk_docs('_init', mro=True)
+    @quirk_docs("_init", mro=True)
     def __init__(
-        self, session_properties=None, templates=None, template_context=None, default_format_opts=None,
-        **kwargs
+        self,
+        session_properties=None,
+        templates=None,
+        template_context=None,
+        default_format_opts=None,
+        **kwargs,
     ):
         """
         session_properties (dict): A mapping of default session properties
@@ -205,7 +212,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         for statement in sqlparse.split(statements):
             statement = statement.strip()
-            if statement.endswith(';'):
+            if statement.endswith(";"):
                 statement = statement[:-1].strip()
             if statement:  # remove empty statements
                 yield statement
@@ -228,9 +235,10 @@ class DatabaseClient(Duct, MagicsProvider):
             statement = cls.statement_cleanup(statement)
         if (
             sys.version_info.major == 3
-            or sys.version_info.major == 2 and isinstance(statement, unicode)  # noqa: F821
+            or sys.version_info.major == 2
+            and isinstance(statement, unicode)  # noqa: F821
         ):
-            statement = statement.encode('utf8')
+            statement = statement.encode("utf8")
         return hashlib.sha256(statement).hexdigest()
 
     @classmethod
@@ -257,19 +265,20 @@ class DatabaseClient(Duct, MagicsProvider):
     @render_statement
     @cached_method(
         key=lambda self, kwargs: self.statement_hash(
-            statement=kwargs['statement'],
-            cleanup=kwargs.pop('cleanup', True)
+            statement=kwargs["statement"], cleanup=kwargs.pop("cleanup", True)
         ),
         serializer=lambda self, kwargs: CursorSerializer(),
-        use_cache=lambda self, kwargs: kwargs.pop('use_cache', False),
+        use_cache=lambda self, kwargs: kwargs.pop("use_cache", False),
         metadata=lambda self, kwargs: {
-            'statement': kwargs['statement'],
-            'session_properties': kwargs['session_properties']
-        }
+            "statement": kwargs["statement"],
+            "session_properties": kwargs["session_properties"],
+        },
     )
-    @quirk_docs('_execute')
+    @quirk_docs("_execute")
     @require_connection
-    def execute(self, statement, wait=True, cursor=None, session_properties=None, **kwargs):
+    def execute(
+        self, statement, wait=True, cursor=None, session_properties=None, **kwargs
+    ):
         """
         Execute a statement against this database and return a cursor object.
 
@@ -309,14 +318,30 @@ class DatabaseClient(Duct, MagicsProvider):
 
         session_properties = self._get_session_properties(overrides=session_properties)
 
-        statements = list(self._statement_split(
-            self._statement_prepare(statement, session_properties=session_properties, **kwargs)
-        ))
+        statements = list(
+            self._statement_split(
+                self._statement_prepare(
+                    statement, session_properties=session_properties, **kwargs
+                )
+            )
+        )
         assert len(statements) > 0, "No non-empty statements were provided."
 
         for statement in statements[:-1]:
-            cursor = self._execute(statement, cursor=cursor, wait=True, session_properties=session_properties, **kwargs)
-        cursor = self._execute(statements[-1], cursor=cursor, wait=wait, session_properties=session_properties, **kwargs)
+            cursor = self._execute(
+                statement,
+                cursor=cursor,
+                wait=True,
+                session_properties=session_properties,
+                **kwargs,
+            )
+        cursor = self._execute(
+            statements[-1],
+            cursor=cursor,
+            wait=wait,
+            session_properties=session_properties,
+            **kwargs,
+        )
 
         return cursor
 
@@ -342,7 +367,9 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             The results of the query formatted as nominated.
         """
-        cursor = self.execute(statement, wait=True, template=False, use_cache=use_cache, **kwargs)
+        cursor = self.execute(
+            statement, wait=True, template=False, use_cache=use_cache, **kwargs
+        )
 
         # Some DBAPI2 cursor implementations error if attempting to extract
         # data from an empty cursor, and if so, we simply return None.
@@ -383,13 +410,22 @@ class DatabaseClient(Duct, MagicsProvider):
 
     def _get_formatter(self, formatter, cursor, **kwargs):
         formatter = formatter or self.DEFAULT_CURSOR_FORMATTER
-        if not (inspect.isclass(formatter) and issubclass(formatter, _cursor_formatters.CursorFormatter)):
-            assert formatter in self.CURSOR_FORMATTERS, "Invalid format '{}'. Choose from: {}".format(formatter, ','.join(self.CURSOR_FORMATTERS.keys()))
+        if not (
+            inspect.isclass(formatter)
+            and issubclass(formatter, _cursor_formatters.CursorFormatter)
+        ):
+            assert (
+                formatter in self.CURSOR_FORMATTERS
+            ), "Invalid format '{}'. Choose from: {}".format(
+                formatter, ",".join(self.CURSOR_FORMATTERS.keys())
+            )
             formatter = self.CURSOR_FORMATTERS[formatter]
-        format_opts = dict(itertools.chain(self._default_format_opts.items(), kwargs.items()))
+        format_opts = dict(
+            itertools.chain(self._default_format_opts.items(), kwargs.items())
+        )
         return formatter(cursor, **format_opts)
 
-    def stream_to_file(self, statement, file, format='csv', fs=None, **kwargs):
+    def stream_to_file(self, statement, file, format="csv", fs=None, **kwargs):
         """
         Execute a statement against this database and stream results to a file.
 
@@ -413,7 +449,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         close_later = False
         if isinstance(file, str):
-            file = (fs or LocalFsClient()).open(file, 'w')
+            file = (fs or LocalFsClient()).open(file, "w")
             close_later = True
 
         try:
@@ -441,7 +477,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         close_later = False
         if isinstance(file, str):
-            file = (fs or LocalFsClient()).open(file, 'r')
+            file = (fs or LocalFsClient()).open(file, "r")
             close_later = True
 
         try:
@@ -469,7 +505,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         close_later = False
         if isinstance(file, str):
-            file = (fs or LocalFsClient()).open(file, 'r')
+            file = (fs or LocalFsClient()).open(file, "r")
             close_later = True
 
         try:
@@ -539,8 +575,14 @@ class DatabaseClient(Duct, MagicsProvider):
         )
         return jinja2.meta.find_undeclared_variables(ast)
 
-    def template_render(self, name_or_statement, context=None, by_name=False,
-                        cleanup=False, meta_only=False):
+    def template_render(
+        self,
+        name_or_statement,
+        context=None,
+        by_name=False,
+        cleanup=False,
+        meta_only=False,
+    ):
         """
         Render a template by name or value.
 
@@ -588,15 +630,20 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         if by_name:
             if name_or_statement not in self._templates:
-                raise ValueError("No such template of name: '{}'.".format(name_or_statement))
+                raise ValueError(
+                    "No such template of name: '{}'.".format(name_or_statement)
+                )
             statement = self._templates[name_or_statement]
         else:
             statement = name_or_statement
 
         try:
             from sqlalchemy.sql.base import Executable
+
             if isinstance(statement, Executable):
-                statement = str(statement.compile(compile_kwargs={"literal_binds": True}))
+                statement = str(
+                    statement.compile(compile_kwargs={"literal_binds": True})
+                )
         except ImportError:
             pass
 
@@ -610,31 +657,26 @@ class DatabaseClient(Duct, MagicsProvider):
         if intersection:
             logger.warning(
                 "The following default template context keys have been overridden "
-                "by the local context: {}."
-                .format(intersection)
+                "by the local context: {}.".format(intersection)
             )
 
         # Substitute in any other named statements recursively
-        while '{{{' in statement or '{{%' in statement:
-            statement = (
-                jinja2.Template(
-                    statement,
-                    block_start_string='{{%',
-                    block_end_string='%}}',
-                    variable_start_string='{{{',
-                    variable_end_string='}}}',
-                    comment_start_string='{{#',
-                    comment_end_string='#}}',
-                    undefined=jinja2.StrictUndefined
-                )
-                .render(getattr(self, '_templates', {}))
-            )
+        while "{{{" in statement or "{{%" in statement:
+            statement = jinja2.Template(
+                statement,
+                block_start_string="{{%",
+                block_end_string="%}}",
+                variable_start_string="{{{",
+                variable_end_string="}}}",
+                comment_start_string="{{#",
+                comment_end_string="#}}",
+                undefined=jinja2.StrictUndefined,
+            ).render(getattr(self, "_templates", {}))
 
         if not meta_only:
-            statement = (
-                jinja2.Template(statement, undefined=jinja2.StrictUndefined)
-                .render(template_context)
-            )
+            statement = jinja2.Template(
+                statement, undefined=jinja2.StrictUndefined
+            ).render(template_context)
 
         if cleanup:
             statement = self.statement_cleanup(statement)
@@ -673,9 +715,9 @@ class DatabaseClient(Duct, MagicsProvider):
         return self.query(statement, **kwargs)
 
     # Uploading/querying data into data store
-    @logging_scope('Query [CTAS]', timed=True)
-    @quirk_docs('_query_to_table')
-    def query_to_table(self, statement, table, if_exists='fail', **kwargs):
+    @logging_scope("Query [CTAS]", timed=True)
+    @quirk_docs("_query_to_table")
+    def query_to_table(self, statement, table, if_exists="fail", **kwargs):
         """
         Run a query and store the results in a table in this database.
 
@@ -693,14 +735,14 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             DB-API cursor: The cursor object associated with the execution.
         """
-        assert if_exists in {'fail', 'replace', 'append'}
+        assert if_exists in {"fail", "replace", "append"}
         table = self._parse_namespaces(table, write=True)
         return self._query_to_table(statement, table, if_exists=if_exists, **kwargs)
 
-    @logging_scope('Dataframe Upload', timed=True)
-    @quirk_docs('_dataframe_to_table')
+    @logging_scope("Dataframe Upload", timed=True)
+    @quirk_docs("_dataframe_to_table")
     @require_connection
-    def dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
+    def dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
         """
         Upload a local pandas dataframe into a table in this database.
 
@@ -715,8 +757,10 @@ class DatabaseClient(Duct, MagicsProvider):
             **kwargs (dict): Additional keyword arguments to pass onto
                 `DatabaseClient._dataframe_to_table`.
         """
-        assert if_exists in {'fail', 'replace', 'append'}
-        self._dataframe_to_table(df, self._parse_namespaces(table, write=True), if_exists=if_exists, **kwargs)
+        assert if_exists in {"fail", "replace", "append"}
+        self._dataframe_to_table(
+            df, self._parse_namespaces(table, write=True), if_exists=if_exists, **kwargs
+        )
 
     # Table properties
 
@@ -727,7 +771,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _query_to_table(self, statement, table, if_exists, **kwargs):
         raise NotImplementedError
 
-    def _dataframe_to_table(self, df, table, if_exists='fail', **kwargs):
+    def _dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
         raise NotImplementedError
 
     def _cursor_empty(self, cursor):
@@ -739,10 +783,14 @@ class DatabaseClient(Duct, MagicsProvider):
             self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
             quote_char=self.NAMESPACE_QUOTECHAR,
             separator=self.NAMESPACE_SEPARATOR,
-            defaults=defaults if defaults else (self.NAMESPACE_DEFAULTS_WRITE if write else self.NAMESPACE_DEFAULTS_READ),
+            defaults=defaults
+            if defaults
+            else (
+                self.NAMESPACE_DEFAULTS_WRITE if write else self.NAMESPACE_DEFAULTS_READ
+            ),
         )
 
-    @quirk_docs('_table_list')
+    @quirk_docs("_table_list")
     def table_list(self, namespace=None, renew=True, **kwargs):
         """
         Return a list of table names in the data source as a DataFrame.
@@ -756,13 +804,15 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             list<str>: The names of schemas in this database.
         """
-        return self._table_list(self._parse_namespaces(namespace, level=1), renew=renew, **kwargs)
+        return self._table_list(
+            self._parse_namespaces(namespace, level=1), renew=renew, **kwargs
+        )
 
     @abstractmethod
     def _table_list(self, namespace, **kwargs):
         pass
 
-    @quirk_docs('_table_exists')
+    @quirk_docs("_table_exists")
     def table_exists(self, table, renew=True, **kwargs):
         """
         Check whether a table exists.
@@ -776,13 +826,15 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             bool: `True` if table exists, and `False` otherwise.
         """
-        return self._table_exists(table=self._parse_namespaces(table), renew=renew, **kwargs)
+        return self._table_exists(
+            table=self._parse_namespaces(table), renew=renew, **kwargs
+        )
 
     @abstractmethod
     def _table_exists(self, table, **kwargs):
         pass
 
-    @quirk_docs('_table_drop')
+    @quirk_docs("_table_drop")
     def table_drop(self, table, **kwargs):
         """
         Remove a table from the database.
@@ -794,13 +846,15 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             DB-API cursor: The cursor associated with this execution.
         """
-        return self._table_drop(table=self._parse_namespaces(table, write=True), **kwargs)
+        return self._table_drop(
+            table=self._parse_namespaces(table, write=True), **kwargs
+        )
 
     @abstractmethod
     def _table_drop(self, table, **kwargs):
         pass
 
-    @quirk_docs('_table_desc')
+    @quirk_docs("_table_desc")
     def table_desc(self, table, renew=True, **kwargs):
         """
         Describe a table in the database.
@@ -813,13 +867,15 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             pandas.DataFrame: A dataframe description of the table.
         """
-        return self._table_desc(table=self._parse_namespaces(table), renew=renew, **kwargs)
+        return self._table_desc(
+            table=self._parse_namespaces(table), renew=renew, **kwargs
+        )
 
     @abstractmethod
     def _table_desc(self, table, **kwargs):
         pass
 
-    @quirk_docs('_table_partition_cols')
+    @quirk_docs("_table_partition_cols")
     def table_partition_cols(self, table, renew=True, **kwargs):
         """
         Extract the columns by which a table is partitioned (if database supports partitions).
@@ -832,16 +888,17 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             list<str>: A list of columns by which table is partitioned.
         """
-        return self._table_partition_cols(table=self._parse_namespaces(table), renew=renew, **kwargs)
+        return self._table_partition_cols(
+            table=self._parse_namespaces(table), renew=renew, **kwargs
+        )
 
     def _table_partition_cols(self, table, **kwargs):
         raise NotImplementedError(
             "Database backend `{}` does not support, or has not implemented, "
-            "support for extracting partition columns."
-            .format(self.__class__.__name__)
+            "support for extracting partition columns.".format(self.__class__.__name__)
         )
 
-    @quirk_docs('_table_head')
+    @quirk_docs("_table_head")
     def table_head(self, table, n=10, renew=True, **kwargs):
         """
         Retrieve the first `n` rows from a table.
@@ -857,13 +914,15 @@ class DatabaseClient(Duct, MagicsProvider):
             pandas.DataFrame: A dataframe representation of the first `n` rows
                 of the nominated table.
         """
-        return self._table_head(table=self._parse_namespaces(table), n=n, renew=renew, **kwargs)
+        return self._table_head(
+            table=self._parse_namespaces(table), n=n, renew=renew, **kwargs
+        )
 
     @abstractmethod
     def _table_head(self, table, n=10, **kwargs):
         pass
 
-    @quirk_docs('_table_props')
+    @quirk_docs("_table_props")
     def table_props(self, table, renew=True, **kwargs):
         """
         Retrieve the properties associated with a table.
@@ -878,7 +937,9 @@ class DatabaseClient(Duct, MagicsProvider):
             pandas.DataFrame: A dataframe representation of the table
                 properties.
         """
-        return self._table_props(table=self._parse_namespaces(table), renew=renew, **kwargs)
+        return self._table_props(
+            table=self._parse_namespaces(table), renew=renew, **kwargs
+        )
 
     @abstractmethod
     def _table_props(self, table, **kwargs):
@@ -910,10 +971,22 @@ class DatabaseClient(Duct, MagicsProvider):
         Documentation for these magics is provided online.
         """
         from IPython import get_ipython
-        from IPython.core.magic import register_line_magic, register_cell_magic, register_line_cell_magic
+        from IPython.core.magic import (
+            register_line_magic,
+            register_cell_magic,
+            register_line_cell_magic,
+        )
 
-        def statement_executor_magic(executor, statement, variable=None, show='head', transpose=False, template=True, context=None, **kwargs):
-
+        def statement_executor_magic(
+            executor,
+            statement,
+            variable=None,
+            show="head",
+            transpose=False,
+            template=True,
+            context=None,
+            **kwargs,
+        ):
             ip = get_ipython()
 
             if context is None:
@@ -924,71 +997,88 @@ class DatabaseClient(Duct, MagicsProvider):
                 return self.query_from_template(variable, context=context, **kwargs)
 
             # Cell magic
-            result = getattr(self, executor)(statement, template=template, context=context, **kwargs)
+            result = getattr(self, executor)(
+                statement, template=template, context=context, **kwargs
+            )
 
             if variable is not None:
                 ip.user_ns[variable] = result
 
-            if executor != 'query':
+            if executor != "query":
                 if variable is None:
                     return result
                 return
             elif variable is None:
                 return result
 
-            format = kwargs.get('format', self.DEFAULT_CURSOR_FORMATTER)
-            if show == 'head':
+            format = kwargs.get("format", self.DEFAULT_CURSOR_FORMATTER)
+            if show == "head":
                 show = 10
             if isinstance(show, int):
-                r = result.head(show) if format == 'pandas' else result[:show]
-            elif show == 'all':
+                r = result.head(show) if format == "pandas" else result[:show]
+            elif show == "all":
                 r = result
-            elif show in (None, 'none'):
+            elif show in (None, "none"):
                 return None
             else:
-                raise ValueError("Omniduct does not recognise the argument show='{0}' in cell magic.".format(show))
+                raise ValueError(
+                    "Omniduct does not recognise the argument show='{0}' in cell magic.".format(
+                        show
+                    )
+                )
 
-            if format == 'pandas' and transpose:
+            if format == "pandas" and transpose:
                 return r.T
             return r
 
         @register_line_cell_magic(base_name)
         @process_line_cell_arguments
         def query_magic(*args, **kwargs):
-            return statement_executor_magic('query', *args, **kwargs)
+            return statement_executor_magic("query", *args, **kwargs)
 
-        @register_line_cell_magic("{}.{}".format(base_name, 'execute'))
+        @register_line_cell_magic("{}.{}".format(base_name, "execute"))
         @process_line_cell_arguments
         def execute_magic(*args, **kwargs):
-            return statement_executor_magic('execute', *args, **kwargs)
+            return statement_executor_magic("execute", *args, **kwargs)
 
-        @register_line_cell_magic("{}.{}".format(base_name, 'stream'))
+        @register_line_cell_magic("{}.{}".format(base_name, "stream"))
         @process_line_cell_arguments
         def stream_magic(*args, **kwargs):
-            return statement_executor_magic('stream', *args, **kwargs)
+            return statement_executor_magic("stream", *args, **kwargs)
 
-        @register_cell_magic("{}.{}".format(base_name, 'template'))
+        @register_cell_magic("{}.{}".format(base_name, "template"))
         @process_line_arguments
         def template_add(body, name):
             self.template_add(name, body)
 
-        @register_line_cell_magic("{}.{}".format(base_name, 'render'))
+        @register_line_cell_magic("{}.{}".format(base_name, "render"))
         @process_line_cell_arguments
-        def template_render_magic(body=None, name=None, context=None, show=True,
-                                  cleanup=False, meta_only=False):
-
+        def template_render_magic(
+            body=None,
+            name=None,
+            context=None,
+            show=True,
+            cleanup=False,
+            meta_only=False,
+        ):
             ip = get_ipython()
 
             if body is None:
                 assert name is not None, "Name must be specified in line-mode."
                 rendered = self.template_render(
-                    name, context=context or ip.user_ns, by_name=True,
-                    cleanup=cleanup, meta_only=meta_only
+                    name,
+                    context=context or ip.user_ns,
+                    by_name=True,
+                    cleanup=cleanup,
+                    meta_only=meta_only,
                 )
             else:
                 rendered = self.template_render(
-                    body, context=context or ip.user_ns, by_name=False,
-                    cleanup=cleanup, meta_only=meta_only
+                    body,
+                    context=context or ip.user_ns,
+                    by_name=False,
+                    cleanup=cleanup,
+                    meta_only=meta_only,
                 )
                 if name is not None:
                     ip.user_ns[name] = rendered
@@ -998,17 +1088,17 @@ class DatabaseClient(Duct, MagicsProvider):
             else:
                 return rendered
 
-        @register_line_magic("{}.{}".format(base_name, 'desc'))
+        @register_line_magic("{}.{}".format(base_name, "desc"))
         @process_line_arguments
         def table_desc(table_name, **kwargs):
             return self.table_desc(table_name, **kwargs)
 
-        @register_line_magic("{}.{}".format(base_name, 'head'))
+        @register_line_magic("{}.{}".format(base_name, "head"))
         @process_line_arguments
         def table_head(table_name, **kwargs):
             return self.table_head(table_name, **kwargs)
 
-        @register_line_magic("{}.{}".format(base_name, 'props'))
+        @register_line_magic("{}.{}".format(base_name, "props"))
         @process_line_arguments
         def table_props(table_name, **kwargs):
             return self.table_props(table_name, **kwargs)

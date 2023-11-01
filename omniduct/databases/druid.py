@@ -12,11 +12,11 @@ class DruidClient(DatabaseClient):
     This Duct connects to a Druid server using the `pydruid` python library.
     """
 
-    PROTOCOLS = ['druid']
+    PROTOCOLS = ["druid"]
     DEFAULT_PORT = 80
-    NAMESPACE_NAMES = ['table']
+    NAMESPACE_NAMES = ["table"]
     NAMESPACE_QUOTECHAR = '"'
-    NAMESPACE_SEPARATOR = '.'
+    NAMESPACE_SEPARATOR = "."
 
     @override
     def _init(self):
@@ -26,12 +26,15 @@ class DruidClient(DatabaseClient):
     @override
     def _connect(self):
         from pydruid.db import connect
-        logger.info('Connecting to Druid database ...')
-        self.__druid = connect(self.host, self.port, path='/druid/v2/sql/', scheme='http')
+
+        logger.info("Connecting to Druid database ...")
+        self.__druid = connect(
+            self.host, self.port, path="/druid/v2/sql/", scheme="http"
+        )
         if self.username or self.password:
             logger.warning(
-                'Duct username and password not passed to pydruid connection. '
-                'pydruid connection currently does not allow these fields to be passed.'
+                "Duct username and password not passed to pydruid connection. "
+                "pydruid connection currently does not allow these fields to be passed."
             )
 
     @override
@@ -40,7 +43,7 @@ class DruidClient(DatabaseClient):
 
     @override
     def _disconnect(self):
-        logger.info('Disconnecting from Druid database ...')
+        logger.info("Disconnecting from Druid database ...")
         try:
             self.__druid.close()
         except Exception:
@@ -76,7 +79,8 @@ class DruidClient(DatabaseClient):
 
     @override
     def _table_desc(self, table, **kwargs):
-        query = ("""
+        query = (
+            """
             SELECT
                 TABLE_SCHEMA
                 , TABLE_NAME
@@ -86,7 +90,8 @@ class DruidClient(DatabaseClient):
                 , IS_NULLABLE
                 , DATA_TYPE
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = '{}'""").format(table)
+            WHERE TABLE_NAME = '{}'"""
+        ).format(table)
         return self.query(query, **kwargs)
 
     @override

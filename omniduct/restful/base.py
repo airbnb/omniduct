@@ -29,8 +29,10 @@ class RestClientBase(Duct):
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
-    @quirk_docs('_init', mro=True)
-    def __init__(self, server_protocol='http', assume_json=False, endpoint_prefix='', **kwargs):
+    @quirk_docs("_init", mro=True)
+    def __init__(
+        self, server_protocol="http", assume_json=False, endpoint_prefix="", **kwargs
+    ):
         """
         Args:
             server_protocol (str): The protocol to use when connecting to the
@@ -53,7 +55,7 @@ class RestClientBase(Duct):
     def _init(self):
         pass
 
-    def __call__(self, endpoint, method='get', **kwargs):
+    def __call__(self, endpoint, method="get", **kwargs):
         if self.assume_json:
             return self.request_json(endpoint, method=method, **kwargs)
         return self.request(endpoint, method=method, **kwargs)
@@ -61,13 +63,16 @@ class RestClientBase(Duct):
     @property
     def base_url(self):
         """str: The base url of the REST API."""
-        url = urljoin('{}://{}:{}'.format(self.server_protocol, self.host, self.port or 80), self.endpoint_prefix)
-        if not url.endswith('/'):
-            url += '/'
+        url = urljoin(
+            "{}://{}:{}".format(self.server_protocol, self.host, self.port or 80),
+            self.endpoint_prefix,
+        )
+        if not url.endswith("/"):
+            url += "/"
         return url
 
     @require_connection
-    def request(self, endpoint, method='get', **kwargs):
+    def request(self, endpoint, method="get", **kwargs):
         """
         Request data from a nominated endpoint.
 
@@ -81,10 +86,11 @@ class RestClientBase(Duct):
             requests.Response: The response object associated with this request.
         """
         import requests
+
         url = urljoin(self.base_url, endpoint)
         return requests.request(method, url, **kwargs)
 
-    def request_json(self, endpoint, method='get', **kwargs):
+    def request_json(self, endpoint, method="get", **kwargs):
         """
         Request JSON data from a nominated endpoint.
 
@@ -100,9 +106,17 @@ class RestClientBase(Duct):
         request = self.request(endpoint, method=method, **kwargs)
         if not request.status_code == 200:
             try:
-                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, json.dumps(request.json())))
+                raise RuntimeError(
+                    "Server responded with HTTP response code {}, with content: {}.".format(
+                        request.status_code, json.dumps(request.json())
+                    )
+                )
             except:
-                raise RuntimeError("Server responded with HTTP response code {}, with content: {}.".format(request.status_code, request.content.decode('utf-8')))
+                raise RuntimeError(
+                    "Server responded with HTTP response code {}, with content: {}.".format(
+                        request.status_code, request.content.decode("utf-8")
+                    )
+                )
         return request.json()
 
     @override
@@ -122,4 +136,5 @@ class RestClient(RestClientBase):
     """
     A trivial implementation of `RestClientBase` for basic REST access.
     """
-    PROTOCOLS = ['rest']
+
+    PROTOCOLS = ["rest"]

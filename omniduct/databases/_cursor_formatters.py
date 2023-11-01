@@ -6,8 +6,8 @@ from omniduct.utils.debug import logger
 
 COLUMN_NAME_FORMATTERS = {
     None: lambda x: x,
-    'lowercase': lambda x: x.lower(),
-    'uppercase': lambda x: x.upper()
+    "lowercase": lambda x: x.lower(),
+    "uppercase": lambda x: x.upper(),
 }
 
 
@@ -35,7 +35,8 @@ class CursorFormatter(object):
         """
         self.cursor = cursor
         self.column_name_formatter = (
-            column_name_formatter if callable(column_name_formatter)
+            column_name_formatter
+            if callable(column_name_formatter)
             else COLUMN_NAME_FORMATTERS[column_name_formatter]
         )
         self._init(**kwargs)
@@ -99,10 +100,18 @@ class CursorFormatter(object):
         return row
 
     def _format_dump(self, data):
-        raise NotImplementedError("{} does not support formatting dumped data.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not support formatting dumped data.".format(
+                self.__class__.__name__
+            )
+        )
 
     def _format_row(self, row):
-        raise NotImplementedError("{} does not support formatting streaming data.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not support formatting streaming data.".format(
+                self.__class__.__name__
+            )
+        )
 
 
 class PandasCursorFormatter(CursorFormatter):
@@ -126,8 +135,12 @@ class PandasCursorFormatter(CursorFormatter):
             try:
                 df = pd.io.sql._parse_date_columns(df, self.date_fields)
             except Exception as e:
-                logger.warning('Unable to parse date columns. Perhaps your version of pandas is outdated.'
-                               'Original error message was: {}: {}'.format(e.__class__.__name__, str(e)))
+                logger.warning(
+                    "Unable to parse date columns. Perhaps your version of pandas is outdated."
+                    "Original error message was: {}: {}".format(
+                        e.__class__.__name__, str(e)
+                    )
+                )
 
         if self.index_fields is not None:
             df.set_index(self.index_fields, inplace=True)
@@ -184,12 +197,12 @@ class CsvCursorFormatter(CursorFormatter):
     """
 
     FORMAT_PARAMS = {
-        'delimiter': ',',
-        'doublequote': False,
-        'escapechar': '\\',
-        'lineterminator': '\r\n',
-        'quotechar': '"',
-        'quoting': csv.QUOTE_MINIMAL
+        "delimiter": ",",
+        "doublequote": False,
+        "escapechar": "\\",
+        "lineterminator": "\r\n",
+        "quotechar": '"',
+        "quoting": csv.QUOTE_MINIMAL,
     }
 
     def _init(self, include_header=True):
@@ -225,12 +238,12 @@ class HiveCursorFormatter(CsvCursorFormatter):
     """
 
     FORMAT_PARAMS = {
-        'delimiter': '\t',
-        'doublequote': False,
-        'escapechar': '',
-        'lineterminator': '\n',
-        'quotechar': '',
-        'quoting': csv.QUOTE_NONE
+        "delimiter": "\t",
+        "doublequote": False,
+        "escapechar": "",
+        "lineterminator": "\n",
+        "quotechar": "",
+        "quoting": csv.QUOTE_NONE,
     }
 
     def _init(self):
@@ -238,4 +251,4 @@ class HiveCursorFormatter(CsvCursorFormatter):
 
     # Convert null values to '\N'.
     def _prepare_row(self, row):
-        return [r'\N' if v is None else str(v).replace('\t', r'\t') for v in row]
+        return [r"\N" if v is None else str(v).replace("\t", r"\t") for v in row]

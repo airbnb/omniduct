@@ -32,6 +32,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
     connnect and disconnect as required, and so manual intervention is not
     typically required to maintain connections.
     """
+
     __doc_attrs = """
         protocol (str): The name of the protocol for which this instance was
             created (especially useful if a `Duct` subclass supports multiple
@@ -77,27 +78,38 @@ class Duct(with_metaclass(InterfaceMeta, object)):
     """
     __doc_cls_attrs__ = None
 
-    INTERFACE_SKIPPED_NAMES = {'__init__', '_init'}
+    INTERFACE_SKIPPED_NAMES = {"__init__", "_init"}
 
     class Type(Enum):
         """
         The `Duct.Type` enum specifies all of the permissible values of
         `Duct.DUCT_TYPE`. Also determines the order in which ducts are loaded by DuctRegistry.
         """
-        REMOTE = 'remotes'
-        FILESYSTEM = 'filesystems'
-        CACHE = 'caches'
-        RESTFUL = 'rest_clients'
-        DATABASE = 'databases'
-        OTHER = 'other'
+
+        REMOTE = "remotes"
+        FILESYSTEM = "filesystems"
+        CACHE = "caches"
+        RESTFUL = "rest_clients"
+        DATABASE = "databases"
+        OTHER = "other"
 
     AUTO_LOGGING_SCOPE = True
     DUCT_TYPE = None
     PROTOCOLS = None
 
-    def __init__(self, protocol=None, name=None, registry=None, remote=None,
-                 host=None, port=None, username=None, password=None, cache=None,
-                 cache_namespace=None):
+    def __init__(
+        self,
+        protocol=None,
+        name=None,
+        registry=None,
+        remote=None,
+        host=None,
+        port=None,
+        username=None,
+        password=None,
+        cache=None,
+        cache_namespace=None,
+    ):
         """
         protocol (str, None): Name of protocol (used by Duct registries to inform
             Duct instances of how they were instantiated).
@@ -132,8 +144,8 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         self.cache = cache
         self.cache_namespace = cache_namespace
 
-        self.connection_fields = ('host', 'port', 'remote', 'username', 'password')
-        self.prepared_fields = ('_host', '_port', '_username', '_password')
+        self.connection_fields = ("host", "port", "remote", "username", "password")
+        self.prepared_fields = ("_host", "_port", "_username", "_password")
 
         atexit.register(self.disconnect)
         self.__prepared = False
@@ -145,16 +157,23 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
     @classmethod
     def __register_implementation__(cls):
-        if not hasattr(cls, '_protocols'):
+        if not hasattr(cls, "_protocols"):
             cls._protocols = {}
 
         cls._protocols[cls.__name__] = cls
 
-        registry_keys = getattr(cls, 'PROTOCOLS', []) or []
+        registry_keys = getattr(cls, "PROTOCOLS", []) or []
         if registry_keys:
             for key in registry_keys:
-                if key in cls._protocols and cls.__name__ != cls._protocols[key].__name__:
-                    logger.info("Ignoring attempt by class `{}` to register key '{}', which is already registered for class `{}`.".format(cls.__name__, key, cls._protocols[key].__name__))
+                if (
+                    key in cls._protocols
+                    and cls.__name__ != cls._protocols[key].__name__
+                ):
+                    logger.info(
+                        "Ignoring attempt by class `{}` to register key '{}', which is already registered for class `{}`.".format(
+                            cls.__name__, key, cls._protocols[key].__name__
+                        )
+                    )
                 else:
                     cls._protocols[key] = cls
 
@@ -176,26 +195,28 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 named protocol.
         """
         if protocol not in cls._protocols:
-            raise DuctProtocolUnknown("Missing `Duct` implementation for protocol: '{}'.".format(protocol))
+            raise DuctProtocolUnknown(
+                "Missing `Duct` implementation for protocol: '{}'.".format(protocol)
+            )
         return functools.partial(cls._protocols[protocol], protocol=protocol)
 
     @property
     def __prepare_triggers(self):
-        return (
-            ('cache',)
-            + object.__getattribute__(self, 'connection_fields')
-        )
+        return ("cache",) + object.__getattribute__(self, "connection_fields")
 
     @classmethod
     def __init_with_kwargs__(cls, self, kwargs, **fallbacks):
-        if not hasattr(self, '_Duct__inited_using_kwargs'):
+        if not hasattr(self, "_Duct__inited_using_kwargs"):
             self._Duct__inited_using_kwargs = {}
-        for cls_parent in reversed([
-                parent for parent in inspect.getmro(cls)
+        for cls_parent in reversed(
+            [
+                parent
+                for parent in inspect.getmro(cls)
                 if issubclass(parent, Duct)
                 and parent not in self._Duct__inited_using_kwargs
-                and '__init__' in parent.__dict__
-        ]):
+                and "__init__" in parent.__dict__
+            ]
+        ):
             self._Duct__inited_using_kwargs[cls_parent] = True
             if six.PY3:
                 argspec = inspect.getfullargspec(cls_parent.__init__)
@@ -212,34 +233,42 @@ class Duct(with_metaclass(InterfaceMeta, object)):
 
     def __getattribute__(self, key):
         try:
-            if (not object.__getattribute__(self, '_Duct__prepared')
-                    and not object.__getattribute__(self, '_Duct__getting')
-                    and not object.__getattribute__(self, '_Duct__disconnecting')
-                    and key in object.__getattribute__(self, '_Duct__prepare_triggers')):
-                object.__setattr__(self, '_Duct__getting', True)
-                object.__getattribute__(self, 'prepare')()
-                object.__setattr__(self, '_Duct__getting', False)
+            if (
+                not object.__getattribute__(self, "_Duct__prepared")
+                and not object.__getattribute__(self, "_Duct__getting")
+                and not object.__getattribute__(self, "_Duct__disconnecting")
+                and key in object.__getattribute__(self, "_Duct__prepare_triggers")
+            ):
+                object.__setattr__(self, "_Duct__getting", True)
+                object.__getattribute__(self, "prepare")()
+                object.__setattr__(self, "_Duct__getting", False)
         except AttributeError:
             pass
         except Exception as e:
-            object.__setattr__(self, '_Duct__getting', False)
+            object.__setattr__(self, "_Duct__getting", False)
             raise_with_traceback(e)
         return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
         try:
-            if (object.__getattribute__(self, '_Duct__prepared')
-                    and object.__getattribute__(self, 'connection_fields')
-                    and key in self.connection_fields
-                    and self.is_connected()):
-                logger.warn('Disconnecting prior to changing field that connection is based on: {}.'.format(key))
+            if (
+                object.__getattribute__(self, "_Duct__prepared")
+                and object.__getattribute__(self, "connection_fields")
+                and key in self.connection_fields
+                and self.is_connected()
+            ):
+                logger.warn(
+                    "Disconnecting prior to changing field that connection is based on: {}.".format(
+                        key
+                    )
+                )
                 self.disconnect()
                 self.__prepared = False
         except AttributeError:
             pass
         object.__setattr__(self, key, value)
 
-    @quirk_docs('_prepare')
+    @quirk_docs("_prepare")
     def prepare(self):
         """
         Prepare a Duct subclass for use (if not already prepared).
@@ -280,37 +309,43 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         from omniduct.remotes.base import RemoteClient
 
         # Check registry is of an appropriate type (if present)
-        assert (self.registry is None) or isinstance(self.registry, DuctRegistry), "Provided registry is not an instance of `omniduct.registry.DuctRegistry`."
+        assert (self.registry is None) or isinstance(
+            self.registry, DuctRegistry
+        ), "Provided registry is not an instance of `omniduct.registry.DuctRegistry`."
 
         # If registry is present, lookup remotes and caches if necessary
         if self.registry is not None:
             if self.remote and isinstance(self.remote, six.string_types):
-                self.__prepreparation_values['remote'] = self.remote
+                self.__prepreparation_values["remote"] = self.remote
                 self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
             if self.cache and isinstance(self.cache, six.string_types):
-                self.__prepreparation_values['cache'] = self.cache
+                self.__prepreparation_values["cache"] = self.cache
                 self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
 
         # Check if remote and cache objects are of correct type (if present)
-        assert (self.remote is None) or isinstance(self.remote, RemoteClient), "Provided remote is not an instance of `omniduct.remotes.base.RemoteClient`."
-        assert (self.cache is None) or isinstance(self.cache, Cache), "Provided cache is not an instance of `omniduct.caches.base.Cache`."
+        assert (self.remote is None) or isinstance(
+            self.remote, RemoteClient
+        ), "Provided remote is not an instance of `omniduct.remotes.base.RemoteClient`."
+        assert (self.cache is None) or isinstance(
+            self.cache, Cache
+        ), "Provided cache is not an instance of `omniduct.caches.base.Cache`."
 
         # Replace prepared fields with the result of calling existing values
         # with a reference to `self`.
         for field in self.prepared_fields:
             value = getattr(self, field)
-            if hasattr(value, '__call__'):
+            if hasattr(value, "__call__"):
                 self.__prepreparation_values[field] = value
                 setattr(self, field, value(self))
 
         if isinstance(self._host, (list, tuple)):
-            if '_host' not in self.__prepreparation_values:
-                self.__prepreparation_values['_host'] = self._host
+            if "_host" not in self.__prepreparation_values:
+                self.__prepreparation_values["_host"] = self._host
             self._host = naive_load_balancer(self._host, port=self._port)
 
         # If host has a port included in it, override the value of self._port
-        if self._host is not None and re.match(r'[^\:]+:[0-9]{1,5}', self._host):
-            self._host, self._port = self._host.split(':')
+        if self._host is not None and re.match(r"[^\:]+:[0-9]{1,5}", self._host):
+            self._host, self._port = self._host.split(":")
 
         # Ensure port is an integer value
         self.port = int(self._port) if self._port else None
@@ -345,7 +380,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         at runtime using: `duct.host = '<host>'`.
         """
         if self.remote:
-            return '127.0.0.1'  # TODO: Make this configurable.
+            return "127.0.0.1"  # TODO: Make this configurable.
         return self._host
 
     @host.setter
@@ -361,7 +396,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         at runtime using: `duct.port = <port>`.
         """
         if self.remote:
-            return self.remote.port_forward('{}:{}'.format(self._host, self._port))
+            return self.remote.port_forward("{}:{}".format(self._host, self._port))
         return self._port
 
     @port.setter
@@ -379,9 +414,11 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         specify a different username at runtime using: `duct.username = '<username>'`.
         """
         if self._username is True:
-            if 'username' not in self.__cached_auth:
-                self.__cached_auth['username'] = input("Enter username for '{}':".format(self.name))
-            return self.__cached_auth['username']
+            if "username" not in self.__cached_auth:
+                self.__cached_auth["username"] = input(
+                    "Enter username for '{}':".format(self.name)
+                )
+            return self.__cached_auth["username"]
         elif self._username is False:
             return None
         elif not self._username:
@@ -407,9 +444,11 @@ class Duct(with_metaclass(InterfaceMeta, object)):
         using: `duct.password = '<password>'`.
         """
         if self._password is True:
-            if 'password' not in self.__cached_auth:
-                self.__cached_auth['password'] = getpass.getpass("Enter password for '{}':".format(self.name))
-            return self.__cached_auth['password']
+            if "password" not in self.__cached_auth:
+                self.__cached_auth["password"] = getpass.getpass(
+                    "Enter password for '{}':".format(self.name)
+                )
+            return self.__cached_auth["password"]
         elif self._password is False:
             return None
         return self._password
@@ -432,16 +471,20 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 self.disconnect()
                 raise DuctServerUnreachable(
                     "Remote '{}' cannot connect to '{}:{}'. Please check your settings before trying again.".format(
-                        self.remote.name, self._host, self._port))
+                        self.remote.name, self._host, self._port
+                    )
+                )
             elif not self.remote:
                 self.disconnect()
                 raise DuctServerUnreachable(
                     "Cannot connect to '{}:{}' on your current connection. Please check your connection before trying again.".format(
-                        self.host, self.port))
+                        self.host, self.port
+                    )
+                )
 
     # Connection
     @logging_scope("Connecting")
-    @quirk_docs('_connect')
+    @quirk_docs("_connect")
     def connect(self):
         """
         Connect to the service backing this client.
@@ -457,7 +500,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 "Connecting to {host}:{port}{remote}.".format(
                     host=self._host,
                     port=self._port,
-                    remote="on {}".format(self.remote.host) if self.remote else ""
+                    remote="on {}".format(self.remote.host) if self.remote else "",
                 )
             )
         self.__assert_server_reachable()
@@ -473,7 +516,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
                 "Connected to {host}:{port}{remote}.".format(
                     host=self._host,
                     port=self._port,
-                    remote="on {}".format(self.remote.host) if self.remote else ""
+                    remote="on {}".format(self.remote.host) if self.remote else "",
                 )
             )
         return self
@@ -482,7 +525,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
     def _connect(self):
         raise NotImplementedError
 
-    @quirk_docs('_is_connected')
+    @quirk_docs("_is_connected")
     def is_connected(self):
         """
         Check whether this `Duct` instances is currently connected.
@@ -511,7 +554,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
     def _is_connected(self):
         raise NotImplementedError
 
-    @quirk_docs('_disconnect')
+    @quirk_docs("_disconnect")
     def disconnect(self):
         """
         Disconnect this client from backing service.
@@ -534,7 +577,7 @@ class Duct(with_metaclass(InterfaceMeta, object)):
             self._disconnect()
 
             if self.remote and self.remote.has_port_forward(self._host, self._port):
-                logger.info('Freeing up local port {0}...'.format(self.port))
+                logger.info("Freeing up local port {0}...".format(self.port))
                 self.remote.port_forward_stop(local_port=self.port)
         finally:
             self.__disconnecting = False

@@ -7,7 +7,7 @@ from future.utils import raise_with_traceback
 
 
 def function_args_as_kwargs(func, *args, **kwargs):
-    if six.PY3 and not hasattr(sys, 'pypy_version_info'):
+    if six.PY3 and not hasattr(sys, "pypy_version_info"):
         arguments = inspect.signature(func).parameters.keys()
     else:
         arguments = inspect.getargspec(func).args

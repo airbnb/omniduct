@@ -9,15 +9,17 @@ class PySparkClient(DatabaseClient):
     This Duct connects to a local PySpark session using the `pyspark` library.
     """
 
-    PROTOCOLS = ['pyspark']
+    PROTOCOLS = ["pyspark"]
     DEFAULT_PORT = None
     SUPPORTS_SESSION_PROPERTIES = True
-    NAMESPACE_NAMES = ['schema', 'table']
-    NAMESPACE_QUOTECHAR = '`'
-    NAMESPACE_SEPARATOR = '.'
+    NAMESPACE_NAMES = ["schema", "table"]
+    NAMESPACE_QUOTECHAR = "`"
+    NAMESPACE_SEPARATOR = "."
 
     @override
-    def _init(self, app_name='omniduct', config=None, master=None, enable_hive_support=False):
+    def _init(
+        self, app_name="omniduct", config=None, master=None, enable_hive_support=False
+    ):
         """
         Args:
             app_name (str): The application name of the SparkSession.
@@ -68,17 +70,22 @@ class PySparkClient(DatabaseClient):
             "\n".join(
                 "SET {key} = {value};".format(key=key, value=value)
                 for key, value in session_properties.items()
-            ) + statement
+            )
+            + statement
         )
 
     @override
     def _execute(self, statement, cursor, wait, session_properties):
-        assert wait is True, "This Spark backend does not support asynchronous operations."
+        assert (
+            wait is True
+        ), "This Spark backend does not support asynchronous operations."
         return SparkCursor(self._spark_session.sql(statement))
 
     @override
     def _query_to_table(self, statement, table, if_exists, **kwargs):
-        return HiveServer2Client._query_to_table(self, statement, table, if_exists, **kwargs)
+        return HiveServer2Client._query_to_table(
+            self, statement, table, if_exists, **kwargs
+        )
 
     @override
     def _table_list(self, namespace, **kwargs):
@@ -116,7 +123,7 @@ class SparkCursor(object):
 
     @property
     def df_iter(self):
-        if not getattr(self, '_df_iter'):
+        if not getattr(self, "_df_iter"):
             self._df_iter = self.df.toLocalIterator()
         return self._df_iter
 
@@ -124,10 +131,12 @@ class SparkCursor(object):
 
     @property
     def description(self):
-        return tuple([
-            (name, type_, None, None, None, None, None)
-            for name, type_ in self.df.dtypes
-        ])
+        return tuple(
+            [
+                (name, type_, None, None, None, None, None)
+                for name, type_ in self.df.dtypes
+            ]
+        )
 
     @property
     def row_count(self):
@@ -143,10 +152,7 @@ class SparkCursor(object):
         raise NotImplementedError
 
     def fetchone(self):
-        return [
-            value or None
-            for value in next(self.df_iter)
-        ]
+        return [value or None for value in next(self.df_iter)]
 
     def fetchmany(self, size=None):
         size = size or self.arraysize

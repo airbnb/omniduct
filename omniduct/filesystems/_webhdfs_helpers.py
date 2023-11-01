@@ -5,8 +5,11 @@ import requests
 from six.moves import http_client
 
 from pywebhdfs import errors
-from pywebhdfs.webhdfs import (PyWebHdfsClient, _is_standby_exception,
-                               _move_active_host_to_head)
+from pywebhdfs.webhdfs import (
+    PyWebHdfsClient,
+    _is_standby_exception,
+    _move_active_host_to_head,
+)
 
 
 class OmniductPyWebHdfsClient(PyWebHdfsClient):
@@ -22,17 +25,18 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
 
         PyWebHdfsClient.__init__(self, **kwargs)
 
-        if self.namenodes and 'path_to_hosts' not in kwargs:
-            self.path_to_hosts = [('.*', self.namenodes)]
+        if self.namenodes and "path_to_hosts" not in kwargs:
+            self.path_to_hosts = [(".*", self.namenodes)]
 
         # Override base uri
-        self.base_uri_pattern = kwargs.get('base_uri_pattern', "http://{host}/webhdfs/v1/").format(
-            host="{host}")
+        self.base_uri_pattern = kwargs.get(
+            "base_uri_pattern", "http://{host}/webhdfs/v1/"
+        ).format(host="{host}")
 
     @property
     def host(self):
-        host = 'localhost' if self.remote else self._host
-        return '{}:{}'.format(host, str(self.port))
+        host = "localhost" if self.remote else self._host
+        return "{}:{}".format(host, str(self.port))
 
     @host.setter
     def host(self, host):
@@ -41,7 +45,7 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     @property
     def port(self):
         if self.remote:
-            return self.remote.port_forward('{}:{}'.format(self._host, self._port))
+            return self.remote.port_forward("{}:{}".format(self._host, self._port))
         return self._port
 
     @port.setter
@@ -51,7 +55,10 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
     @property
     def namenodes(self):
         if self.remote:
-            return ['localhost:{}'.format(self.remote.port_forward(nn)) for nn in self._namenodes]
+            return [
+                "localhost:{}".format(self.remote.port_forward(nn))
+                for nn in self._namenodes
+            ]
         else:
             return self._namenodes
 
@@ -66,35 +73,48 @@ class OmniductPyWebHdfsClient(PyWebHdfsClient):
         return uri
 
     def get_home_directory(self):
-        response = self._resolve_host(requests.get, True, '/', operation='GETHOMEDIRECTORY')
+        response = self._resolve_host(
+            requests.get, True, "/", operation="GETHOMEDIRECTORY"
+        )
         if response.ok:
-            return json.loads(response.content)['Path']
-        return '/'
+            return json.loads(response.content)["Path"]
+        return "/"
 
-    def _resolve_host(self, req_func, allow_redirect,
-                      path, operation, **kwargs):
+    def _resolve_host(self, req_func, allow_redirect, path, operation, **kwargs):
         """
         This is where the magic happens, and where omniduct handles redirects
         during federation and HA.
         """
         import requests
+
         uri_without_host = self._create_uri(path, operation, **kwargs)
         hosts = self._resolve_federation(path)
         for host in hosts:
             uri = uri_without_host.format(host=host)
             try:
                 while True:
-                    response = req_func(uri, allow_redirects=False,
-                                        timeout=self.timeout,
-                                        **self.request_extra_opts)
+                    response = req_func(
+                        uri,
+                        allow_redirects=False,
+                        timeout=self.timeout,
+                        **self.request_extra_opts,
+                    )
 
-                    if allow_redirect and response.status_code == http_client.TEMPORARY_REDIRECT:
-                        uri = self._make_uri_local(response.headers['location'])
+                    if (
+                        allow_redirect
+                        and response.status_code == http_client.TEMPORARY_REDIRECT
+                    ):
+                        uri = self._make_uri_local(response.headers["location"])
                     else:
                         break
 
-                if not allow_redirect and response.status_code == http_client.TEMPORARY_REDIRECT:
-                    response.headers['location'] = self._make_uri_local(response.headers['location'])
+                if (
+                    not allow_redirect
+                    and response.status_code == http_client.TEMPORARY_REDIRECT
+                ):
+                    response.headers["location"] = self._make_uri_local(
+                        response.headers["location"]
+                    )
 
                 if not _is_standby_exception(response):
                     _move_active_host_to_head(hosts, host)
@@ -118,11 +138,11 @@ class CdhHdfsConfParser(object):
             conf_path (str): The path of the configuration file to be parsed.
         """
         self.fs = fs
-        self.conf_path = conf_path or '/etc/hadoop/conf.cloudera.hdfs2/hdfs-site.xml'
+        self.conf_path = conf_path or "/etc/hadoop/conf.cloudera.hdfs2/hdfs-site.xml"
 
     @property
     def config(self):
-        if not hasattr(self, '_config'):
+        if not hasattr(self, "_config"):
             self._config = self._get_config()
         return self._config
 
@@ -130,11 +150,14 @@ class CdhHdfsConfParser(object):
         with self.fs.open(self.conf_path) as f:
             d = xml.dom.minidom.parseString(f.read())
 
-        properties = d.getElementsByTagName('property')
+        properties = d.getElementsByTagName("property")
 
         return {
-            prop.getElementsByTagName('name')[0].childNodes[0].wholeText:
-                prop.getElementsByTagName('value')[0].childNodes[0].wholeText
+            prop.getElementsByTagName("name")[0]
+            .childNodes[0]
+            .wholeText: prop.getElementsByTagName("value")[0]
+            .childNodes[0]
+            .wholeText
             for prop in properties
         }
 
@@ -142,13 +165,13 @@ class CdhHdfsConfParser(object):
     def clusters(self):
         clusters = []
         for key in self.config:
-            if key.startswith('dfs.ha.namenodes.'):
-                clusters.append(key[len('dfs.ha.namenodes.'):])
+            if key.startswith("dfs.ha.namenodes."):
+                clusters.append(key[len("dfs.ha.namenodes.") :])
         return clusters
 
     def namenodes(self, cluster):
-        namenodes = self.config['dfs.ha.namenodes.{}'.format(cluster)].split(',')
+        namenodes = self.config["dfs.ha.namenodes.{}".format(cluster)].split(",")
         return [
-            self.config['dfs.namenode.http-address.{}.{}'.format(cluster, namenode)]
+            self.config["dfs.namenode.http-address.{}.{}".format(cluster, namenode)]
             for namenode in namenodes
         ]

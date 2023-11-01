@@ -58,11 +58,17 @@ class DuctRegistry(object):
         """
         name = name or duct.name
         if name is None:
-            raise ValueError("`Duct` instances must be named to be registered. Please either specify a name to this method call, or add a name to the Duct using `duct.name = '...'`.")
-        names = [n.strip() for n in name.split(',')]
+            raise ValueError(
+                "`Duct` instances must be named to be registered. Please either specify a name to this method call, or add a name to the Duct using `duct.name = '...'`."
+            )
+        names = [n.strip() for n in name.split(",")]
         for name in names:
             if name in self._registry and not override:
-                raise ValueError("`Duct` with the same name ('{}') already present in the registry. Please pass `override=True` if you want to override the existing instance, or `name='...'` to specify a new name.".format(name))
+                raise ValueError(
+                    "`Duct` with the same name ('{}') already present in the registry. Please pass `override=True` if you want to override the existing instance, or `name='...'` to specify a new name.".format(
+                        name
+                    )
+                )
             if register_magics and isinstance(duct, MagicsProvider):
                 duct.register_magics(base_name=name)
             self._registry[name] = duct
@@ -90,13 +96,11 @@ class DuctRegistry(object):
         """
         return self.register(
             Duct.for_protocol(protocol)(
-                name=name.split(',')[0].strip(),
-                registry=self,
-                **kwargs
+                name=name.split(",")[0].strip(), registry=self, **kwargs
             ),
             name=name,
             override=override,
-            register_magics=register_magics
+            register_magics=register_magics,
         )
 
     # Inspection and retrieval methods
@@ -136,7 +140,11 @@ class DuctRegistry(object):
             raise DuctNotFound(name)
         duct = self._registry[name]
         if kind and duct.DUCT_TYPE != kind:
-            raise DuctNotFound("Duct named '{}' exists, but is not of kind '{}'.".format(name, kind.value))
+            raise DuctNotFound(
+                "Duct named '{}' exists, but is not of kind '{}'.".format(
+                    name, kind.value
+                )
+            )
         return duct
 
     # Exposing `Duct` instances.
@@ -164,10 +172,15 @@ class DuctRegistry(object):
         if namespace is None:
             namespace = {}
         if kinds is not None:
-            kinds = [Duct.Type(kind) if not isinstance(kind, Duct.Type) else kind for kind in kinds]
+            kinds = [
+                Duct.Type(kind) if not isinstance(kind, Duct.Type) else kind
+                for kind in kinds
+            ]
         for name, duct in self._registry.items():
-            if (kinds is None or duct.DUCT_TYPE in kinds) and (names is None or name in names):
-                namespace[name.split('/')[-1]] = duct
+            if (kinds is None or duct.DUCT_TYPE in kinds) and (
+                names is None or name in names
+            ):
+                namespace[name.split("/")[-1]] = duct
         return namespace
 
     def get_proxy(self, by_kind=True):
@@ -191,16 +204,17 @@ class DuctRegistry(object):
         Returns:
             ServicesProxy: The proxy object.
         """
+
         def key_parser(k, v):
-            keys = k.split('/')
-            if by_kind and getattr(v, 'DUCT_TYPE', None) is not None:
+            keys = k.split("/")
+            if by_kind and getattr(v, "DUCT_TYPE", None) is not None:
                 keys.insert(0, v.DUCT_TYPE.value)
             return keys
 
         dct = self._registry.copy()
-        dct['registry'] = self
+        dct["registry"] = self
 
-        return TreeProxy._for_dict(dct, key_parser=key_parser, name='services')
+        return TreeProxy._for_dict(dct, key_parser=key_parser, name="services")
 
     # Batch registration of duct configurations
     def register_from_config(self, config, override=False):
@@ -237,7 +251,7 @@ class DuctRegistry(object):
         """
         # Extract configuration from a file if necessary, and then process it.
         if isinstance(config, six.string_types):
-            if '\n' in config:
+            if "\n" in config:
                 config = yaml.safe_load(config)
             else:
                 with open(config) as f:
@@ -245,13 +259,23 @@ class DuctRegistry(object):
         config = self._process_config(config)
 
         for duct_config in config:
-            names = duct_config.pop('name')
-            protocol = duct_config.pop('protocol')
-            register_magics = duct_config.pop('register_magics', True)
+            names = duct_config.pop("name")
+            protocol = duct_config.pop("protocol")
+            register_magics = duct_config.pop("register_magics", True)
             try:
-                self.new(names, protocol, register_magics=register_magics, override=override, **duct_config)
+                self.new(
+                    names,
+                    protocol,
+                    register_magics=register_magics,
+                    override=override,
+                    **duct_config,
+                )
             except DuctProtocolUnknown as e:
-                logger.error("Failed to configure `Duct` instance(s) '{}'. {}".format("', '".join(names.split(',')), str(e)))
+                logger.error(
+                    "Failed to configure `Duct` instance(s) '{}'. {}".format(
+                        "', '".join(names.split(",")), str(e)
+                    )
+                )
 
         return self
 
@@ -261,10 +285,15 @@ class DuctRegistry(object):
         arguments; each corresponding to a duct instance.
         """
 
-        if isinstance(config, dict) and (name is not None or 'name' in config) and 'protocol' in config and not config.get('__OMNIDUCT_SKIP__', False):
+        if (
+            isinstance(config, dict)
+            and (name is not None or "name" in config)
+            and "protocol" in config
+            and not config.get("__OMNIDUCT_SKIP__", False)
+        ):
             kwargs = config.copy()
-            if 'name' not in config:
-                kwargs['name'] = name
+            if "name" not in config:
+                kwargs["name"] = name
             yield kwargs
 
         elif isinstance(config, dict):

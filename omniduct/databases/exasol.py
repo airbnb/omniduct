@@ -53,7 +53,7 @@ class ExasolClient(DatabaseClient):
             dsn="{host}:{port}".format(host=self.host, port=self.port),
             user=self.username,
             password=self.password,
-            **self.engine_opts
+            **self.engine_opts,
         )
 
     @override
@@ -116,9 +116,8 @@ class ExasolClient(DatabaseClient):
     def _table_list(self, namespace, **kwargs):
         # Since this namespace is a conditional, exasol requires single quotations
         # instead of double quotations. " -> '
-        query = (
-            "SELECT TABLE_NAME FROM EXA_ALL_TABLES WHERE table_schema={}"
-            .format(namespace.render(quote_char="'"))
+        query = "SELECT TABLE_NAME FROM EXA_ALL_TABLES WHERE table_schema={}".format(
+            namespace.render(quote_char="'")
         )
         return self.query(query, **kwargs)
 
@@ -137,24 +136,19 @@ class ExasolClient(DatabaseClient):
     def _table_drop(self, table, **kwargs):
         # Schema and tables are always under uppercase namespaces.
         return self.execute(
-            "DROP TABLE {table}".format(table=str(table).upper()),
-            **kwargs
+            "DROP TABLE {table}".format(table=str(table).upper()), **kwargs
         )
 
     @override
     def _table_desc(self, table, **kwargs):
         # Schema and tables are always under uppercase namespaces.
-        return self.query(
-            "DESCRIBE {0}".format(str(table).upper()),
-            **kwargs
-        )
+        return self.query("DESCRIBE {0}".format(str(table).upper()), **kwargs)
 
     @override
     def _table_head(self, table, n=10, **kwargs):
         # Schema and tables are always under uppercase namespaces.
         return self.query(
-            "SELECT * FROM {} LIMIT {}".format(str(table).upper(), n),
-            **kwargs
+            "SELECT * FROM {} LIMIT {}".format(str(table).upper(), n), **kwargs
         )
 
     @override

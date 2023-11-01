@@ -17,17 +17,19 @@ def about():
         "Omniduct",
         version=__version__,
         logo=__logo__,
-        maintainers=OrderedDict(zip(
-            [a.strip() for a in __author__.split(',')],
-            [a.strip() for a in __author_email__.split(',')]
-        )),
+        maintainers=OrderedDict(
+            zip(
+                [a.strip() for a in __author__.split(",")],
+                [a.strip() for a in __author_email__.split(",")],
+            )
+        ),
         attributes={
-            'Documentation': __docs_url__,
+            "Documentation": __docs_url__,
         },
         description="""
         Omniduct provides uniform interfaces for connecting to and extracting data
         from a wide variety of (potentially remote) data stores (including HDFS,
         Hive, Presto, MySQL, etc).
         """,
-        endorse_omniduct=False
+        endorse_omniduct=False,
     )

@@ -58,7 +58,7 @@ class CachedCursor(object):
 
     @property
     def iter(self):
-        if not getattr(self, '_iter'):
+        if not getattr(self, "_iter"):
             self._iter = (row for row in self._rows)
         return self._iter
 
