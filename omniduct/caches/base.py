@@ -6,7 +6,7 @@ import dateutil
 import pandas
 import yaml
 from decorator import decorator
-from interface_meta import quirk_docs
+from interface_meta import inherit_docs
 
 from omniduct.duct import Duct
 from omniduct.utils.config import config
@@ -134,7 +134,7 @@ class Cache(Duct):
 
     DUCT_TYPE = Duct.Type.CACHE
 
-    @quirk_docs("_init", mro=True)
+    @inherit_docs("_init", mro=True)
     def __init__(self, **kwargs):  # pylint: disable=super-init-not-called
         Duct.__init_with_kwargs__(self, kwargs)
         self._init(**kwargs)

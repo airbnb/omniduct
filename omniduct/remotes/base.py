@@ -2,7 +2,7 @@ import getpass
 import re
 from abc import abstractmethod
 
-from interface_meta import quirk_docs, override
+from interface_meta import inherit_docs, override
 
 from omniduct.duct import Duct
 from omniduct.errors import DuctAuthenticationError, DuctServerUnreachable
@@ -120,7 +120,7 @@ class RemoteClient(FileSystemClient):
     DUCT_TYPE = Duct.Type.REMOTE
     DEFAULT_PORT = None
 
-    @quirk_docs("_init", mro=True)
+    @inherit_docs("_init", mro=True)
     def __init__(
         self, smartcards=None, **kwargs
     ):  # pylint: disable=super-init-not-called
@@ -217,7 +217,7 @@ class RemoteClient(FileSystemClient):
 
         return True
 
-    @quirk_docs("_execute")
+    @inherit_docs("_execute")
     @require_connection
     def execute(self, cmd, **kwargs):
         """
@@ -264,7 +264,7 @@ class RemoteClient(FileSystemClient):
             port = m.group("port") or remote_port
         return host, port, local_port
 
-    @quirk_docs("_port_forward_start")
+    @inherit_docs("_port_forward_start")
     @require_connection
     def port_forward(self, remote_host, remote_port=None, local_port=None):
         """
@@ -354,7 +354,7 @@ class RemoteClient(FileSystemClient):
             )
         return self.__port_forwarding_register.reverse_lookup(local_port) is not None
 
-    @quirk_docs("_port_forward_stop")
+    @inherit_docs("_port_forward_stop")
     def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
         """
         Disconnect an existing port forward connection.
@@ -447,7 +447,7 @@ class RemoteClient(FileSystemClient):
     def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
         raise NotImplementedError
 
-    @quirk_docs("_is_port_bound")
+    @inherit_docs("_is_port_bound")
     @require_connection
     def is_port_bound(self, host, port):
         """
