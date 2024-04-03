@@ -11,7 +11,7 @@ import jinja2
 import jinja2.meta
 import sqlparse
 from decorator import decorator
-from interface_meta import quirk_docs, override
+from interface_meta import inherit_docs, override
 
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
@@ -96,7 +96,7 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         return self.NAMESPACE_DEFAULTS_READ
 
-    @quirk_docs("_init", mro=True)
+    @inherit_docs("_init", mro=True)
     # pylint: disable-next=super-init-not-called
     def __init__(
         self,
@@ -268,7 +268,7 @@ class DatabaseClient(Duct, MagicsProvider):
             "session_properties": kwargs["session_properties"],
         },
     )
-    @quirk_docs("_execute")
+    @inherit_docs("_execute")
     @require_connection
     def execute(
         self, statement, wait=True, cursor=None, session_properties=None, **kwargs
@@ -710,7 +710,7 @@ class DatabaseClient(Duct, MagicsProvider):
 
     # Uploading/querying data into data store
     @logging_scope("Query [CTAS]", timed=True)
-    @quirk_docs("_query_to_table")
+    @inherit_docs("_query_to_table")
     def query_to_table(self, statement, table, if_exists="fail", **kwargs):
         """
         Run a query and store the results in a table in this database.
@@ -734,7 +734,7 @@ class DatabaseClient(Duct, MagicsProvider):
         return self._query_to_table(statement, table, if_exists=if_exists, **kwargs)
 
     @logging_scope("Dataframe Upload", timed=True)
-    @quirk_docs("_dataframe_to_table")
+    @inherit_docs("_dataframe_to_table")
     @require_connection
     def dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
         """
@@ -784,7 +784,7 @@ class DatabaseClient(Duct, MagicsProvider):
             ),
         )
 
-    @quirk_docs("_table_list")
+    @inherit_docs("_table_list")
     def table_list(self, namespace=None, renew=True, **kwargs):
         """
         Return a list of table names in the data source as a DataFrame.
@@ -806,7 +806,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_list(self, namespace, **kwargs):
         pass
 
-    @quirk_docs("_table_exists")
+    @inherit_docs("_table_exists")
     def table_exists(self, table, renew=True, **kwargs):
         """
         Check whether a table exists.
@@ -828,7 +828,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_exists(self, table, **kwargs):
         pass
 
-    @quirk_docs("_table_drop")
+    @inherit_docs("_table_drop")
     def table_drop(self, table, **kwargs):
         """
         Remove a table from the database.
@@ -848,7 +848,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_drop(self, table, **kwargs):
         pass
 
-    @quirk_docs("_table_desc")
+    @inherit_docs("_table_desc")
     def table_desc(self, table, renew=True, **kwargs):
         """
         Describe a table in the database.
@@ -869,7 +869,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_desc(self, table, **kwargs):
         pass
 
-    @quirk_docs("_table_partition_cols")
+    @inherit_docs("_table_partition_cols")
     def table_partition_cols(self, table, renew=True, **kwargs):
         """
         Extract the columns by which a table is partitioned (if database supports partitions).
@@ -891,7 +891,7 @@ class DatabaseClient(Duct, MagicsProvider):
             f"Database backend `{self.__class__.__name__}` does not support, or has not implemented, support for extracting partition columns."
         )
 
-    @quirk_docs("_table_head")
+    @inherit_docs("_table_head")
     def table_head(self, table, n=10, renew=True, **kwargs):
         """
         Retrieve the first `n` rows from a table.
@@ -915,7 +915,7 @@ class DatabaseClient(Duct, MagicsProvider):
     def _table_head(self, table, n=10, **kwargs):
         pass
 
-    @quirk_docs("_table_props")
+    @inherit_docs("_table_props")
     def table_props(self, table, renew=True, **kwargs):
         """
         Retrieve the properties associated with a table.

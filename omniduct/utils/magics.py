@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from interface_meta import quirk_docs
+from interface_meta import inherit_docs
 
 
 def process_line_arguments(f):
@@ -49,7 +49,7 @@ def _process_line_arguments(line_arguments):
 
 
 class MagicsProvider(metaclass=ABCMeta):
-    @quirk_docs("_register_magics")
+    @inherit_docs("_register_magics")
     def register_magics(self, base_name=None):
         base_name = base_name or self.name
         if base_name is None:

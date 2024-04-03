@@ -1,7 +1,7 @@
 import json
 from urllib.parse import urljoin
 
-from interface_meta import quirk_docs, override
+from interface_meta import inherit_docs, override
 
 from omniduct.duct import Duct
 from omniduct.utils.decorators import require_connection
@@ -29,7 +29,7 @@ class RestClientBase(Duct):
 
     DUCT_TYPE = Duct.Type.RESTFUL
 
-    @quirk_docs("_init", mro=True)
+    @inherit_docs("_init", mro=True)
     def __init__(  # pylint: disable=super-init-not-called
         self,
         server_protocol="http",

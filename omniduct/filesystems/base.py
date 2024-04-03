@@ -3,7 +3,7 @@ from abc import abstractmethod
 from collections import OrderedDict, namedtuple
 
 import pandas as pd
-from interface_meta import quirk_docs, override
+from interface_meta import inherit_docs, override
 
 from omniduct.duct import Duct
 from omniduct.utils.decorators import require_connection
@@ -23,7 +23,7 @@ class FileSystemClient(Duct, MagicsProvider):
     DUCT_TYPE = Duct.Type.FILESYSTEM
     DEFAULT_PORT = None
 
-    @quirk_docs("_init", mro=True)
+    @inherit_docs("_init", mro=True)
     def __init__(  # pylint: disable=super-init-not-called
         self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs
     ):
@@ -53,7 +53,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # Path properties and helpers
 
     @property
-    @quirk_docs("_path_home")
+    @inherit_docs("_path_home")
     @require_connection
     def path_home(self):
         """
@@ -96,7 +96,7 @@ class FileSystemClient(Duct, MagicsProvider):
         self._path_cwd = path_cwd
 
     @property
-    @quirk_docs("_path_separator")
+    @inherit_docs("_path_separator")
     def path_separator(self):
         """
         str: The character(s) to use in separating path components. Typically
@@ -248,7 +248,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # Filesystem accessors
 
-    @quirk_docs("_exists")
+    @inherit_docs("_exists")
     @require_connection
     def exists(self, path):
         """
@@ -267,7 +267,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _exists(self, path):
         raise NotImplementedError
 
-    @quirk_docs("_isdir")
+    @inherit_docs("_isdir")
     @require_connection
     def isdir(self, path):
         """
@@ -286,7 +286,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _isdir(self, path):
         raise NotImplementedError
 
-    @quirk_docs("_isfile")
+    @inherit_docs("_isfile")
     @require_connection
     def isfile(self, path):
         """
@@ -313,7 +313,7 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         raise NotImplementedError
 
-    @quirk_docs("_dir")
+    @inherit_docs("_dir")
     @require_connection
     def dir(self, path=None):
         """
@@ -386,7 +386,7 @@ class FileSystemClient(Duct, MagicsProvider):
             )
         return "Directory has no contents."
 
-    @quirk_docs("_walk")
+    @inherit_docs("_walk")
     @require_connection
     def walk(self, path=None):
         """
@@ -423,7 +423,7 @@ class FileSystemClient(Duct, MagicsProvider):
             ):  # Note: using _walk directly here, which may fail if disconnected during walk.
                 yield walked
 
-    @quirk_docs("_find")
+    @inherit_docs("_find")
     @require_connection
     def find(self, path_prefix=None, **attrs):
         """
@@ -475,7 +475,7 @@ class FileSystemClient(Duct, MagicsProvider):
             ):  # Note: using _find directly here, which may fail if disconnected during find.
                 yield match
 
-    @quirk_docs("_mkdir")
+    @inherit_docs("_mkdir")
     @require_connection
     def mkdir(self, path, recursive=True, exist_ok=False):
         """
@@ -498,7 +498,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _mkdir(self, path, recursive, exist_ok):
         raise NotImplementedError
 
-    @quirk_docs("_remove")
+    @inherit_docs("_remove")
     @require_connection
     def remove(self, path, recursive=False):
         """
@@ -527,7 +527,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File handling
 
-    @quirk_docs("_open")
+    @inherit_docs("_open")
     @require_connection
     def open(self, path, mode="rt"):
         """
@@ -553,7 +553,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _open(self, path, mode):
         return FileSystemFile(self, path, mode)
 
-    @quirk_docs("_file_read_")
+    @inherit_docs("_file_read_")
     @require_connection
     def _file_read(self, path, size=-1, offset=0, binary=False):
         """
@@ -577,7 +577,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_read_(self, path, size=-1, offset=0, binary=False):
         raise NotImplementedError
 
-    @quirk_docs("_file_write_")
+    @inherit_docs("_file_write_")
     @require_connection
     def _file_write(self, path, s, binary=False):
         """
@@ -599,7 +599,7 @@ class FileSystemClient(Duct, MagicsProvider):
     def _file_write_(self, path, s, binary):
         raise NotImplementedError
 
-    @quirk_docs("_file_append_")
+    @inherit_docs("_file_append_")
     @require_connection
     def _file_append(self, path, s, binary=False):
         """
@@ -623,7 +623,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     # File transfer
 
-    @quirk_docs("_download")
+    @inherit_docs("_download")
     def download(self, source, dest=None, overwrite=False, fs=None):
         """
         Download files to another filesystem.

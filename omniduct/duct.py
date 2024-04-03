@@ -9,7 +9,7 @@ from abc import abstractmethod
 from builtins import input
 from enum import Enum
 
-from interface_meta import InterfaceMeta, quirk_docs
+from interface_meta import InterfaceMeta, inherit_docs
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
@@ -261,7 +261,7 @@ class Duct(metaclass=InterfaceMeta):
             pass
         object.__setattr__(self, key, value)
 
-    @quirk_docs("_prepare")
+    @inherit_docs("_prepare")
     def prepare(self):
         """
         Prepare a Duct subclass for use (if not already prepared).
@@ -476,7 +476,7 @@ class Duct(metaclass=InterfaceMeta):
 
     # Connection
     @logging_scope("Connecting")
-    @quirk_docs("_connect")
+    @inherit_docs("_connect")
     def connect(self):
         """
         Connect to the service backing this client.
@@ -511,7 +511,7 @@ class Duct(metaclass=InterfaceMeta):
     def _connect(self):
         raise NotImplementedError
 
-    @quirk_docs("_is_connected")
+    @inherit_docs("_is_connected")
     def is_connected(self):
         """
         Check whether this `Duct` instances is currently connected.
@@ -540,7 +540,7 @@ class Duct(metaclass=InterfaceMeta):
     def _is_connected(self):
         raise NotImplementedError
 
-    @quirk_docs("_disconnect")
+    @inherit_docs("_disconnect")
     def disconnect(self):
         """
         Disconnect this client from backing service.
