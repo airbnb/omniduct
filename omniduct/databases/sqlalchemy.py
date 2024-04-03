@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import urllib
+
 from interface_meta import override
 
 from omniduct.utils.debug import logger
@@ -62,7 +64,8 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         # pylint: disable-next=consider-using-f-string
         return "{dialect}://{login}@{host_port}/{database}".format(
             dialect=self.dialect + (f"+{self.driver}" if self.driver else ""),
-            login=self.username + (f":{self.password}" if self.password else ""),
+            login=self.username
+            + (f":{urllib.parse.quote_plus(self.password)}" if self.password else ""),
             host_port=self.host + (f":{self.port}" if self.port else ""),
             database=self.database,
         )
