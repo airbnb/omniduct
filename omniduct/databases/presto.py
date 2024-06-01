@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import ast
 import logging
 import re
-import sys
 
 import pandas.io.sql
 from interface_meta import override
