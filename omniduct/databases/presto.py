@@ -90,14 +90,13 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
     @override
     def _connect(self):
-        from sqlalchemy import create_engine, MetaData
+        from sqlalchemy import create_engine
 
         logging.getLogger("pyhive").setLevel(1000)  # Silence pyhive logging.
         logger.info("Connecting to Presto coordinator...")
         self._sqlalchemy_engine = create_engine(
             f"presto://{self.host}:{self.port}/{self.catalog}/{self.schema}"
         )
-        self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     @override
     def _is_connected(self):
@@ -107,7 +106,6 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     def _disconnect(self):
         logger.info("Disconnecting from Presto coordinator...")
         self._sqlalchemy_engine = None
-        self._sqlalchemy_metadata = None
         self._schemas = None  # pylint: disable=attribute-defined-outside-init
 
     # Querying

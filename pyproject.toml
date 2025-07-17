@@ -7,7 +7,7 @@ name = "omniduct"
 dynamic = ["version"]
 description = "A toolkit providing a uniform interface for connecting to and extracting data from a wide variety of (potentially remote) data stores (including HDFS, Hive, Presto, MySQL, etc)."
 readme = "README.md"
-license = ""
+license = "MIT"
 authors = [
     { name = "Matthew Wardrop", email = "mpwardrop@gmail.com" },
     { name = "Dan Frank", email = "danfrankj@gmail.com" },
