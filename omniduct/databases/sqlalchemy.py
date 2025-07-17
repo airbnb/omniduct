@@ -70,6 +70,13 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
             database=self.database,
         )
 
+    @property
+    def _sqlalchemy_engine(self):
+        """
+        The SQLAlchemy engine object for the SchemasMixin.
+        """
+        return self.engine
+
     @override
     def _connect(self):
         import sqlalchemy
@@ -85,7 +92,6 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
         # pylint: disable-next=attribute-defined-outside-init
         self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
-        self._sqlalchemy_metadata = sqlalchemy.MetaData(self.engine)
 
     @override
     def _is_connected(self):
@@ -95,7 +101,6 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _disconnect(self):
         # pylint: disable-next=attribute-defined-outside-init
         self.engine = None
-        self._sqlalchemy_metadata = None
         # pylint: disable-next=attribute-defined-outside-init
         self._schemas = None
 

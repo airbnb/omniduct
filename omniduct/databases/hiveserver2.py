@@ -117,7 +117,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
     @override
     def _connect(self):
-        from sqlalchemy import create_engine, MetaData
+        from sqlalchemy import create_engine
 
         if self.driver == "pyhive":
             try:
@@ -142,7 +142,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             self._sqlalchemy_engine = create_engine(
                 f"hive://{self.host}:{self.port}/{self.schema}"
             )
-            self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
         elif self.driver == "impyla":
             try:
                 import impala.dbapi
@@ -165,7 +164,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             self._sqlalchemy_engine = create_engine(
                 f"impala://{self.host}:{self.port}/{self.schema}"
             )
-            self._sqlalchemy_metadata = MetaData(self._sqlalchemy_engine)
 
     def __hive_cursor(self):
         if (
@@ -192,7 +190,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         # pylint: disable-next=attribute-defined-outside-init
         self.__hive = None
         self._sqlalchemy_engine = None
-        self._sqlalchemy_metadata = None
         # pylint: disable-next=attribute-defined-outside-init
         self._schemas = None
 

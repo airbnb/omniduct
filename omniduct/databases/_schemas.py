@@ -61,7 +61,7 @@ class SchemasMixin:
 
     It is currently implemented as a mixin rather than directly provided on the
     base class because it requires that the host `DatabaseClient` instance have a
-    `sqlalchemy` metadata object handle, and not all backends support this.
+    `sqlalchemy` engine object handle, and not all backends support this.
 
     If we are willing to forgo the ability to actually make queries using the
     SQLAlchemy ORM, we could instead use an SQL agnostic version.
@@ -79,9 +79,9 @@ class SchemasMixin:
         def get_schemas():
             if not getattr(self, "_schemas", None):
                 assert (
-                    getattr(self, "_sqlalchemy_metadata", None) is not None
-                ), f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy metadata for schema exploration."
-                self._schemas = Schemas(self._sqlalchemy_metadata)
+                    getattr(self, "_sqlalchemy_engine", None) is not None
+                ), f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy engine for schema exploration."
+                self._schemas = Schemas(self._sqlalchemy_engine)
             return self._schemas
 
         return Proxy(get_schemas)
@@ -138,12 +138,12 @@ class Schemas:
     An object which has as its attributes all of the schemas in a nominated database.
 
     Args:
-        metadata (sqlalchemy.MetaData): A SQL Alchemy `MetaData` instance
+        engine (sqlalchemy.Engine): A SQL Alchemy `Engine` instance
             configured for the nominated database.
     """
 
-    def __init__(self, metadata):
-        self._metadata = metadata
+    def __init__(self, engine):
+        self._engine = engine
         self._schema_names = None
         self._schema_cache = {}
 
@@ -151,9 +151,7 @@ class Schemas:
     def all(self):
         "list<str>: The list of schema names."
         if self._schema_names is None:
-            self._schema_names = sqlalchemy.inspect(
-                self._metadata.bind
-            ).get_schema_names()
+            self._schema_names = sqlalchemy.inspect(self._engine).get_schema_names()
         return self._schema_names
 
     def __dir__(self):
@@ -162,9 +160,7 @@ class Schemas:
     def __getattr__(self, value):
         if value in self.all:
             if value not in self._schema_cache:
-                self._schema_cache[value] = Schema(
-                    metadata=self._metadata, schema=value
-                )
+                self._schema_cache[value] = Schema(engine=self._engine, schema=value)
             return self._schema_cache[value]
         raise AttributeError(f"No such schema {value}")
 
@@ -184,13 +180,13 @@ class Schema:
     An object which has as its attributes all of the tables in a nominated database schema.
 
     Args:
-        metadata (sqlalchemy.MetaData): A SQL Alchemy `MetaData` instance
+        engine (sqlalchemy.Engine): A SQL Alchemy `Engine` instance
             configured for the nominated database.
         schema (str): The schema within which to expose tables.
     """
 
-    def __init__(self, metadata, schema):
-        self._metadata = metadata
+    def __init__(self, engine, schema):
+        self._engine = engine
         self._schema = schema
         self._table_cache = {}
         self._table_names = None
@@ -199,7 +195,7 @@ class Schema:
     def all(self):
         """list<str>: The table names in this database schema."""
         if self._table_names is None:
-            self._table_names = sqlalchemy.inspect(self._metadata.bind).get_table_names(
+            self._table_names = sqlalchemy.inspect(self._engine).get_table_names(
                 self._schema
             )
         return self._table_names

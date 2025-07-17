@@ -122,7 +122,6 @@ class DatabaseClient(Duct, MagicsProvider):
         self._templates = templates or {}
         self._template_context = template_context or {}
         self._sqlalchemy_engine = None
-        self._sqlalchemy_metadata = None
         self._default_format_opts = default_format_opts or {}
 
         self._init(**kwargs)
