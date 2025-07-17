@@ -156,7 +156,7 @@ dependencies = [
 tests = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=omniduct --cov-report=xml -vv {args:tests}"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["37", "38", "39", "310", "311", "312"]
+python = ["38", "39", "310", "311", "312"]
 
 [tool.hatch.envs.lint]
 detached=true
