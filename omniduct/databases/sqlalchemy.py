@@ -76,6 +76,10 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         The SQLAlchemy engine object for the SchemasMixin.
         """
         return self.engine
+    
+    @_sqlalchemy_engine.setter
+    def _sqlalchemy_engine(self, engine):
+        self.engine = engine
 
     @override
     def _connect(self):
