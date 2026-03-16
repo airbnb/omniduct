@@ -146,9 +146,9 @@ class Duct(metaclass=InterfaceMeta):
 
         atexit.register(self.disconnect)
         self.__prepared = False
-        self.__getting = False  # pylint: disable=unused-private-member
+        self.__getting = False
         self.__connected = False
-        self.__disconnecting = False  # pylint: disable=unused-private-member
+        self.__disconnecting = False
         self.__cached_auth = {}
         self.__prepreparation_values = {}
 
@@ -198,7 +198,7 @@ class Duct(metaclass=InterfaceMeta):
         return functools.partial(cls._protocols[protocol], protocol=protocol)
 
     @property
-    def __prepare_triggers(self):  # pylint: disable=unused-private-member
+    def __prepare_triggers(self):
         return ("cache",) + object.__getattribute__(self, "connection_fields")
 
     @classmethod
@@ -238,7 +238,7 @@ class Duct(metaclass=InterfaceMeta):
                 object.__setattr__(self, "_Duct__getting", False)
         except AttributeError:
             pass
-        except:  # pylint: disable=bare-except
+        except:
             object.__setattr__(self, "_Duct__getting", False)
             raise
         return object.__getattribute__(self, key)
@@ -498,7 +498,7 @@ class Duct(metaclass=InterfaceMeta):
         if not self.is_connected():
             try:
                 self._connect()
-            except:  # pylint: disable=bare-except
+            except:
                 self.reset()
                 raise
         self.__connected = True
@@ -558,7 +558,7 @@ class Duct(metaclass=InterfaceMeta):
         """
         if not self.__prepared:
             return None
-        self.__disconnecting = True  # pylint: disable=unused-private-member
+        self.__disconnecting = True
         self.__connected = False
 
         try:
@@ -568,7 +568,7 @@ class Duct(metaclass=InterfaceMeta):
                 logger.info(f"Freeing up local port {self.port}...")
                 self.remote.port_forward_stop(local_port=self.port)
         finally:
-            self.__disconnecting = False  # pylint: disable=unused-private-member
+            self.__disconnecting = False
 
         return self
 

@@ -1,6 +1,3 @@
-# pylint: disable=consider-using-f-string
-
-
 import ast
 import logging
 import re
@@ -105,7 +102,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     def _disconnect(self):
         logger.info("Disconnecting from Presto coordinator...")
         self._sqlalchemy_engine = None
-        self._schemas = None  # pylint: disable=attribute-defined-outside-init
+        self._schemas = None
 
     # Querying
     @override
@@ -176,7 +173,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                 )
 
                 logger.error(context)
-            except:  # pylint: disable=bare-except
+            except:
                 logger.warn(
                     "Omniduct was unable to parse the database error messages. Refer to the "
                     "traceback below for full error details."

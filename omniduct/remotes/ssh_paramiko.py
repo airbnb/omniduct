@@ -1,5 +1,3 @@
-# pylint: disable=abstract-method
-
 import posixpath
 import select
 import socketserver
@@ -39,14 +37,12 @@ class ParamikoSSHClient(RemoteClient):
     def _connect(self):
         import paramiko
 
-        # pylint: disable-next=attribute-defined-outside-init
         self.__client = paramiko.SSHClient()
         self.__client.set_missing_host_key_policy(paramiko.client.AutoAddPolicy())
         self.__client.load_system_host_keys()
 
         try:
             self.__client.connect(self.host, username=self.username)
-            # pylint: disable-next=attribute-defined-outside-init
             self.__client_sftp = paramiko.SFTPClient.from_transport(
                 self.__client.get_transport()
             )
@@ -59,7 +55,7 @@ class ParamikoSSHClient(RemoteClient):
     def _is_connected(self):
         try:
             return self.__client.get_transport().is_active()
-        except:  # pylint: disable=bare-except
+        except:
             return False
 
     @override
@@ -67,7 +63,7 @@ class ParamikoSSHClient(RemoteClient):
         try:
             self.__client_sftp.close()
             self.__client.close()
-        except:  # pylint: disable=bare-except
+        except:
             pass
 
     @override
@@ -199,7 +195,7 @@ class Handler(socketserver.BaseRequestHandler):
                 (self.chain_host, self.chain_port),
                 self.request.getpeername(),
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:
             logger.info(
                 "Incoming request to %s:%d failed: %s",
                 self.chain_host,

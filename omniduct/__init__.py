@@ -1,16 +1,29 @@
-# flake8: noqa
-
 from omniduct.duct import Duct
 from omniduct.registry import DuctRegistry
 from omniduct.utils.config import config
 from omniduct.utils.debug import logger
 
 from . import protocols
-from ._version import __author__, __author_email__, __version__, __logo__, __docs_url__
+from ._version import __author__, __author_email__, __docs_url__, __logo__, __version__
+
+__all__ = [
+    "Duct",
+    "DuctRegistry",
+    "config",
+    "logger",
+    "protocols",
+    "about",
+    "__author__",
+    "__author_email__",
+    "__docs_url__",
+    "__logo__",
+    "__version__",
+]
 
 
 def about():
     from collections import OrderedDict
+
     from .utils.about import show_about
 
     return show_about(

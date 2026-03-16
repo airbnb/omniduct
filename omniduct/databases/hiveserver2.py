@@ -1,6 +1,3 @@
-# pylint: disable=abstract-method,consider-using-f-string
-
-
 import json
 import os
 import re
@@ -127,7 +124,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     "is not installed. Please either install the pyhive package, "
                     "or reconfigure this Duct to use the 'impyla' driver."
                 ) from e
-            # pylint: disable-next=attribute-defined-outside-init
             self.__hive = pyhive.hive.connect(
                 host=None if self._thrift_transport else self.host,
                 port=None if self._thrift_transport else self.port,
@@ -150,7 +146,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                     "is not installed. Please either install the impyla package, "
                     "or reconfigure this Duct to use the 'pyhive' driver."
                 ) from e
-            # pylint: disable-next=attribute-defined-outside-init
             self.__hive = impala.dbapi.connect(
                 host=self.host,
                 port=self.port,
@@ -171,7 +166,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
             try:
                 with Timeout(1):
                     return self.__hive.cursor()
-            except:  # pylint: disable=bare-except
+            except:
                 self._connect()
         return self.__hive.cursor()
 
@@ -184,12 +179,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         logger.info("Disconnecting from Hive coordinator...")
         try:
             self.__hive.close()
-        except:  # pylint: disable=bare-except
+        except:
             pass
-        # pylint: disable-next=attribute-defined-outside-init
         self.__hive = None
         self._sqlalchemy_engine = None
-        # pylint: disable-next=attribute-defined-outside-init
         self._schemas = None
 
     @override
@@ -457,7 +450,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         try:
             self.table_desc(table, **kwargs)
             return True
-        except:  # pylint: disable=bare-except
+        except:
             return False
         finally:
             logger.disabled = False
@@ -564,7 +557,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # Sanitise column names and map numpy/pandas data-types to hive types.
         columns = []
-        for col, dtype in df.dtypes.iteritems():
+        for col, dtype in df.dtypes.items():
             col_sanitized = re.sub(r"\W", "", col.lower().replace(" ", "_"))
             hive_type = dtype_overrides.get(col) or DTYPE_KIND_HIVE_TYPE.get(dtype.kind)
             if hive_type is None:
@@ -576,7 +569,6 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 )
             columns.append(f"  {col_sanitized}  {hive_type}")
 
-        # pylint: disable-next=possibly-unused-variable
         partition_columns = [f"{col} STRING" for col in partition_cols]
 
         tblprops = [f"'{key}' = '{value}'" for key, value in table_props.items()]

@@ -121,7 +121,7 @@ class RemoteClient(FileSystemClient):
     DEFAULT_PORT = None
 
     @inherit_docs("_init", mro=True)
-    def __init__(self, smartcards=None, **kwargs):  # pylint: disable=super-init-not-called
+    def __init__(self, smartcards=None, **kwargs):
         """
         Args:
             smartcards (dict): Mapping of smartcard names to system libraries

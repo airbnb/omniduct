@@ -21,7 +21,7 @@ def require_connection(f, self, *args, **kwargs):
 
     try:
         return f(self, *args, **kwargs)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:
         # Check to see if it is possible that we failed due to connection issues.
         # If so, try again once more. If we fail again, raise.
         # TODO: Explore adding a DuctConnectionError class and filter this

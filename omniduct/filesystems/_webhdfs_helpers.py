@@ -138,7 +138,6 @@ class CdhHdfsConfParser:
     @property
     def config(self):
         if not hasattr(self, "_config"):
-            # pylint: disable-next=attribute-defined-outside-init
             self._config = self._get_config()
         return self._config
 

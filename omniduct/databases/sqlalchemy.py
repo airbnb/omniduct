@@ -61,7 +61,6 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     @property
     def db_uri(self):
-        # pylint: disable-next=consider-using-f-string
         return "{dialect}://{login}@{host_port}/{database}".format(
             dialect=self.dialect + (f"+{self.driver}" if self.driver else ""),
             login=self.username
@@ -94,9 +93,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
                 "not supporting ANSI SQL."
             )
 
-        # pylint: disable-next=attribute-defined-outside-init
         self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
-        # pylint: disable-next=attribute-defined-outside-init
         self.connection = self.engine.connect()
 
     @override
@@ -107,11 +104,8 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _disconnect(self):
         if self.connection is not None:
             self.connection.close()
-        # pylint: disable-next=attribute-defined-outside-init
         self.connection = None
-        # pylint: disable-next=attribute-defined-outside-init
         self.engine = None
-        # pylint: disable-next=attribute-defined-outside-init
         self._schemas = None
 
     @override
@@ -171,7 +165,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         try:
             self.table_desc(table, **kwargs)
             return True
-        except:  # pylint: disable=bare-except
+        except:
             return False
         finally:
             logger.disabled = False

@@ -24,7 +24,7 @@ class FileSystemClient(Duct, MagicsProvider):
     DEFAULT_PORT = None
 
     @inherit_docs("_init", mro=True)
-    def __init__(  # pylint: disable=super-init-not-called
+    def __init__(
         self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs
     ):
         """
@@ -862,7 +862,7 @@ class FileSystemFile:
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):  # pylint: disable=redefined-builtin
+    def __exit__(self, type, value, tb):
         self.close()
 
     def close(self):
@@ -977,8 +977,8 @@ class FileSystemFileDesc(
         fs,
         path,
         name,
-        type,  # pylint: disable=redefined-builtin
-        bytes=None,  # pylint: disable=redefined-builtin
+        type,
+        bytes=None,
         owner=None,
         group=None,
         permissions=None,

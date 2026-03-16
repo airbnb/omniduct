@@ -129,7 +129,7 @@ class PandasCursorFormatter(CursorFormatter):
         if self.date_fields is not None:
             try:
                 df = pd.io.sql._parse_date_columns(df, self.date_fields)
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:
                 logger.warning(
                     f"Unable to parse date columns. Perhaps your version of pandas is outdated.Original error message was: {e.__class__.__name__}: {str(e)}"
                 )
@@ -238,7 +238,7 @@ class HiveCursorFormatter(CsvCursorFormatter):
         "quoting": csv.QUOTE_NONE,
     }
 
-    def _init(self):  # pylint: disable=arguments-differ
+    def _init(self):
         CsvCursorFormatter._init(self, include_header=False)
 
     # Convert null values to '\N'.

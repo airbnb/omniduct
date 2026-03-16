@@ -1,6 +1,3 @@
-# pylint: disable=abstract-method
-
-
 from interface_meta import override
 
 from omniduct.utils.debug import logger
@@ -34,7 +31,6 @@ class Neo4jClient(DatabaseClient):
 
         logger.info("Connecting to Neo4J graph database ...")
         auth = (self.username, self.password) if self.username else None
-        # pylint: disable-next=attribute-defined-outside-init
         self.__driver = GraphDatabase.driver(
             f"bolt://{self.host}:{self.port}", auth=auth
         )  # TODO: Add kerberos support
@@ -48,9 +44,9 @@ class Neo4jClient(DatabaseClient):
         logger.info("Disconnecting from Neo4J graph database ...")
         try:
             self.__driver.close()
-        except:  # pylint: disable=bare-except
+        except:
             pass
-        self.__driver = None  # pylint: disable=attribute-defined-outside-init
+        self.__driver = None
 
     # Querying
     @override

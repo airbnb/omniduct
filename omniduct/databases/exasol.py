@@ -47,7 +47,6 @@ class ExasolClient(DatabaseClient):
         import pyexasol
 
         logger.info("Connecting to Exasol ...")
-        # pylint: disable-next=attribute-defined-outside-init
         self.__exasol = pyexasol.connect(
             dsn=f"{self.host}:{self.port}",
             user=self.username,
@@ -63,9 +62,8 @@ class ExasolClient(DatabaseClient):
     def _disconnect(self):
         try:
             self.__exasol.close()
-        except:  # pylint: disable=bare-except
+        except:
             pass
-        # pylint: disable-next=attribute-defined-outside-init
         self.__exasol = None
 
     @override
@@ -122,7 +120,7 @@ class ExasolClient(DatabaseClient):
         try:
             self.table_desc(table, **kwargs)
             return True
-        except:  # pylint: disable=bare-except
+        except:
             return False
         finally:
             logger.disabled = False
