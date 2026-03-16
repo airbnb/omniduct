@@ -48,16 +48,17 @@ class WebHdfsClient(FileSystemClient):
         if auto_conf:
             from ._webhdfs_helpers import CdhHdfsConfParser
 
-            assert (
-                auto_conf_cluster is not None
-            ), "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
+            if auto_conf_cluster is None:
+                raise ValueError(
+                    "You must specify a cluster via `auto_conf_cluster` for auto-detection to work."
+                )
 
             def get_host_and_set_namenodes(duct, cluster, conf_path):
                 conf_parser = CdhHdfsConfParser(
                     duct.remote or LocalFsClient(), conf_path=conf_path
                 )
                 duct.namenodes = conf_parser.namenodes(cluster)
-                return random.choice(duct.namenodes)
+                return random.choice(duct.namenodes)  # noqa: S311
 
             self._host = partial(
                 get_host_and_set_namenodes,
@@ -65,7 +66,7 @@ class WebHdfsClient(FileSystemClient):
                 conf_path=auto_conf_path,
             )
         elif not self._host and namenodes:
-            self._host = random.choice(self.namenodes)
+            self._host = random.choice(self.namenodes)  # noqa: S311
 
         self.__webhdfs = None
         self.__webhdfs_kwargs = kwargs
@@ -161,9 +162,9 @@ class WebHdfsClient(FileSystemClient):
     @override
     def _mkdir(self, path, recursive, exist_ok):
         if not recursive and not self._isdir(self.path_basename(path)):
-            raise IOError(f"No parent directory found for {path}.")
+            raise OSError(f"No parent directory found for {path}.")
         if not exist_ok and self._exists(path):
-            raise IOError(f"Path already exists at {path}.")
+            raise OSError(f"Path already exists at {path}.")
         self.__webhdfs.make_dir(path)
 
     @override

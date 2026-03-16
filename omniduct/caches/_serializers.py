@@ -21,9 +21,10 @@ class BytesSerializer(Serializer):
         return ".bytes"
 
     def serialize(self, obj, fh):
-        assert isinstance(
-            obj, bytes
-        ), "BytesSerializer requires incoming data be already encoded into a bytestring."
+        if not isinstance(obj, bytes):
+            raise TypeError(
+                "BytesSerializer requires incoming data be already encoded into a bytestring."
+            )
         fh.write(obj)
 
     def deserialize(self, fh):
@@ -39,7 +40,7 @@ class PickleSerializer(Serializer):
         return pickle.dump(obj, fh)
 
     def deserialize(self, fh):
-        return pickle.load(fh)
+        return pickle.load(fh)  # noqa: S301
 
 
 class PandasSerializer(Serializer):
@@ -51,4 +52,4 @@ class PandasSerializer(Serializer):
         return pandas.to_pickle(obj, fh, compression=None)
 
     def deserialize(self, fh):
-        return pandas.read_pickle(fh, compression=None)
+        return pandas.read_pickle(fh, compression=None)  # noqa: S301

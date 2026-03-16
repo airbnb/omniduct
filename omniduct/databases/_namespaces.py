@@ -157,9 +157,7 @@ class ParsedNamespaces:
         if len(names) == 0:
             return ""
         return (
-            quote_char
-            + "{qc}{sep}{qc}".format(qc=quote_char, sep=separator).join(names)
-            + quote_char
+            quote_char + f"{quote_char}{separator}{quote_char}".join(names) + quote_char
         )
 
     def __str__(self):

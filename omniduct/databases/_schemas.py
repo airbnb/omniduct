@@ -1,6 +1,5 @@
 # pylint: disable=abstract-method
 
-from __future__ import absolute_import
 
 import pandas as pd
 import sqlalchemy
@@ -78,9 +77,10 @@ class SchemasMixin:
 
         def get_schemas():
             if not getattr(self, "_schemas", None):
-                assert (
-                    getattr(self, "_sqlalchemy_engine", None) is not None
-                ), f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy engine for schema exploration."
+                if getattr(self, "_sqlalchemy_engine", None) is None:
+                    raise RuntimeError(
+                        f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy engine for schema exploration."
+                    )
                 self._schemas = Schemas(self._sqlalchemy_engine)
             return self._schemas
 
@@ -168,8 +168,7 @@ class Schemas:
         return f"<Schemas: {len(self.all)} schemas>"
 
     def __iter__(self):
-        for schema in self.all:
-            yield schema
+        yield from self.all
 
     def __len__(self):
         return len(self.all)
@@ -219,8 +218,7 @@ class Schema:
         return f"<Schema `{self._schema}`: {len(self.all)} tables>"
 
     def __iter__(self):
-        for schema in self.all:
-            yield schema
+        yield from self.all
 
     def __len__(self):
         return len(self.all)

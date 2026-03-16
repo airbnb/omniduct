@@ -1,4 +1,4 @@
-from pandas.io.sql import SQLTable, SQLDatabase
+from pandas.io.sql import SQLDatabase, SQLTable
 
 
 def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
@@ -8,7 +8,8 @@ def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
     https://github.com/pandas-dev/pandas/pull/21401, and can be deprecated
     once it is merged and released in a new version of `pandas`.
     """
-    assert mode in ("default", "multi"), f"unexpected `to_sql` mode {mode}"
+    if mode not in ("default", "multi"):
+        raise ValueError(f"unexpected `to_sql` mode {mode}")
     if mode == "default":
         return df.to_sql(
             name=name,

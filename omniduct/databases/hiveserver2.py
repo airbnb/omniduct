@@ -1,6 +1,5 @@
 # pylint: disable=abstract-method,consider-using-f-string
 
-from __future__ import absolute_import
 
 import json
 import os
@@ -16,9 +15,9 @@ from jinja2 import Template
 from omniduct.utils.debug import logger
 from omniduct.utils.processes import Timeout, run_in_subprocess
 
-from .base import DatabaseClient
-from ._schemas import SchemasMixin
 from . import _pandas
+from ._schemas import SchemasMixin
+from .base import DatabaseClient
 
 
 class HiveServer2Client(DatabaseClient, SchemasMixin):
@@ -110,10 +109,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         self.__hive = None
         self.connection_fields += ("schema",)
 
-        assert self.driver in (
-            "pyhive",
-            "impyla",
-        ), "Supported drivers are pyhive and impyla."
+        if self.driver not in ("pyhive", "impyla"):
+            raise ValueError(
+                f"Unsupported driver {self.driver!r}. Supported drivers are 'pyhive' and 'impyla'."
+            )
 
     @override
     def _connect(self):
@@ -379,9 +378,10 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
 
         # If `partition` is specified, the associated columns must not be
         # present in the dataframe.
-        assert (
-            len(set(partition).intersection(df.columns)) == 0
-        ), f"The dataframe to be uploaded must not have any partitioned fields. Please remove the field(s): {','.join(set(partition).intersection(df.columns))}."
+        if conflicting := set(partition).intersection(df.columns):
+            raise ValueError(
+                f"The dataframe to be uploaded must not have any partitioned fields. Please remove the field(s): {','.join(conflicting)}."
+            )
 
         # Save dataframe to file and send it to the remote server if necessary
         temp_dir = tempfile.mkdtemp(prefix="omniduct_hiveserver2")
@@ -423,7 +423,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
                 ",".join(f"{key} = '{value}'" for key, value in partition.items())
             )
         )
-        lds = f"\nLOAD DATA LOCAL INPATH \"{os.path.basename(tmp_fname) if self.remote else tmp_fname}\" {'OVERWRITE' if if_exists == 'replace' else ''} INTO TABLE {table} {partition_clause};"
+        lds = f'\nLOAD DATA LOCAL INPATH "{os.path.basename(tmp_fname) if self.remote else tmp_fname}" {"OVERWRITE" if if_exists == "replace" else ""} INTO TABLE {table} {partition_clause};'
 
         # Run create table statement and load data statments
         logger.info(
@@ -501,7 +501,7 @@ class HiveServer2Client(DatabaseClient, SchemasMixin):
         # Turn hive command into quotable string.
         double_escaped = re.sub("\\" * 2, "\\" * 4, cmd)
         backtick_escape = "\\\\\\`" if self.remote else "\\`"
-        sys_cmd = 'hive -e "{0}"'.format(re.sub('"', '\\"', double_escaped)).replace(
+        sys_cmd = 'hive -e "{}"'.format(re.sub('"', '\\"', double_escaped)).replace(
             "`", backtick_escape
         )
         # Execute command in a subprocess.

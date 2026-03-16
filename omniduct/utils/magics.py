@@ -37,7 +37,7 @@ def _process_line_arguments(line_arguments):
         if "=" in arg:
             reached_kwargs = True
             key, value = arg.split("=")
-            value = eval(value, get_ipython().user_ns)
+            value = eval(value, get_ipython().user_ns)  # noqa: S307
             if key in kwargs:
                 raise ValueError(f"Duplicate keyword argument `{key}`.")
             kwargs[key] = value
@@ -59,7 +59,8 @@ class MagicsProvider(metaclass=ABCMeta):
             from IPython import get_ipython
 
             ip = get_ipython()
-            assert ip is not None
+            if ip is None:
+                raise RuntimeError("IPython kernel is not running.")
             has_ipython = True
         except Exception:  # pylint: disable=broad-exception-caught
             has_ipython = False

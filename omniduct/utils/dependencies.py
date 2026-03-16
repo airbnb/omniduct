@@ -1,6 +1,5 @@
 import importlib
 import re
-from typing import Optional
 
 import packaging.requirements
 
@@ -8,7 +7,7 @@ from omniduct._version import __optional_dependencies__
 from omniduct.utils.debug import logger
 
 
-def get_package_version(package_name: str) -> Optional[str]:
+def get_package_version(package_name: str) -> str | None:
     """
     Return the version of the given package, or None if the package is not
     installed.

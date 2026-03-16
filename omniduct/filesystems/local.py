@@ -1,10 +1,10 @@
 # pylint: disable=abstract-method # We export a different type of file-handle.
 
+import builtins
 import datetime
 import errno
 import os
 import shutil
-from io import open
 
 from interface_meta import override
 
@@ -32,9 +32,10 @@ class LocalFsClient(FileSystemClient):
 
     @override
     def _prepare(self):
-        assert (
-            self.remote is None
-        ), "LocalFsClient cannot be used in conjunction with a remote client."
+        if self.remote is not None:
+            raise ValueError(
+                "LocalFsClient cannot be used in conjunction with a remote client."
+            )
         super()._prepare()
 
     @override
@@ -131,4 +132,4 @@ class LocalFsClient(FileSystemClient):
     # File opening
     @override
     def _open(self, path, mode):
-        return open(path, mode=mode, encoding=None if "b" in mode else "utf-8")
+        return builtins.open(path, mode=mode, encoding=None if "b" in mode else "utf-8")

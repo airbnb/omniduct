@@ -1,5 +1,5 @@
 import unittest
-import mock
+from unittest import mock
 
 from omniduct.restful.base import RestClient
 

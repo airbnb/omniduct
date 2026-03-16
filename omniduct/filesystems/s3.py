@@ -62,9 +62,8 @@ class S3Client(FileSystemClient):
         environments to subclass `S3Client` and override the `_get_boto3_session`
         method to suit your needs.
         """
-        assert (
-            bucket is not None
-        ), "S3 Bucket must be specified using the `bucket` kwarg."
+        if bucket is None:
+            raise ValueError("S3 Bucket must be specified using the `bucket` kwarg.")
         self.bucket = bucket
         self.aws_profile = aws_profile
         self.use_opinel = use_opinel
@@ -187,9 +186,7 @@ class S3Client(FileSystemClient):
                     path=prefix["Prefix"][: -len(self.path_separator)],
                     name=prefix["Prefix"][: -len(self.path_separator)].split(
                         self.path_separator
-                    )[
-                        -1
-                    ],  # Remove trailing slash
+                    )[-1],  # Remove trailing slash
                     type="directory",
                 )
             for prefix in response_data.get("Contents", []):
