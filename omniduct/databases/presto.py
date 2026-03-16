@@ -1,6 +1,5 @@
 # pylint: disable=consider-using-f-string
 
-from __future__ import absolute_import
 
 import ast
 import logging
@@ -11,9 +10,9 @@ from interface_meta import override
 
 from omniduct.utils.debug import logger
 
-from .base import DatabaseClient
-from ._schemas import SchemasMixin
 from . import _pandas
+from ._schemas import SchemasMixin
+from .base import DatabaseClient
 
 
 class PrestoClient(DatabaseClient, SchemasMixin):
@@ -160,10 +159,10 @@ class PrestoClient(DatabaseClient, SchemasMixin):
 
                 linenumber = message["errorLocation"]["lineNumber"] - 1
                 splt = statement.splitlines()
-                splt[
-                    linenumber
-                ] += "   <--  {errorType} ({errorName}) occurred. {message} ".format(
-                    **message
+                splt[linenumber] += (
+                    "   <--  {errorType} ({errorName}) occurred. {message} ".format(
+                        **message
+                    )
                 )
                 context = "\n\n[Error Context]\n{}\n".format(
                     "\n".join(
@@ -179,10 +178,8 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                 logger.error(context)
             except:  # pylint: disable=bare-except
                 logger.warn(
-                    (
-                        "Omniduct was unable to parse the database error messages. Refer to the "
-                        "traceback below for full error details."
-                    )
+                    "Omniduct was unable to parse the database error messages. Refer to the "
+                    "traceback below for full error details."
                 )
 
             raise

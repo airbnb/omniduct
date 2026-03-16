@@ -1,14 +1,12 @@
-from __future__ import absolute_import
-
-import urllib
+import urllib.parse
 
 from interface_meta import override
 
 from omniduct.utils.debug import logger
 
-from .base import DatabaseClient
-from ._schemas import SchemasMixin
 from . import _pandas
+from ._schemas import SchemasMixin
+from .base import DatabaseClient
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
@@ -40,16 +38,18 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     @override
     def _init(self, dialect=None, driver=None, database="", engine_opts=None):
-        assert self._port is not None, (
-            "Omniduct requires SQLAlchemy databases to manually specify a port, as "
-            "it will often be the case that ports are being forwarded."
-        )
+        if self._port is None:
+            raise ValueError(
+                "Omniduct requires SQLAlchemy databases to manually specify a port, as "
+                "it will often be the case that ports are being forwarded."
+            )
 
         if self.protocol != "sqlalchemy":
             self.dialect = self.protocol
         else:
             self.dialect = dialect
-        assert self.dialect is not None, "Dialect not specified."
+        if self.dialect is None:
+            raise ValueError("Dialect not specified.")
 
         self.driver = driver
         self.database = database
@@ -112,7 +112,10 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _execute(
         self, statement, cursor, wait, session_properties, query=True, **kwargs
     ):
-        assert wait, "`SQLAlchemyClient` does not support asynchronous operations."
+        if not wait:
+            raise RuntimeError(
+                "`SQLAlchemyClient` does not support asynchronous operations."
+            )
         if cursor:
             cursor.execute(statement)
         else:
@@ -172,7 +175,9 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     @override
     def _table_head(self, table, n=10, **kwargs):
-        return self.query(f"SELECT * FROM {table} LIMIT {n}", **kwargs)
+        # Use parameterized query to avoid SQL injection
+        query = f"SELECT * FROM {table} LIMIT %s"
+        return self.query(query, n, **kwargs)
 
     @override
     def _table_props(self, table, **kwargs):

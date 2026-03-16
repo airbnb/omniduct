@@ -1,5 +1,3 @@
-from __future__ import absolute_import, print_function
-
 import hashlib
 import inspect
 import itertools
@@ -318,7 +316,8 @@ class DatabaseClient(Duct, MagicsProvider):
                 )
             )
         )
-        assert len(statements) > 0, "No non-empty statements were provided."
+        if len(statements) == 0:
+            raise ValueError("No non-empty statements were provided.")
 
         for stmt in statements[:-1]:
             cursor = self._execute(
@@ -402,8 +401,7 @@ class DatabaseClient(Duct, MagicsProvider):
         cursor = self.execute(statement, wait=True, **kwargs)
         formatter = self._get_formatter(format, cursor, **format_opts)
 
-        for row in formatter.stream(batch=batch):
-            yield row
+        yield from formatter.stream(batch=batch)
 
     def _get_formatter(self, formatter, cursor, **kwargs):
         formatter = formatter or self.DEFAULT_CURSOR_FORMATTER
@@ -411,9 +409,10 @@ class DatabaseClient(Duct, MagicsProvider):
             inspect.isclass(formatter)
             and issubclass(formatter, _cursor_formatters.CursorFormatter)
         ):
-            assert (
-                formatter in self.CURSOR_FORMATTERS
-            ), f"Invalid format '{formatter}'. Choose from: {','.join(self.CURSOR_FORMATTERS.keys())}"
+            if formatter not in self.CURSOR_FORMATTERS:
+                raise ValueError(
+                    f"Invalid format '{formatter}'. Choose from: {','.join(self.CURSOR_FORMATTERS.keys())}"
+                )
             formatter = self.CURSOR_FORMATTERS[formatter]
         format_opts = dict(
             itertools.chain(self._default_format_opts.items(), kwargs.items())
@@ -566,7 +565,7 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             set<str>: A set of names which the template requires to be rendered.
         """
-        ast = jinja2.Environment().parse(
+        ast = jinja2.Environment().parse(  # noqa: S701
             self.template_render(name_or_statement, by_name=by_name, meta_only=True)
         )
         return jinja2.meta.find_undeclared_variables(ast)
@@ -728,7 +727,10 @@ class DatabaseClient(Duct, MagicsProvider):
         Returns:
             DB-API cursor: The cursor object associated with the execution.
         """
-        assert if_exists in {"fail", "replace", "append"}
+        if if_exists not in {"fail", "replace", "append"}:
+            raise ValueError(
+                f"Invalid value for `if_exists`: {if_exists!r}. Choose from: 'fail', 'replace', 'append'."
+            )
         table = self._parse_namespaces(table, write=True)
         return self._query_to_table(statement, table, if_exists=if_exists, **kwargs)
 
@@ -750,7 +752,10 @@ class DatabaseClient(Duct, MagicsProvider):
             **kwargs (dict): Additional keyword arguments to pass onto
                 `DatabaseClient._dataframe_to_table`.
         """
-        assert if_exists in {"fail", "replace", "append"}
+        if if_exists not in {"fail", "replace", "append"}:
+            raise ValueError(
+                f"Invalid value for `if_exists`: {if_exists!r}. Choose from: 'fail', 'replace', 'append'."
+            )
         self._dataframe_to_table(
             df, self._parse_namespaces(table, write=True), if_exists=if_exists, **kwargs
         )
@@ -964,9 +969,9 @@ class DatabaseClient(Duct, MagicsProvider):
         """
         from IPython import get_ipython
         from IPython.core.magic import (
-            register_line_magic,
             register_cell_magic,
             register_line_cell_magic,
+            register_line_magic,
         )
 
         def statement_executor_magic(
@@ -1055,7 +1060,8 @@ class DatabaseClient(Duct, MagicsProvider):
             ip = get_ipython()
 
             if body is None:
-                assert name is not None, "Name must be specified in line-mode."
+                if name is None:
+                    raise ValueError("Name must be specified in line-mode.")
                 rendered = self.template_render(
                     name,
                     context=context or ip.user_ns,

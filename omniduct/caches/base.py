@@ -84,9 +84,7 @@ def cached_method(
         if _cache is None or not _use_cache:
             return method(self, **kwargs)
 
-        if (
-            _cache.has_key(_key, namespace=_namespace) and not _renew
-        ):  # noqa: has_key is not of a dictionary here
+        if _cache.has_key(_key, namespace=_namespace) and not _renew:  # noqa  # has_key is not of a dictionary here
             try:
                 return _cache.get(_key, namespace=_namespace, serializer=_serializer)
             except Exception as e:  # pylint: disable=broad-exception-caught

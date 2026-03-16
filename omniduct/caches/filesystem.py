@@ -40,9 +40,10 @@ class FileSystemCache(Cache):
                 self.fs = self.registry.lookup(  # pylint: disable=attribute-defined-outside-init
                     self.fs, kind=FileSystemCache.Type.FILESYSTEM
                 )
-        assert isinstance(
-            self.fs, FileSystemClient
-        ), "Provided cache is not an instance of `omniduct.filesystems.base.FileSystemClient`."
+        if not isinstance(self.fs, FileSystemClient):
+            raise TypeError(
+                "Provided cache is not an instance of `omniduct.filesystems.base.FileSystemClient`."
+            )
 
         self._prepare_cache()
 
@@ -94,7 +95,10 @@ class FileSystemCache(Cache):
     def _namespace(self, namespace):
         if namespace is None:
             return "__default__"
-        assert isinstance(namespace, str) and namespace != "config"
+        if not isinstance(namespace, str) or namespace == "config":
+            raise ValueError(
+                f"Invalid namespace {namespace!r}: must be a non-empty string and cannot be 'config'."
+            )
         return namespace
 
     @override

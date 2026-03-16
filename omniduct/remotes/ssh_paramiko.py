@@ -153,21 +153,23 @@ class ParamikoSSHClient(RemoteClient):
     def _mkdir(self, path, recursive, exist_ok):
         if exist_ok and self.isdir(path):
             return
-        assert (
+        if (
             self.execute(
                 "mkdir " + ("-p " if recursive else "") + f'"{path}"'
             ).returncode
-            == 0
-        ), f"Failed to create directory at: `{path}`"
+            != 0
+        ):
+            raise RuntimeError(f"Failed to create directory at: `{path}`")
 
     @override
     def _remove(self, path, recursive):
-        assert (
+        if (
             self.execute(
                 "rm -f " + ("-r " if recursive else "") + f'"{path}"'
             ).returncode
-            == 0
-        ), f"Failed to remove file(s) at: `{path}`"
+            != 0
+        ):
+            raise RuntimeError(f"Failed to remove file(s) at: `{path}`")
 
     # File handling
     @override

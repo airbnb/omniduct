@@ -6,7 +6,6 @@ from subprocess import TimeoutExpired
 from omniduct.utils.config import config as omniduct_config
 from omniduct.utils.debug import logger
 
-
 __all__ = ["run_in_subprocess", "TimeoutExpired", "Timeout"]
 
 DEFAULT_SUBPROCESS_CONFIG = {

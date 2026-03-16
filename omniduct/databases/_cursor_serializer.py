@@ -38,7 +38,7 @@ class CursorSerializer(Serializer):
             CachedCursor: A CacheCursor object representing a previously
                 serialized cursor.
         """
-        description, rows = pickle.load(fh)
+        description, rows = pickle.load(fh)  # noqa: S301
         return CachedCursor(description, rows)
 
 

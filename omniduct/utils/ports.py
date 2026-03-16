@@ -22,7 +22,7 @@ def is_local_port_free(local_port):
     s = socket.socket()
     try:
         s.bind(("", local_port))
-    except socket.error:
+    except OSError:
         return False
     finally:
         s.close()

@@ -121,9 +121,7 @@ class RemoteClient(FileSystemClient):
     DEFAULT_PORT = None
 
     @inherit_docs("_init", mro=True)
-    def __init__(
-        self, smartcards=None, **kwargs
-    ):  # pylint: disable=super-init-not-called
+    def __init__(self, smartcards=None, **kwargs):  # pylint: disable=super-init-not-called
         """
         Args:
             smartcards (dict): Mapping of smartcard names to system libraries
@@ -241,24 +239,24 @@ class RemoteClient(FileSystemClient):
     # Port forwarding code
 
     def _extract_host_and_ports(self, remote_host, remote_port, local_port):
-        assert remote_host is None or isinstance(
-            remote_host, str
-        ), "Remote host, if specified, must be a string of form 'hostname(:port)'."
-        assert remote_port is None or isinstance(
-            remote_port, int
-        ), "Remote port, if specified, must be an integer."
-        assert local_port is None or isinstance(
-            local_port, int
-        ), "Local port, if specified, must be an integer."
+        if remote_host is not None and not isinstance(remote_host, str):
+            raise TypeError(
+                "Remote host, if specified, must be a string of form 'hostname(:port)'."
+            )
+        if remote_port is not None and not isinstance(remote_port, int):
+            raise TypeError("Remote port, if specified, must be an integer.")
+        if local_port is not None and not isinstance(local_port, int):
+            raise TypeError("Local port, if specified, must be an integer.")
 
         host = port = None
         if remote_host is not None:
             m = re.match(
                 r"(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?", remote_host
             )
-            assert (
-                m
-            ), f"Host not valid: {remote_host}. Must be a string of form 'hostname(:port)'."
+            if not m:
+                raise ValueError(
+                    f"Host not valid: {remote_host}. Must be a string of form 'hostname(:port)'."
+                )
 
             host = m.group("host")
             port = m.group("port") or remote_port
@@ -290,8 +288,10 @@ class RemoteClient(FileSystemClient):
         remote_host, remote_port, local_port = self._extract_host_and_ports(
             remote_host, remote_port, local_port
         )
-        assert remote_host is not None, "Remote host must be specified."
-        assert remote_port is not None, "Remote port must be specified."
+        if remote_host is None:
+            raise ValueError("Remote host must be specified.")
+        if remote_port is None:
+            raise ValueError("Remote port must be specified.")
 
         # Actual port forwarding
         registered_port = self.__port_forwarding_register.lookup_port(
@@ -305,10 +305,8 @@ class RemoteClient(FileSystemClient):
 
         if local_port is None:
             local_port = get_free_local_port()
-        else:
-            assert is_local_port_free(
-                local_port
-            ), "Specified local port is in use, and cannot be used."
+        elif not is_local_port_free(local_port):
+            raise RuntimeError("Specified local port is in use, and cannot be used.")
 
         if not self.is_port_bound(remote_host, remote_port):
             raise DuctServerUnreachable(
@@ -341,11 +339,14 @@ class RemoteClient(FileSystemClient):
             remote_host, remote_port, local_port
         )
 
-        assert (
+        if not (
             remote_host is not None
             and remote_port is not None
             or local_port is not None
-        ), "Either remote host and port must be specified, or the local port must be specified."
+        ):
+            raise ValueError(
+                "Either remote host and port must be specified, or the local port must be specified."
+            )
 
         if remote_host is not None and remote_port is not None:
             return (
@@ -374,11 +375,14 @@ class RemoteClient(FileSystemClient):
             remote_host, remote_port, local_port
         )
 
-        assert (
+        if not (
             remote_host is not None
             and remote_port is not None
             or local_port is not None
-        ), "Either remote host and port must be specified, or the local port must be specified."
+        ):
+            raise ValueError(
+                "Either remote host and port must be specified, or the local port must be specified."
+            )
 
         if remote_host is not None and remote_port is not None:
             local_port, connection = self.__port_forwarding_register.lookup(

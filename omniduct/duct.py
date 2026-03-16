@@ -6,7 +6,6 @@ import os
 import pwd
 import re
 from abc import abstractmethod
-from builtins import input
 from enum import Enum
 
 from interface_meta import InterfaceMeta, inherit_docs
@@ -297,14 +296,15 @@ class Duct(metaclass=InterfaceMeta):
         """
 
         # Import necessary classes lazily (to prevent dependency cycles)
-        from omniduct.registry import DuctRegistry
         from omniduct.caches.base import Cache
+        from omniduct.registry import DuctRegistry
         from omniduct.remotes.base import RemoteClient
 
         # Check registry is of an appropriate type (if present)
-        assert (self.registry is None) or isinstance(
-            self.registry, DuctRegistry
-        ), "Provided registry is not an instance of `omniduct.registry.DuctRegistry`."
+        if self.registry is not None and not isinstance(self.registry, DuctRegistry):
+            raise TypeError(
+                "Provided registry is not an instance of `omniduct.registry.DuctRegistry`."
+            )
 
         # If registry is present, lookup remotes and caches if necessary
         if self.registry is not None:
@@ -316,12 +316,14 @@ class Duct(metaclass=InterfaceMeta):
                 self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
 
         # Check if remote and cache objects are of correct type (if present)
-        assert (self.remote is None) or isinstance(
-            self.remote, RemoteClient
-        ), "Provided remote is not an instance of `omniduct.remotes.base.RemoteClient`."
-        assert (self.cache is None) or isinstance(
-            self.cache, Cache
-        ), "Provided cache is not an instance of `omniduct.caches.base.Cache`."
+        if self.remote is not None and not isinstance(self.remote, RemoteClient):
+            raise TypeError(
+                "Provided remote is not an instance of `omniduct.remotes.base.RemoteClient`."
+            )
+        if self.cache is not None and not isinstance(self.cache, Cache):
+            raise TypeError(
+                "Provided cache is not an instance of `omniduct.caches.base.Cache`."
+            )
 
         # Replace prepared fields with the result of calling existing values
         # with a reference to `self`.

@@ -97,7 +97,7 @@ class RestClientBase(Duct):
         import requests
 
         url = urljoin(self.base_url, endpoint)
-        return requests.request(
+        return requests.request(  # noqa: S113
             method, url, **{"timeout": self.default_timeout, **kwargs}
         )
 

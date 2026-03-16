@@ -92,7 +92,8 @@ class FileSystemClient(Duct, MagicsProvider):
     @path_cwd.setter
     def path_cwd(self, path_cwd):
         path_cwd = self._path(path_cwd)
-        assert self.isdir(path_cwd), "Specified path does not exist."
+        if not self.isdir(path_cwd):
+            raise ValueError("Specified path does not exist.")
         self._path_cwd = path_cwd
 
     @property
@@ -333,7 +334,8 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<FileSystemFileDesc>: The children of `path` represented as
             `FileSystemFileDesc` objects.
         """
-        assert self.isdir(path), f"'{path}' is not a valid directory."
+        if not self.isdir(path):
+            raise ValueError(f"'{path}' is not a valid directory.")
         return self._dir(self._path(path))
 
     def listdir(self, path=None):
@@ -371,7 +373,8 @@ class FileSystemClient(Duct, MagicsProvider):
             pandas.DataFrame: A DataFrame representation of the contents of the
             nominated directory.
         """
-        assert self.isdir(path), f"'{path}' is not a valid directory."
+        if not self.isdir(path):
+            raise ValueError(f"'{path}' is not a valid directory.")
         return self._showdir(self._path(path))
 
     def _showdir(self, path):
@@ -404,7 +407,8 @@ class FileSystemClient(Duct, MagicsProvider):
             generator<tuple>: A generator of tuples, each tuple being associated
             with one directory that is either `path` or one of its descendants.
         """
-        assert self.isdir(path), f"'{path}' is not a valid directory."
+        if not self.isdir(path):
+            raise ValueError(f"'{path}' is not a valid directory.")
         return self._walk(self._path(path))
 
     def _walk(self, path):
@@ -418,10 +422,9 @@ class FileSystemClient(Duct, MagicsProvider):
         yield (path, dirs, files)
 
         for dirname in dirs:
-            for walked in self._walk(
+            yield from self._walk(
                 self._path(self.path_join(path, dirname))
-            ):  # Note: using _walk directly here, which may fail if disconnected during walk.
-                yield walked
+            )  # Note: using _walk directly here, which may fail if disconnected during walk.
 
     @inherit_docs("_find")
     @require_connection
@@ -448,9 +451,10 @@ class FileSystemClient(Duct, MagicsProvider):
                 objects that are descendents of `path_prefix` and which statisfy
                 provided constraints.
         """
-        assert self.isdir(
-            path_prefix
-        ), f"'{path_prefix}' is not a valid directory. Did you mean `.find(name='{path_prefix}')`?"
+        if not self.isdir(path_prefix):
+            raise ValueError(
+                f"'{path_prefix}' is not a valid directory. Did you mean `.find(name='{path_prefix}')`?"
+            )
         return self._find(self._path(path_prefix), **attrs)
 
     def _find(self, path_prefix, **attrs):
@@ -470,10 +474,9 @@ class FileSystemClient(Duct, MagicsProvider):
                 yield f
 
         for dirname in dirs:
-            for match in self._find(
+            yield from self._find(
                 self._path(self.path_join(path_prefix, dirname)), **attrs
-            ):  # Note: using _find directly here, which may fail if disconnected during find.
-                yield match
+            )  # Note: using _find directly here, which may fail if disconnected during find.
 
     @inherit_docs("_mkdir")
     @require_connection
@@ -514,9 +517,9 @@ class FileSystemClient(Duct, MagicsProvider):
         """
         self._assert_path_is_writable(path)
         if not self.exists(path):
-            raise IOError(f"No file(s) exist at path '{path}'.")
+            raise OSError(f"No file(s) exist at path '{path}'.")
         if self.isdir(path) and not recursive:
-            raise IOError(
+            raise OSError(
                 f"Attempt to remove directory '{path}' without passing `recursive=True`."
             )
         return self._remove(self._path(path), recursive)
@@ -662,7 +665,8 @@ class FileSystemClient(Duct, MagicsProvider):
         dest = fs._path(dest or self.path_basename(source))
 
         if dest.endswith(fs.path_separator):
-            assert fs.isdir(dest), f"No such directory `{dest}`"
+            if not fs.isdir(dest):
+                raise ValueError(f"No such directory `{dest}`")
             if not source.endswith(self.path_separator):
                 dest = fs.path_join(fs._path(dest), self.path_basename(source))
 
@@ -757,7 +761,7 @@ class FileSystemClient(Duct, MagicsProvider):
     # Magics
     @override
     def _register_magics(self, base_name):
-        from IPython.core.magic import register_line_magic, register_cell_magic
+        from IPython.core.magic import register_cell_magic, register_line_magic
 
         @register_line_magic(f"{base_name}.listdir")
         @process_line_arguments
@@ -826,15 +830,13 @@ class FileSystemFile:
 
     @mode.setter
     def mode(self, mode):
-        try:
-            assert len(set(mode)) == len(mode)
-            assert sum(opt in mode for opt in ["r", "w", "a", "+", "t", "b"]) == len(
-                mode
-            )
-            assert sum(opt in mode for opt in ["r", "w", "a"]) == 1
-            assert sum(opt in mode for opt in ["t", "b"]) < 2
-        except AssertionError as e:
-            raise ValueError(f"invalid mode: '{mode}'") from e
+        if (
+            len(set(mode)) != len(mode)
+            or sum(opt in mode for opt in ["r", "w", "a", "+", "t", "b"]) != len(mode)
+            or sum(opt in mode for opt in ["r", "w", "a"]) != 1
+            or sum(opt in mode for opt in ["t", "b"]) >= 2
+        ):
+            raise ValueError(f"invalid mode: '{mode}'")
         self.__mode = mode
 
     @property
@@ -985,8 +987,9 @@ class FileSystemFileDesc(
         last_accessed=None,
         **extra,
     ):
-        assert type in ("directory", "file")
-        return super(FileSystemFileDesc, cls).__new__(
+        if type not in ("directory", "file"):
+            raise ValueError(f"Invalid type {type!r}: must be 'directory' or 'file'.")
+        return super().__new__(
             cls,
             fs=fs,
             path=path,
@@ -1024,31 +1027,28 @@ class FileSystemFileDesc(
     # Convenience methods
 
     def open(self, mode="rt"):
-        assert self.type == "file", "`.open(...)` is only appropriate for files."
+        if self.type != "file":
+            raise TypeError("`.open(...)` is only appropriate for files.")
         return self.fs.open(self.path, mode=mode)
 
     def dir(self):
-        assert (
-            self.type == "directory"
-        ), "`.dir(...)` is only appropriate for directories."
+        if self.type != "directory":
+            raise TypeError("`.dir(...)` is only appropriate for directories.")
         return self.fs.dir(self.path)
 
     def listdir(self):
-        assert (
-            self.type == "directory"
-        ), "`.listdir(...)` is only appropriate for directories."
+        if self.type != "directory":
+            raise TypeError("`.listdir(...)` is only appropriate for directories.")
         return self.fs.listdir(self.path)
 
     def showdir(self):
-        assert (
-            self.type == "directory"
-        ), "`.showdir(...)` is only appropriate for directories."
+        if self.type != "directory":
+            raise TypeError("`.showdir(...)` is only appropriate for directories.")
         return self.fs.showdir(self.path)
 
     def find(self, **attrs):
-        assert (
-            self.type == "directory"
-        ), "`.find(...)` is only appropriate for directories."
+        if self.type != "directory":
+            raise TypeError("`.find(...)` is only appropriate for directories.")
         return self.fs.find(self.path, **attrs)
 
     def download(self, dest=None, overwrite=False, fs=None):

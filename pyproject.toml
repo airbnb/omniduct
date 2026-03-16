@@ -19,15 +19,14 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
     "decorator",
     "interface_meta>=1.2.0,<2",
@@ -156,64 +155,46 @@ dependencies = [
 tests = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=omniduct --cov-report=xml -vv {args:tests}"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311", "312"]
+python = ["310", "311", "312", "313", "314"]
 
 [tool.hatch.envs.lint]
 detached=true
 dependencies = [
-    "black==23.10.1",
-    "flake8==6.1.0",
-    "flake8-pyproject",
-    "pylint==2.17.4",
+    "ruff==0.15.6",
 ]
 
 [tool.hatch.envs.lint.scripts]
 check = [
-    "flake8 omniduct tests",
-    "pylint omniduct",
-    "black --check omniduct tests",
+    "ruff check omniduct tests",
+    "ruff format --check omniduct tests",
 ]
-format = "black omniduct tests"
+format = [
+    "ruff check --fix omniduct tests",
+    "ruff format omniduct tests",
+]
 
 # Linter and format configuration
 
-[tool.flake8]
-ignore = [
-    "C901","E203","E501","E712","E722","E731","W503","W504","W601"
-]
-max-complexity = 25
-max-line-length = 160
-import-order-style = "edited"
-application-import-names = "formulaic"
 
-[tool.pylint."MESSAGES CONTROL"]
-disable = [
-    "cyclic-import",
-    "duplicate-code",
-    "eval-used",
-    "fixme",
-    "import-error",
-    "import-outside-toplevel",
-    "invalid-name",
-    "line-too-long",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "missing-module-docstring",
-    "no-member",
-    "protected-access",
-    "redefined-outer-name",
-    "too-few-public-methods",
-    "too-many-ancestors",
-    "too-many-arguments",
-    "too-many-branches",
-    "too-many-instance-attributes",
-    "too-many-lines",
-    "too-many-locals",
-    "too-many-public-methods",
-    "too-many-return-statements",
-    "too-many-statements",
-    "ungrouped-imports",
-    "unnecessary-lambda-assignment",
-    "unused-argument",
-    "use-dict-literal",
+[tool.ruff.lint]
+select = [
+    "F",  # flake8 rules
+    "E",  # pycodestyle
+    "W",  # pycodestyle
+    "S",  # bandit
+    "I001",  # import sorting
+    # "D", # documentation
+    "UP",  # migrate code to newer conventions when we bump Python versions
+]
+ignore = [
+    "E501",  # Allow long lines
+    "E722",  # Allow bare 'except'
+    "S110",  # Allow try-except-pass for connection cleanup
+    "S603",  # Allow use of subprocess module
+    "S608",  # Allow string-based SQL construction in database clients
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",  # Allow use of assert in tests
 ]

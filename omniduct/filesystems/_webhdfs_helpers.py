@@ -2,9 +2,7 @@ import http.client
 import json
 import xml.dom.minidom
 
-
 import requests
-
 from pywebhdfs import errors
 from pywebhdfs.webhdfs import (
     PyWebHdfsClient,
@@ -146,16 +144,14 @@ class CdhHdfsConfParser:
 
     def _get_config(self):
         with self.fs.open(self.conf_path) as f:
-            d = xml.dom.minidom.parseString(f.read())
+            d = xml.dom.minidom.parseString(f.read())  # noqa: S318
 
         properties = d.getElementsByTagName("property")
 
         return {
             prop.getElementsByTagName("name")[0]
             .childNodes[0]
-            .wholeText: prop.getElementsByTagName("value")[0]
-            .childNodes[0]
-            .wholeText
+            .wholeText: prop.getElementsByTagName("value")[0].childNodes[0].wholeText
             for prop in properties
         }
 

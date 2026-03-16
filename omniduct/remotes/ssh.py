@@ -4,8 +4,6 @@ import os
 import posixpath
 import re
 import tempfile
-from builtins import input
-from io import open
 from shlex import quote as escape_path
 
 import pandas as pd
@@ -17,7 +15,6 @@ from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
 from omniduct.utils.decorators import require_connection
 from omniduct.utils.processes import run_in_subprocess
-
 
 SSH_ASKPASS = f"{os.path.dirname(__file__)}/utils/ssh_askpass"
 SESSION_SSH_USERNAME = None
@@ -123,15 +120,16 @@ class SSHClient(RemoteClient):
                         "Host keys not updated. Please update keys manually."
                     )
                 raise RuntimeError(error_message)
-            if (
-                i == 1
-            ):  # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
+            if i == 1:
+                # Request to authorize host certificate (i.e. host not in the 'known_hosts' file)
                 expect.sendline("yes")
                 i = self.expect(expected)
-            if i == 2:  # Request for password/passphrase
+            if i == 2:
+                # Request for password/passphrase
                 expect.sendline(self.password or getpass.getpass("Password: "))
                 i = self.expect(expected)
-            if i == 4:  # Request for terminal type
+            if i == 4:
+                # Request for terminal type
                 expect.sendline("ascii")
                 i = self.expect(expected)
 
@@ -142,18 +140,18 @@ class SSHClient(RemoteClient):
                 raise RuntimeError(
                     "Received a second request to authorize host key. This should not have happened!"
                 )
-            if i in (
-                2,
-                3,
-            ):  # Second request for password/passphrase or rejection of credentials. For now, give up.
+            if i in (2, 3):
+                # Second request for password/passphrase or rejection of credentials. For now, give up.
                 raise DuctAuthenticationError(
                     "Invalid username and/or password, or private key is not unlocked."
                 )
-            if i == 4:  # Another request for terminal type.
+            if i == 4:
+                # Another request for terminal type.
                 raise RuntimeError(
                     "Received a second request for terminal type. This should not have happened!"
                 )
-            if i == 5:  # Timeout
+            if i == 5:
+                # Timeout
                 # In our instance, this means that we have not handled some or another aspect of the login procedure.
                 # Since we are expecting an EOF when we have successfully logged in, hanging means that the SSH login
                 # procedure is waiting for more information. Since we have no more to give, this means our login
@@ -161,9 +159,11 @@ class SSHClient(RemoteClient):
                 raise RuntimeError(
                     f"SSH client seems to be awaiting more information, but we have no more to give. The messages received so far are:\n{expect.before}"
                 )
-            if i == 6:  # Connection closed by remote host
+            if i == 6:
+                # Connection closed by remote host
                 raise RuntimeError("Remote closed SSH connection")
             if i == 7:
+                # Cannot connect to host on current network
                 raise RuntimeError(
                     f"Cannot connect to {self.host} on your current network connection"
                 )
@@ -171,9 +171,10 @@ class SSHClient(RemoteClient):
             expect.close()
 
         # We should be logged in at this point, but let us make doubly sure
-        assert (
-            self._is_connected()
-        ), f"Unexpected failure to establish a connection with the remote host with command: \n {cmd}\n\n Please report this!"
+        if not self._is_connected():
+            raise RuntimeError(
+                f"Unexpected failure to establish a connection with the remote host with command: \n {cmd}\n\n Please report this!"
+            )
 
     @override
     def _is_connected(self):
@@ -370,21 +371,23 @@ class SSHClient(RemoteClient):
     def _mkdir(self, path, recursive, exist_ok):
         if exist_ok and self.isdir(path):
             return
-        assert (
+        if (
             self.execute(
                 "mkdir " + ("-p " if recursive else "") + f'"{path}"'
             ).returncode
-            == 0
-        ), f"Failed to create directory at: `{path}`"
+            != 0
+        ):
+            raise RuntimeError(f"Failed to create directory at: `{path}`")
 
     @override
     def _remove(self, path, recursive):
-        assert (
+        if (
             self.execute(
                 "rm -f " + ("-r " if recursive else "") + f'"{path}"'
             ).returncode
-            == 0
-        ), f"Failed to remove file(s) at: `{path}`"
+            != 0
+        ):
+            raise RuntimeError(f"Failed to remove file(s) at: `{path}`")
 
     # File handling
     @override
@@ -540,10 +543,9 @@ class SSHClient(RemoteClient):
         allowing one to successfully connect to hosts when servers are,
         for example, redeployed and have different host keys.
         """
-        assert not self.remote, "Updating host key only works for local connections."
-        cmd = "ssh-keygen -R {host} && ssh-keyscan {host} >> ~/.ssh/known_hosts".format(
-            host=self.host
-        )
+        if self.remote:
+            raise RuntimeError("Updating host key only works for local connections.")
+        cmd = f"ssh-keygen -R {self.host} && ssh-keyscan {self.host} >> ~/.ssh/known_hosts"
         proc = run_in_subprocess(cmd, True)
         if proc.returncode != 0:
             raise RuntimeError(

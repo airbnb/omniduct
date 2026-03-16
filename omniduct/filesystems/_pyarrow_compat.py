@@ -1,5 +1,5 @@
 from pyarrow.filesystem import FileSystem
-from pyarrow.util import implements, _stringify_path
+from pyarrow.util import _stringify_path, implements
 
 
 class OmniductFileSystem(FileSystem):

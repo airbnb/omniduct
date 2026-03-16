@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from interface_meta import override
 
 from omniduct.utils.debug import logger

@@ -78,9 +78,10 @@ class PySparkClient(DatabaseClient):
 
     @override
     def _execute(self, statement, cursor, wait, session_properties):
-        assert (
-            wait is True
-        ), "This Spark backend does not support asynchronous operations."
+        if not wait:
+            raise NotImplementedError(
+                "This Spark backend does not support asynchronous operations."
+            )
         return SparkCursor(self._spark_session.sql(statement))
 
     @override

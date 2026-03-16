@@ -1,5 +1,4 @@
 import inspect
-import io
 import json
 import logging
 import os
@@ -65,8 +64,10 @@ class ConfigurationRegistry:
         except:  # pylint: disable=bare-except
             host = "unknown"
 
-        if default is not None and type is not None:
-            assert isinstance(default, type)
+        if default is not None and type is not None and not isinstance(default, type):
+            raise TypeError(
+                f"Default value {default!r} is not an instance of the specified type {type!r}."
+            )
         self._register[key] = {
             "description": description,
             "host": host,
@@ -279,10 +280,10 @@ class Configuration(ConfigurationRegistry):
         if keys is None:
             replace = True
         if not replace and os.path.exists(filename):
-            with io.open(filename, "r", encoding="utf-8") as f:
+            with open(filename, encoding="utf-8") as f:
                 config = json.load(f)
         config.update(self.__restrict_keys(self._config, keys))
-        with io.open(filename, "w", encoding="utf-8") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json_config = json.dumps(config, ensure_ascii=False, indent=4)
             if sys.version_info.major == 2 and isinstance(json_config, str):
                 json_config = json_config.decode("utf-8")
@@ -310,7 +311,7 @@ class Configuration(ConfigurationRegistry):
             replace = keys is None
         if keys is None:
             replace = True
-        with io.open(filename, "r", encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             config = self.__restrict_keys(json.load(f), keys)
             if force:
                 self._config = config

@@ -6,7 +6,6 @@ import jinja2
 
 import omniduct
 
-
 ABOUT_TEMPLATE_HTML = """
 {%- if logo %}
 <div><img src="{{logo}}" style="height: 200px;"/></div>
@@ -110,7 +109,7 @@ def show_about(
 
     try:
         from IPython import get_ipython
-        from IPython.display import display, HTML
+        from IPython.display import HTML, display
 
         ip = get_ipython()
         if ip is not None and ip.has_trait("kernel"):
