@@ -96,13 +96,19 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
         # pylint: disable-next=attribute-defined-outside-init
         self.engine = sqlalchemy.create_engine(self.db_uri, **self.engine_opts)
+        # pylint: disable-next=attribute-defined-outside-init
+        self.connection = self.engine.connect()
 
     @override
     def _is_connected(self):
-        return self.engine is not None
+        return self.connection is not None
 
     @override
     def _disconnect(self):
+        if self.connection is not None:
+            self.connection.close()
+        # pylint: disable-next=attribute-defined-outside-init
+        self.connection = None
         # pylint: disable-next=attribute-defined-outside-init
         self.engine = None
         # pylint: disable-next=attribute-defined-outside-init
@@ -112,14 +118,19 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
     def _execute(
         self, statement, cursor, wait, session_properties, query=True, **kwargs
     ):
+        import sqlalchemy
+
         if not wait:
             raise RuntimeError(
                 "`SQLAlchemyClient` does not support asynchronous operations."
             )
+
+        if self.connection is None:
+            raise RuntimeError("Not connected.")
         if cursor:
             cursor.execute(statement)
         else:
-            cursor = self.engine.execute(statement).cursor
+            cursor = self.connection.execute(sqlalchemy.text(statement)).cursor  # type: ignore[attr-defined]
         return cursor
 
     @override
