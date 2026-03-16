@@ -1,6 +1,3 @@
-# pylint: disable=abstract-method
-
-
 import pandas as pd
 import sqlalchemy
 from sqlalchemy import Table

@@ -87,7 +87,7 @@ def cached_method(
         if _cache.has_key(_key, namespace=_namespace) and not _renew:  # noqa  # has_key is not of a dictionary here
             try:
                 return _cache.get(_key, namespace=_namespace, serializer=_serializer)
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:
                 logger.warning(
                     "Failed to retrieve results from cache [%s]. Renewing the cache...",
                     e,
@@ -114,7 +114,7 @@ def cached_method(
             # Return from cache every time, just in case serialization operation was
             # destructive (e.g. reading from cursors)
             return _cache.get(_key, namespace=_namespace, serializer=_serializer)
-        except:  # pylint: disable=bare-except
+        except:
             logger.warning(
                 "Failed to save results to cache. If needed, please save them manually."
             )
@@ -133,7 +133,7 @@ class Cache(Duct):
     DUCT_TYPE = Duct.Type.CACHE
 
     @inherit_docs("_init", mro=True)
-    def __init__(self, **kwargs):  # pylint: disable=super-init-not-called
+    def __init__(self, **kwargs):
         Duct.__init_with_kwargs__(self, kwargs)
         self._init(**kwargs)
 
@@ -169,7 +169,7 @@ class Cache(Duct):
             ) as fh:
                 serializer.serialize(value, fh)
             self.set_metadata(key, metadata, namespace=namespace, replace=True)
-        except:  # pylint: disable=bare-except
+        except:
             self.unset(key, namespace=namespace)
             raise
 
@@ -276,7 +276,7 @@ class Cache(Duct):
                 namespace, key, "metadata", mode="r", create=False
             ) as fh:
                 return yaml.safe_load(fh)
-        except:  # pylint: disable=bare-except
+        except:
             return {}
 
     @require_connection

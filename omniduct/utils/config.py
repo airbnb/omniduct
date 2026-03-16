@@ -26,7 +26,7 @@ class ConfigurationRegistry:
         default=None,
         onchange=None,
         onload=None,
-        type=None,  # pylint: disable=redefined-builtin
+        type=None,
         host=None,
     ):
         """
@@ -61,7 +61,7 @@ class ConfigurationRegistry:
         try:
             caller_frame = inspect.currentframe().f_back
             host = inspect.getmodule(caller_frame).__name__
-        except:  # pylint: disable=bare-except
+        except:
             host = "unknown"
 
         if default is not None and type is not None and not isinstance(default, type):
@@ -138,7 +138,7 @@ class Configuration(ConfigurationRegistry):
             # Restore configuration
             try:
                 self.load(force=True)
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:
                 raise RuntimeError(
                     f"Configuration file at {self.__config_path} cannot be loaded. Perhaps try deleting it."
                 ) from e

@@ -1,5 +1,3 @@
-# pylint: disable=abstract-method
-
 from interface_meta import override
 
 from omniduct.databases.base import DatabaseClient
@@ -55,7 +53,6 @@ class PySparkClient(DatabaseClient):
             for key, value in self.config.items():
                 builder.config(key, value)
 
-        # pylint: disable-next=attribute-defined-outside-init
         self._spark_session = builder.getOrCreate()
 
     @override

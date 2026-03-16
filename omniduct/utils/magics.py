@@ -62,7 +62,7 @@ class MagicsProvider(metaclass=ABCMeta):
             if ip is None:
                 raise RuntimeError("IPython kernel is not running.")
             has_ipython = True
-        except Exception:  # pylint: disable=broad-exception-caught
+        except Exception:
             has_ipython = False
 
         if has_ipython:

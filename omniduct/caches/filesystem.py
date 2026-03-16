@@ -15,7 +15,7 @@ class FileSystemCache(Cache):
     PROTOCOLS = ["filesystem_cache"]
 
     @override
-    def _init(self, path, fs=None):  # pylint: disable=arguments-differ
+    def _init(self, path, fs=None):
         """
         path (str): The top-level path of the cache in the filesystem.
         fs (FileSystemClient, str): The filesystem client to use as the
@@ -37,7 +37,7 @@ class FileSystemCache(Cache):
 
         if self.registry is not None:
             if isinstance(self.fs, str):
-                self.fs = self.registry.lookup(  # pylint: disable=attribute-defined-outside-init
+                self.fs = self.registry.lookup(
                     self.fs, kind=FileSystemCache.Type.FILESYSTEM
                 )
         if not isinstance(self.fs, FileSystemClient):

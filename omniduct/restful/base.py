@@ -30,7 +30,7 @@ class RestClientBase(Duct):
     DUCT_TYPE = Duct.Type.RESTFUL
 
     @inherit_docs("_init", mro=True)
-    def __init__(  # pylint: disable=super-init-not-called
+    def __init__(
         self,
         server_protocol="http",
         assume_json=False,
@@ -120,7 +120,7 @@ class RestClientBase(Duct):
                 raise RuntimeError(
                     f"Server responded with HTTP response code {request.status_code}, with content: {json.dumps(request.json())}."
                 )
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except Exception as e:
                 raise RuntimeError(
                     f"Server responded with HTTP response code {request.status_code}, with content: {request.content.decode('utf-8')}."
                 ) from e

@@ -23,10 +23,10 @@ class DruidClient(DatabaseClient):
     # Connection
     @override
     def _connect(self):
-        from pydruid.db import connect  # pylint: disable=import-error
+        from pydruid.db import connect
 
         logger.info("Connecting to Druid database ...")
-        self.__druid = connect(  # pylint: disable=attribute-defined-outside-init
+        self.__druid = connect(
             self.host, self.port, path="/druid/v2/sql/", scheme="http"
         )
         if self.username or self.password:
@@ -44,9 +44,9 @@ class DruidClient(DatabaseClient):
         logger.info("Disconnecting from Druid database ...")
         try:
             self.__druid.close()
-        except:  # pylint: disable=bare-except
+        except:
             pass
-        self.__druid = None  # pylint: disable=attribute-defined-outside-init
+        self.__druid = None
 
     # Querying
     @override
@@ -66,7 +66,7 @@ class DruidClient(DatabaseClient):
         try:
             self.table_desc(table, **kwargs)
             return True
-        except:  # pylint: disable=bare-except
+        except:
             return False
         finally:
             logger.disabled = False

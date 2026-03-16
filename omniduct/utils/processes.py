@@ -83,6 +83,5 @@ class Timeout:
         signal.signal(signal.SIGALRM, self.handle_timeout)
         signal.alarm(self.seconds)
 
-    # pylint: disable-next=redefined-builtin
     def __exit__(self, type, value, traceback):
         signal.alarm(0)

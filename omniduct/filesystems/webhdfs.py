@@ -76,7 +76,6 @@ class WebHdfsClient(FileSystemClient):
     def _connect(self):
         from ._webhdfs_helpers import OmniductPyWebHdfsClient
 
-        # pylint: disable-next=attribute-defined-outside-init
         self.__webhdfs = OmniductPyWebHdfsClient(
             host=self._host,
             port=self._port,
@@ -92,12 +91,11 @@ class WebHdfsClient(FileSystemClient):
             if self.remote and not self.remote.is_connected():
                 return False
             return self.__webhdfs is not None
-        except:  # pylint: disable=bare-except
+        except:
             return False
 
     @override
     def _disconnect(self):
-        # pylint: disable-next=attribute-defined-outside-init
         self.__webhdfs = None
 
     # Path properties and helpers

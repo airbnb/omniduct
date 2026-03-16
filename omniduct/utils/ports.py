@@ -52,7 +52,7 @@ def is_port_bound(hostname, port, timeout=None):
         s.settimeout(timeout)
     try:
         s.connect((hostname, port))
-    except:  # pylint: disable=bare-except
+    except:
         return False
     finally:
         s.close()

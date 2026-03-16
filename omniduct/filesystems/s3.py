@@ -1,4 +1,3 @@
-# pylint: disable=attribute-defined-outside-init
 import logging
 
 from interface_meta import override
@@ -159,7 +158,7 @@ class S3Client(FileSystemClient):
         try:
             self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or "")
             return True
-        except:  # pylint: disable=bare-except
+        except:
             return False
 
     # Directory handling and enumeration

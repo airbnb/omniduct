@@ -1,5 +1,3 @@
-# pylint: disable=abstract-method # We export a different type of file-handle.
-
 import builtins
 import datetime
 import errno

@@ -174,7 +174,7 @@ class StatusLogger:
             try:
                 caller = inspect.stack()[2]
                 context = inspect.getmodule(caller.frame).__name__
-            except:  # pylint: disable=bare-except
+            except:
                 context = "omniduct"
         if context != "omniduct" and not context.startswith("omniduct."):
             context = f"omniduct.external.{context}"
@@ -228,7 +228,6 @@ def detect_scopes():
     return out_scopes
 
 
-# pylint: disable-next=abstract-method
 class LoggingHandler(logging.Handler):
     """
     An implementation of Logging.Handler to render the logging methods shown in Omniduct and derivatives.
@@ -248,7 +247,7 @@ class LoggingHandler(logging.Handler):
     def handle(self, record):
         try:
             scopes = logger.current_scopes
-        except:  # pylint: disable=bare-except
+        except:
             scopes = []
 
         if config.logging_level < logging.INFO:  # Print everything verbosely
@@ -304,7 +303,7 @@ def logging_scope(name, *wargs, **wkwargs):
         try:
             f = func(*args, **kwargs)
             return f
-        except Exception:  # pylint: disable=broad-exception-caught
+        except Exception:
             success = False
             raise
         finally:

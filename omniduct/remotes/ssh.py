@@ -457,7 +457,6 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             logger.info("Copying file to local...")
             dest = dest or posixpath.basename(source)
-            # pylint: disable-next=consider-using-f-string
             cmd = "scp -r -o ControlPath={socket} {login}:'{remote_file}' '{local_file}'".format(
                 socket=self._socket_path,
                 login=self._login_info,
@@ -467,7 +466,7 @@ class SSHClient(RemoteClient):
             proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or "Success")
         else:
-            super(RemoteClient, self).download(source, dest, overwrite, fs)
+            super().download(source, dest, overwrite, fs)
 
     @override
     @require_connection
@@ -506,7 +505,6 @@ class SSHClient(RemoteClient):
         if fs is None or isinstance(fs, LocalFsClient):
             logger.info("Copying file from local...")
             dest = dest or posixpath.basename(source)
-            # pylint: disable-next=consider-using-f-string
             cmd = "scp -r -o ControlPath={socket} '{local_file}' {login}:'{remote_file}'".format(
                 socket=self._socket_path,
                 local_file=source.replace('"', r"\""),  # quote escaped for bash
@@ -516,7 +514,7 @@ class SSHClient(RemoteClient):
             proc = run_in_subprocess(cmd, check_output=True)
             logger.info(proc.stderr or "Success")
         else:
-            super(RemoteClient, self).upload(source, dest, overwrite, fs)
+            super().upload(source, dest, overwrite, fs)
 
     # Helper methods
 

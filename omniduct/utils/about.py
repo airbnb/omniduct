@@ -114,7 +114,7 @@ def show_about(
         ip = get_ipython()
         if ip is not None and ip.has_trait("kernel"):
             return display(HTML(jinja2.Template(ABOUT_TEMPLATE_HTML).render(**context)))
-    except:  # pylint: disable=bare-except
+    except:
         pass
 
     # Textual fallback if HTML not running in a notebook

@@ -95,7 +95,6 @@ class DatabaseClient(Duct, MagicsProvider):
         return self.NAMESPACE_DEFAULTS_READ
 
     @inherit_docs("_init", mro=True)
-    # pylint: disable-next=super-init-not-called
     def __init__(
         self,
         session_properties=None,
@@ -339,7 +338,6 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope("Query", timed=True)
     @render_statement
-    # pylint: disable-next=redefined-builtin
     def query(self, statement, format=None, format_opts=None, use_cache=True, **kwargs):
         """
         Execute a statement against this database and collect formatted data.
@@ -373,7 +371,6 @@ class DatabaseClient(Duct, MagicsProvider):
         formatter = self._get_formatter(format, cursor, **format_opts)
         return formatter.dump()
 
-    # pylint: disable-next=redefined-builtin
     def stream(self, statement, format=None, format_opts=None, batch=None, **kwargs):
         """
         Execute a statement against this database and stream formatted results.
@@ -419,7 +416,6 @@ class DatabaseClient(Duct, MagicsProvider):
         )
         return formatter(cursor, **format_opts)
 
-    # pylint: disable-next=redefined-builtin
     def stream_to_file(self, statement, file, format="csv", fs=None, **kwargs):
         """
         Execute a statement against this database and stream results to a file.
@@ -1008,7 +1004,6 @@ class DatabaseClient(Duct, MagicsProvider):
             if variable is None:
                 return result
 
-            # pylint: disable=redefined-builtin
             format = kwargs.get("format", self.DEFAULT_CURSOR_FORMATTER)
             if show == "head":
                 show = 10
