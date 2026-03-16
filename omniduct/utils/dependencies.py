@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import importlib
+import importlib.metadata
 import re
 
 import packaging.requirements
@@ -12,29 +15,27 @@ def get_package_version(package_name: str) -> str | None:
     Return the version of the given package, or None if the package is not
     installed.
     """
-    try:  # Python 3.8+
-        import importlib.metadata
 
+    try:
         return importlib.metadata.version(package_name)
-    except ImportError:  # Python <3.12
-        import pkg_resources
-
-        return pkg_resources.get_distribution(package_name).version
+    except importlib.metadata.PackageNotFoundError:
+        return None
 
 
-def check_dependencies(protocols, message=None):
+def check_dependencies(protocols: list[str] | None, message: str | None = None) -> None:
     if protocols is None:
         return
-    dependencies = []
+    dependencies: list[str] = []
     for protocol in protocols:
         dependencies.extend(__optional_dependencies__.get(protocol, []))
-    missing_deps = []
-    warning_deps = {}
+    missing_deps: list[str] = []
+    warning_deps: dict[str, str] = {}
 
     for dep in dependencies:
         m = re.match("^[a-z_][a-z0-9]*", dep)
         if not m:
             logger.warning(f"Invalid dependency requested: {dep}")
+            continue
 
         package_name = m.group(0)
         accept_any_version = package_name == dep

@@ -1,16 +1,24 @@
+from __future__ import annotations
+
 import inspect
+from collections.abc import Callable
+from typing import Any
 
 import decorator
 
 
-def function_args_as_kwargs(func, *args, **kwargs):
+def function_args_as_kwargs(
+    func: Callable[..., Any], *args: Any, **kwargs: Any
+) -> dict[str, Any]:
     arguments = inspect.signature(func).parameters.keys()
     kwargs.update(dict(zip(list(arguments), args)))
     return kwargs
 
 
 @decorator.decorator
-def require_connection(f, self, *args, **kwargs):
+def require_connection(
+    f: Callable[..., Any], self: Any, *args: Any, **kwargs: Any
+) -> Any:
     """
     A wrapper to allow restoring of connection status in the event that
     connection issues result in failures. If so, we will attempt to retry the

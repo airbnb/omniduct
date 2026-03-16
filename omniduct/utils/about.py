@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import base64
 import textwrap
 import urllib.parse
+from typing import Any
 
 import jinja2
 
@@ -56,31 +59,31 @@ Built upon:
 
 
 def show_about(
-    name,
-    version=None,
-    logo=None,
-    maintainers=None,
-    attributes=None,
-    description=None,
-    endorsements=None,
-    endorse_omniduct=True,
-):
+    name: str,
+    version: str | None = None,
+    logo: str | None = None,
+    maintainers: dict[str, str] | None = None,
+    attributes: dict[str, str] | None = None,
+    description: str | None = None,
+    endorsements: list[dict[str, Any]] | None = None,
+    endorse_omniduct: bool = True,
+) -> None:
     """
     Output information about a project in HTML for notebooks and text otherwise.
 
     Args:
-        name (str): The name of the project.
-        version (str, None): The version of the project.
-        logo (str, None): A local or remote uri for the project logo.
-        maintainers (dict, None): A dictionary mapping name to email address for
+        name: The name of the project.
+        version: The version of the project.
+        logo: A local or remote uri for the project logo.
+        maintainers: A dictionary mapping name to email address for
             maintainers. If order is important pass an `OrderedDict`.
-        attributes (dict, None): A dictionary mapping of project attributes to
+        attributes: A dictionary mapping of project attributes to
             values. If order is important pass an `OrderedDict`.
-        description (str, None): A description of the project.
-        endorsements (list<dict>): A list of dependencies to highlight encoded
+        description: A description of the project.
+        endorsements: A list of dependencies to highlight encoded
             as dictionaries of form: {'name': ..., 'version': ..., 'logo': ...}.
             Only `name` is required, and endorsements will be sorted by name.
-        endorse_omniduct (bool): Whether to include omniduct in the list of
+        endorse_omniduct: Whether to include omniduct in the list of
             endorsements (default: True).
     """
 
@@ -113,17 +116,16 @@ def show_about(
 
         ip = get_ipython()
         if ip is not None and ip.has_trait("kernel"):
-            return display(HTML(jinja2.Template(ABOUT_TEMPLATE_HTML).render(**context)))
+            display(HTML(jinja2.Template(ABOUT_TEMPLATE_HTML).render(**context)))
+            return
     except:
         pass
 
     # Textual fallback if HTML not running in a notebook
-    return print(
-        textwrap.dedent(jinja2.Template(ABOUT_TEMPLATE_TEXT).render(**context))
-    )
+    print(textwrap.dedent(jinja2.Template(ABOUT_TEMPLATE_TEXT).render(**context)))
 
 
-def get_image_url(uri):
+def get_image_url(uri: str | None) -> str | None:
     """
     Get a base64 URI if uri is a local path or pass through value otherwise.
 
@@ -131,10 +133,10 @@ def get_image_url(uri):
     such as project logos.
 
     Args:
-        uri (str, None): The local path of a logo or remote image.
+        uri: The local path of a logo or remote image.
 
     Returns:
-        str: The uri of the image suitable for rendering in a notebook.
+        The uri of the image suitable for rendering in a notebook.
     """
     if not uri:
         return None

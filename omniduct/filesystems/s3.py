@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import logging
+from collections.abc import Generator
+from typing import Any
 
 from interface_meta import override
 
@@ -11,8 +15,8 @@ class S3Client(FileSystemClient):
     library. Authentication is (optionally) handled using `opinel`.
 
     Attributes:
-        bucket (str): The name of the Amazon S3 bucket to use.
-        aws_profile (str): The name of configured AWS profile to use. This should
+        bucket: The name of the Amazon S3 bucket to use.
+        aws_profile: The name of configured AWS profile to use. This should
             refer to the name of a profile configured in, for example,
             `~/.aws/credentials`. Authentication is handled by the `opinel`
             library, which is also aware of environment variables.
@@ -21,34 +25,39 @@ class S3Client(FileSystemClient):
     PROTOCOLS = ["s3"]
     DEFAULT_PORT = 80
 
+    bucket: str
+    aws_profile: str | None
+    use_opinel: bool
+    skip_hadoop_artifacts: bool
+
     @override
     def _init(
         self,
-        bucket=None,
-        aws_profile=None,
-        use_opinel=False,
-        session=None,
-        path_separator="/",
-        skip_hadoop_artifacts=True,
-    ):
+        bucket: str | None = None,
+        aws_profile: str | None = None,
+        use_opinel: bool = False,
+        session: Any | None = None,
+        path_separator: str = "/",
+        skip_hadoop_artifacts: bool = True,
+    ) -> None:
         """
-        bucket (str): The name of the Amazon S3 bucket to use.
-        aws_profile (str): The name of configured AWS profile to use. This should
+        bucket: The name of the Amazon S3 bucket to use.
+        aws_profile: The name of configured AWS profile to use. This should
             refer to the name of a profile configured in, for example,
             `~/.aws/credentials`. Authentication is (optionally) handled by the
             `opinel` library, which is also aware of environment variables.
-        use_opinel (bool): Use Opinel to extract AWS credentials. This is mainly
+        use_opinel: Use Opinel to extract AWS credentials. This is mainly
             useful if you have used opinel to set up MFA. Note: Opinel must be
             installed manually alongside omniduct to take advantage of this
             feature.
-        session (botocore.session.Session): A pre-configured botocore Session
+        session: A pre-configured botocore Session
             instance to use instead of creating a new one when this client
             connects.
-        path_separator (str): Amazon S3 is essentially a key-based storage
+        path_separator: Amazon S3 is essentially a key-based storage
             system, and so one is free to choose an arbitrary "directory"
             separator. This defaults to '/' for consistency with other
             filesystems.
-        skip_hadoop_artifacts (bool): Whether to skip hadoop artifacts like
+        skip_hadoop_artifacts: Whether to skip hadoop artifacts like
             '*_$folder$' when enumerating directories (default=True).
 
         Note 1: aws_profile, if specified, should be the name of a profile as
@@ -69,7 +78,7 @@ class S3Client(FileSystemClient):
         self.skip_hadoop_artifacts = skip_hadoop_artifacts
         self.__path_separator = path_separator
         self._session = session
-        self._client = None
+        self._client: Any = None
 
         # Ensure self.host is updated with correct AWS region
         import boto3
@@ -80,12 +89,12 @@ class S3Client(FileSystemClient):
         logging.getLogger("botocore.vendored").setLevel(100)
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         self._session = self._session or self._get_boto3_session()
         self._client = self._session.client("s3")
         self._resource = self._session.resource("s3")
 
-    def _get_boto3_session(self):
+    def _get_boto3_session(self) -> Any:
         import boto3
 
         if self.use_opinel:
@@ -104,7 +113,7 @@ class S3Client(FileSystemClient):
         return boto3.Session(profile_name=self.aws_profile)
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         if self._client is None:
             return False
         # Check if still able to perform requests against AWS
@@ -122,24 +131,24 @@ class S3Client(FileSystemClient):
             return False
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         pass
 
     # Path properties and helpers
     @override
-    def _path_home(self):
-        return self.path_separator
+    def _path_home(self) -> str:
+        return self.path_separator  # type: ignore[no-any-return]
 
     @override
-    def _path_separator(self):
+    def _path_separator(self) -> str:
         return self.__path_separator
 
     # File node properties
     @override
-    def _exists(self, path):
-        return self.isfile(path) or self.isdir(path)
+    def _exists(self, path: str) -> bool:
+        return self.isfile(path) or self.isdir(path)  # type: ignore[no-any-return]
 
-    def _s3_path(self, path):
+    def _s3_path(self, path: str) -> str:
         if path.startswith(self.path_separator):
             path = path[len(self.path_separator) :]
         if path.endswith(self.path_separator):
@@ -147,14 +156,14 @@ class S3Client(FileSystemClient):
         return path
 
     @override
-    def _isdir(self, path):
+    def _isdir(self, path: str) -> bool:
         response = next(iter(self.__dir_paginator(path)))
         if "CommonPrefixes" in response or "Contents" in response:
             return True
         return False
 
     @override
-    def _isfile(self, path):
+    def _isfile(self, path: str) -> bool:
         try:
             self._client.get_object(Bucket=self.bucket, Key=self._s3_path(path) or "")
             return True
@@ -163,7 +172,7 @@ class S3Client(FileSystemClient):
 
     # Directory handling and enumeration
 
-    def __dir_paginator(self, path):
+    def __dir_paginator(self, path: str) -> Any:
         path = self._s3_path(path)
         paginator = self._client.get_paginator("list_objects")
         iterator = paginator.paginate(
@@ -175,7 +184,7 @@ class S3Client(FileSystemClient):
         return iterator
 
     @override
-    def _dir(self, path):
+    def _dir(self, path: str) -> Generator[FileSystemFileDesc, None, None]:
         iterator = self.__dir_paginator(path)
 
         for response_data in iterator:
@@ -217,7 +226,7 @@ class S3Client(FileSystemClient):
     #             yield k.key
 
     @override
-    def _mkdir(self, path, recursive, exist_ok):
+    def _mkdir(self, path: str, recursive: bool, exist_ok: bool) -> None:
         path = self._s3_path(path)
         if not path.endswith(self.path_separator):
             path += self.path_separator
@@ -225,11 +234,11 @@ class S3Client(FileSystemClient):
             self._client.put_object(Bucket=self.bucket, Key=path)
 
     @override
-    def _remove(self, path, recursive):
+    def _remove(self, path: str, recursive: bool) -> None:
         path = self._s3_path(path)
         if recursive:
             bucket = self._resource.Bucket(self.bucket)
-            to_delete = []
+            to_delete: list[dict[str, str]] = []
             for obj in bucket.objects.filter(Prefix=path + self.path_separator):
                 to_delete.append({"Key": obj.key})
                 if (
@@ -246,15 +255,17 @@ class S3Client(FileSystemClient):
 
     # File handling
     @override
-    def _file_read_(self, path, size=-1, offset=0, binary=False):
+    def _file_read_(
+        self, path: str, size: int = -1, offset: int = 0, binary: bool = False
+    ) -> str | bytes:
         if not self.isfile(path):
             raise FileNotFoundError(f"File `{path}` does not exist.")
 
         obj = self._resource.Object(self.bucket, self._s3_path(path))
-        body = obj.get()["Body"].read()
+        body: str | bytes = obj.get()["Body"].read()
 
         if not binary:
-            body = body.decode("utf-8")
+            body = body.decode("utf-8") if isinstance(body, bytes) else body
         if offset > 0:
             body = body[offset:]
         if size >= 0:
@@ -262,15 +273,15 @@ class S3Client(FileSystemClient):
         return body
 
     @override
-    def _file_append_(self, path, s, binary):
+    def _file_append_(self, path: str, s: str | bytes, binary: bool) -> None:
         raise NotImplementedError(
             "Support for S3 append operation has yet to be implemented."
         )
 
     @override
-    def _file_write_(self, path, s, binary):
+    def _file_write_(self, path: str, s: str | bytes, binary: bool) -> bool:
         obj = self._resource.Object(self.bucket, self._s3_path(path))
         if not binary:
-            s = s.encode("utf-8")
+            s = s.encode("utf-8") if isinstance(s, str) else s
         obj.put(Body=s)
         return True

@@ -1,7 +1,12 @@
+from __future__ import annotations
+
+from typing import Any
+
 from interface_meta import override
 
 from omniduct.utils.debug import logger
 
+from ._namespaces import ParsedNamespaces
 from .base import DatabaseClient
 
 
@@ -25,25 +30,32 @@ class ExasolClient(DatabaseClient):
 
     PROTOCOLS = ["exasol"]
     DEFAULT_PORT = 8563
-    NAMESPACE_NAMES = ["schema", "table"]
-    NAMESPACE_QUOTECHAR = '"'
-    NAMESPACE_SEPARATOR = "."
+    NAMESPACE_NAMES: list[str] = ["schema", "table"]
+    NAMESPACE_QUOTECHAR: str = '"'
+    NAMESPACE_SEPARATOR: str = "."
 
-    @override
+    schema: str | None
+    engine_opts: dict[str, Any]
+
     @property
-    def NAMESPACE_DEFAULT(self):
+    @override
+    def NAMESPACE_DEFAULT(self) -> dict[str, str | None]:  # type: ignore[override]
         return {"schema": self.schema}
 
     @override
-    def _init(self, schema=None, engine_opts=None):
-        self.__exasol = None
+    def _init(
+        self,
+        schema: str | None = None,
+        engine_opts: dict[str, Any] | None = None,
+    ) -> None:
+        self.__exasol: Any = None
 
         self.schema = schema
         self.connection_fields += ("schema",)
         self.engine_opts = engine_opts or {}
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         import pyexasol
 
         logger.info("Connecting to Exasol ...")
@@ -55,11 +67,11 @@ class ExasolClient(DatabaseClient):
         )
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         return self.__exasol is not None
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         try:
             self.__exasol.close()
         except:
@@ -67,7 +79,14 @@ class ExasolClient(DatabaseClient):
         self.__exasol = None
 
     @override
-    def _execute(self, statement, cursor, wait, session_properties, query=True):
+    def _execute(
+        self,
+        statement: str,
+        cursor: Any,
+        wait: bool,
+        session_properties: dict[str, Any],
+        query: bool = True,
+    ) -> Any:
         # pyexasol.ExaStatement has a similar interface to that of
         # a DBAPI2 cursor.
         cursor = cursor or self.__exasol.execute(statement)
@@ -91,7 +110,13 @@ class ExasolClient(DatabaseClient):
         return cursor
 
     @override
-    def _query_to_table(self, statement, table, if_exists, **kwargs):
+    def _query_to_table(
+        self,
+        statement: str,
+        table: ParsedNamespaces,
+        if_exists: str,
+        **kwargs: Any,
+    ) -> Any:
         statements = []
 
         if if_exists == "fail" and self.table_exists(table):
@@ -107,7 +132,7 @@ class ExasolClient(DatabaseClient):
         return self.execute(statement, **kwargs)
 
     @override
-    def _table_list(self, namespace, **kwargs):
+    def _table_list(self, namespace: ParsedNamespaces, **kwargs: Any) -> Any:
         # Since this namespace is a conditional, exasol requires single quotations
         # instead of double quotations. " -> '
         exasol_namespace = namespace.render(quote_char="'")
@@ -115,7 +140,7 @@ class ExasolClient(DatabaseClient):
         return self.query(query, **kwargs)
 
     @override
-    def _table_exists(self, table, **kwargs):
+    def _table_exists(self, table: ParsedNamespaces, **kwargs: Any) -> bool:
         logger.disabled = True
         try:
             self.table_desc(table, **kwargs)
@@ -126,20 +151,20 @@ class ExasolClient(DatabaseClient):
             logger.disabled = False
 
     @override
-    def _table_drop(self, table, **kwargs):
+    def _table_drop(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         # Schema and tables are always under uppercase namespaces.
         return self.execute(f"DROP TABLE {str(table).upper()}", **kwargs)
 
     @override
-    def _table_desc(self, table, **kwargs):
+    def _table_desc(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         # Schema and tables are always under uppercase namespaces.
         return self.query(f"DESCRIBE {str(table).upper()}", **kwargs)
 
     @override
-    def _table_head(self, table, n=10, **kwargs):
+    def _table_head(self, table: ParsedNamespaces, n: int = 10, **kwargs: Any) -> Any:
         # Schema and tables are always under uppercase namespaces.
         return self.query(f"SELECT * FROM {str(table).upper()} LIMIT {n}", **kwargs)
 
     @override
-    def _table_props(self, table, **kwargs):
+    def _table_props(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise NotImplementedError

@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import inspect
 import json
 import logging
 import os
-import sys
+from collections.abc import Callable
+from typing import Any
 
 
-def ensure_path_exists(path):
+def ensure_path_exists(path: str) -> str:
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         os.makedirs(path)
@@ -16,19 +19,21 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigurationRegistry:
-    def __init__(self):
+    _register: dict[str, dict[str, Any]]
+
+    def __init__(self) -> None:
         self._register = {}
 
     def register(
         self,
-        key,
-        description=None,
-        default=None,
-        onchange=None,
-        onload=None,
-        type=None,
-        host=None,
-    ):
+        key: str,
+        description: str | None = None,
+        default: Any = None,
+        onchange: Callable[[Any], None] | None = None,
+        onload: Callable[[], Any] | None = None,
+        type: type | None = None,
+        host: str | None = None,
+    ) -> None:
         """
         Register a configuration key that can be set by the user. As noted in the
         class level documentation, these keys should not lead to changes in the
@@ -59,8 +64,10 @@ class ConfigurationRegistry:
             )
 
         try:
-            caller_frame = inspect.currentframe().f_back
-            host = inspect.getmodule(caller_frame).__name__
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back if frame is not None else None
+            module = inspect.getmodule(caller_frame)
+            host = module.__name__ if module is not None else "unknown"
         except:
             host = "unknown"
 
@@ -77,7 +84,7 @@ class ConfigurationRegistry:
             "type": type,
         }
 
-    def show(self):
+    def show(self) -> None:
         """
         Pretty print the configuration options available to be set, as well as
         their current values, descriptions and the module from which they were
@@ -113,7 +120,9 @@ class Configuration(ConfigurationRegistry):
     >>> config.show()
     """
 
-    def __init__(self, *registries, **kwargs):
+    _config: dict[str, Any]
+
+    def __init__(self, *registries: dict[str, Any], **kwargs: Any) -> None:
         ConfigurationRegistry.__init__(self)
 
         for registry in registries:
@@ -121,17 +130,17 @@ class Configuration(ConfigurationRegistry):
                 self.register(key, **props)
 
         self._config = {}
-        self.__config_path = kwargs.pop("config_path", None)
+        self.__config_path: str | None = kwargs.pop("config_path", None)
 
-    def __dir__(self):
+    def __dir__(self) -> list[str]:
         return sorted(self._register.keys())
 
     @property
-    def _config_path(self):
+    def _config_path(self) -> str | None:
         return self.__config_path
 
     @_config_path.setter
-    def _config_path(self, path):
+    def _config_path(self, path: str) -> None:
         self.__config_path = os.path.expandvars(os.path.expanduser(path))
 
         if path is not None and os.path.exists(self.__config_path):
@@ -143,7 +152,7 @@ class Configuration(ConfigurationRegistry):
                     f"Configuration file at {self.__config_path} cannot be loaded. Perhaps try deleting it."
                 ) from e
 
-    def all(self):
+    def all(self) -> dict[str, Any]:
         """
         Return a dictionary containing all configuration keys. Note that this is
         the actual dictionary storing the configuration options, so modifying
@@ -152,7 +161,7 @@ class Configuration(ConfigurationRegistry):
         """
         return self._config
 
-    def show(self):
+    def show(self) -> None:
         """
         Pretty print the configuration options available to be set, as well as
         their current values, descriptions and the module from which they were
@@ -167,7 +176,7 @@ class Configuration(ConfigurationRegistry):
             print(f"\t{desc}")
             print(f"\t({self._register[key]['host']})")
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         """
         Allow setting configuration options using the standard python attribute
         methods, as described in the class documentation.
@@ -188,7 +197,7 @@ class Configuration(ConfigurationRegistry):
         else:
             raise KeyError(f"No such configuration key `{key}`.")
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> Any:
         """
         Allow retrieval of configuration keys using standard python attribute
         methods, as described in the class documentation.
@@ -196,7 +205,7 @@ class Configuration(ConfigurationRegistry):
         Attributes prefixed with '_' are loaded from this class.
         """
         if key.startswith("_"):
-            return object.__getattr__(self, key)
+            return object.__getattribute__(self, key)
         if key in self._register:
             if key in self._config:
                 return self._config[key]
@@ -211,7 +220,7 @@ class Configuration(ConfigurationRegistry):
             return self._config.get(key, self._register[key]["default"])
         raise AttributeError(f"No such configuration key `{key}`.")
 
-    def reset(self, *keys, **target_config):
+    def reset(self, *keys: str, **target_config: Any) -> None:
         """
         Reset all configuration keys specified to their default values, or values
         specified in `target_config`. If both `keys` and `target_config` are
@@ -225,9 +234,9 @@ class Configuration(ConfigurationRegistry):
         >>> config.reset()
         """
         if len(keys) == 0:
-            keys = set(list(self._register.keys()) + list(target_config.keys()))
+            keys = tuple(set(list(self._register.keys()) + list(target_config.keys())))
 
-        target_config = self.__restrict_keys(target_config, keys)
+        target_config = self.__restrict_keys(target_config, list(keys))
         reset_keys = [key for key in keys if key not in target_config]
 
         for key, value in target_config.items():
@@ -252,12 +261,19 @@ class Configuration(ConfigurationRegistry):
                 ):
                     self._register[key]["onchange"](getattr(self, key))
 
-    def __restrict_keys(self, d, keys):
+    def __restrict_keys(
+        self, d: dict[str, Any], keys: set[str] | list[str] | None
+    ) -> dict[str, Any]:
         if keys is None:
             return d
         return {key: d[key] for key in keys if key in d}
 
-    def save(self, filename=None, keys=None, replace=None):
+    def save(
+        self,
+        filename: str | None = None,
+        keys: list[str] | None = None,
+        replace: bool | None = None,
+    ) -> None:
         """
         Save the current configuration as a JSON file. Accepted arguments are:
          - filename : The location of the file to be saved. If not specified,
@@ -271,6 +287,8 @@ class Configuration(ConfigurationRegistry):
             or `False` if specific keys are specified. (default=None)
         """
         filename = filename or self._config_path
+        if filename is None:
+            raise ValueError("No filename specified and no default config path set.")
         filename = os.path.join(
             ensure_path_exists(os.path.dirname(filename)), os.path.basename(filename)
         )
@@ -285,11 +303,15 @@ class Configuration(ConfigurationRegistry):
         config.update(self.__restrict_keys(self._config, keys))
         with open(filename, "w", encoding="utf-8") as f:
             json_config = json.dumps(config, ensure_ascii=False, indent=4)
-            if sys.version_info.major == 2 and isinstance(json_config, str):
-                json_config = json_config.decode("utf-8")
             f.write(json_config)
 
-    def load(self, filename=None, keys=None, replace=None, force=False):
+    def load(
+        self,
+        filename: str | None = None,
+        keys: list[str] | None = None,
+        replace: bool | None = None,
+        force: bool = False,
+    ) -> None:
         """
         Load a configuration from the disk. Accepted arguments are:
          - filename : The location of the configuration. By default, this will
@@ -307,6 +329,8 @@ class Configuration(ConfigurationRegistry):
             all checks.
         """
         filename = filename or self._config_path
+        if filename is None:
+            raise ValueError("No filename specified and no default config path set.")
         if replace is None:
             replace = keys is None
         if keys is None:
@@ -319,7 +343,7 @@ class Configuration(ConfigurationRegistry):
                 if replace:
                     self.reset(**config)
                 else:
-                    self.reset(*keys, **config)
+                    self.reset(*(keys or ()), **config)
 
 
 config = Configuration()

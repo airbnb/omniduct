@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import random
 import re
 import socket
+from typing import cast
 
 from omniduct.utils.debug import logger
 
 
-def is_local_port_free(local_port):
+def is_local_port_free(local_port: int) -> bool:
     """
     Checks if local port is free.
 
@@ -29,7 +32,7 @@ def is_local_port_free(local_port):
     return True
 
 
-def get_free_local_port():
+def get_free_local_port() -> int:
     """
     Return a random free port
 
@@ -40,13 +43,13 @@ def get_free_local_port():
     """
     s = socket.socket()
     s.bind(("", 0))
-    free_port = s.getsockname()[1]
+    free_port = cast(int, s.getsockname()[1])
     s.close()
     logger.info(f"found port {free_port}")
     return free_port
 
 
-def is_port_bound(hostname, port, timeout=None):
+def is_port_bound(hostname: str, port: int, timeout: float | None = None) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     if timeout:
         s.settimeout(timeout)
@@ -60,7 +63,7 @@ def is_port_bound(hostname, port, timeout=None):
 
 
 # Random hosts for ssh gateway nodes
-def naive_load_balancer(hosts, port):
+def naive_load_balancer(hosts: list[str], port: int) -> str:
     # Shuffle hosts randomly
     hosts = hosts.copy()
     random.shuffle(hosts)
@@ -69,6 +72,8 @@ def naive_load_balancer(hosts, port):
     pattern = re.compile(r"(?P<host>[^\:]+)(?::(?P<port>[0-9]{1,5}))?")
     for host in hosts:
         m = pattern.match(host)
+        if m is None:
+            continue
         if is_port_bound(m.group("host"), int(m.group("port") or port), timeout=1):
             return host
         logger.warning(f"Avoiding down or inaccessible host: '{host}'.")

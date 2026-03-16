@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import io
 from abc import abstractmethod
 from collections import OrderedDict, namedtuple
+from collections.abc import Generator
+from typing import Any, cast
 
 import pandas as pd
 from interface_meta import inherit_docs, override
@@ -21,33 +25,38 @@ class FileSystemClient(Duct, MagicsProvider):
     """
 
     DUCT_TYPE = Duct.Type.FILESYSTEM
-    DEFAULT_PORT = None
+    DEFAULT_PORT: int | None = None
 
     @inherit_docs("_init", mro=True)
     def __init__(
-        self, cwd=None, home=None, read_only=False, global_writes=False, **kwargs
-    ):
+        self,
+        cwd: str | None = None,
+        home: str | None = None,
+        read_only: bool = False,
+        global_writes: bool = False,
+        **kwargs: Any,
+    ) -> None:
         """
-        cwd (None, str): The path prefix to use as the current working directory
+        cwd: The path prefix to use as the current working directory
             (if None, the user's home directory is used where that makes sense).
-        home (None, str): The path prefix to use as the current users' home
+        home: The path prefix to use as the current users' home
             directory. If not specified, it will default to an implementation-
             specific value (often '/').
-        read_only (bool): Whether the filesystem should only be able to perform
+        read_only: Whether the filesystem should only be able to perform
             read operations.
-        global_writes (bool): Whether to allow writes outside of the user's home
+        global_writes: Whether to allow writes outside of the user's home
             folder.
-        **kwargs (dict): Additional keyword arguments to passed on to subclasses.
+        **kwargs: Additional keyword arguments to passed on to subclasses.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
-        self._path_cwd = cwd
-        self.__path_home = home
+        self._path_cwd: str | None = cwd
+        self.__path_home: str | None = home
         self.read_only = read_only
         self.global_writes = global_writes
         self._init(**kwargs)
 
     @abstractmethod
-    def _init(self):
+    def _init(self) -> None:
         pass
 
     # Path properties and helpers
@@ -55,7 +64,7 @@ class FileSystemClient(Duct, MagicsProvider):
     @property
     @inherit_docs("_path_home")
     @require_connection
-    def path_home(self):
+    def path_home(self) -> str:
         """
         str: The path prefix to use as the current users' home directory. Unless
         `cwd` is set, this will be the prefix to use for all non-absolute path
@@ -69,7 +78,7 @@ class FileSystemClient(Duct, MagicsProvider):
         return self.__path_home
 
     @path_home.setter
-    def path_home(self, path_home):
+    def path_home(self, path_home: str | None) -> None:
         if path_home is not None and not path_home.startswith(self.path_separator):
             raise ValueError(
                 f"The home path must be absolute. Received: '{path_home}'."
@@ -77,11 +86,11 @@ class FileSystemClient(Duct, MagicsProvider):
         self.__path_home = path_home
 
     @abstractmethod
-    def _path_home(self):
-        return NotImplementedError
+    def _path_home(self) -> str:
+        raise NotImplementedError
 
     @property
-    def path_cwd(self):
+    def path_cwd(self) -> str:
         """
         str: The path prefix associated with the current working directory. If
         not otherwise set, it will be the users' home directory, and will be the
@@ -90,7 +99,7 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._path_cwd or self.path_home
 
     @path_cwd.setter
-    def path_cwd(self, path_cwd):
+    def path_cwd(self, path_cwd: str) -> None:
         path_cwd = self._path(path_cwd)
         if not self.isdir(path_cwd):
             raise ValueError("Specified path does not exist.")
@@ -98,7 +107,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @property
     @inherit_docs("_path_separator")
-    def path_separator(self):
+    def path_separator(self) -> str:
         """
         str: The character(s) to use in separating path components. Typically
         this will be '/'.
@@ -106,10 +115,10 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._path_separator()
 
     @abstractmethod
-    def _path_separator(self):
+    def _path_separator(self) -> str:
         raise NotImplementedError
 
-    def path_join(self, path, *components):
+    def path_join(self, path: str, *components: str) -> str:
         """
         Generate a new path by joining together multiple paths.
 
@@ -120,12 +129,12 @@ class FileSystemClient(Duct, MagicsProvider):
         `self.path_normpath` for this purpose.
 
         Args:
-            path (str): The base path to which components should be joined.
-            *components (str): Any additional components to join to the base
+            path: The base path to which components should be joined.
+            *components: Any additional components to join to the base
                 path.
 
         Returns:
-            str: The path resulting from joining all of the components nominated,
+            The path resulting from joining all of the components nominated,
             in order, to the base path.
         """
         for component in components:
@@ -137,7 +146,7 @@ class FileSystemClient(Duct, MagicsProvider):
                 path = f"{path}{self.path_separator if not path.endswith(self.path_separator) else ''}{component}"
         return path
 
-    def path_basename(self, path):
+    def path_basename(self, path: str) -> str:
         """
         Extract the last component of a given path.
 
@@ -146,14 +155,14 @@ class FileSystemClient(Duct, MagicsProvider):
         the empty string.
 
         Args:
-            path (str): The path from which the basename should be extracted.
+            path: The path from which the basename should be extracted.
 
         Returns:
-            str: The extracted basename.
+            The extracted basename.
         """
         return self._path(path).split(self.path_separator)[-1]
 
-    def path_dirname(self, path):
+    def path_dirname(self, path: str) -> str:
         """
         Extract the parent directory for provided path.
 
@@ -162,17 +171,18 @@ class FileSystemClient(Duct, MagicsProvider):
         `self.path_separator`.
 
         Args:
-            path (str): The path from which the directory path should be
+            path: The path from which the directory path should be
                 extracted.
 
         Returns:
-            str: The extracted directory path.
+            The extracted directory path.
         """
-        return self.path_separator.join(
-            self._path(path).split(self.path_separator)[:-1]
+        return cast(
+            str,
+            self.path_separator.join(self._path(path).split(self.path_separator)[:-1]),
         )
 
-    def path_normpath(self, path):
+    def path_normpath(self, path: str) -> str:
         """
         Normalise a pathname.
 
@@ -180,13 +190,13 @@ class FileSystemClient(Duct, MagicsProvider):
         on this filesystem.
 
         Args:
-            path (str): The path to normalise (make absolute).
+            path: The path to normalise (make absolute).
 
         Returns:
-            str: The normalised path.
+            The normalised path.
         """
         components = self._path(path).split(self.path_separator)
-        out_path = []
+        out_path: list[str] = []
         for component in components:
             if component == "" and len(out_path) > 0:
                 continue
@@ -202,17 +212,17 @@ class FileSystemClient(Duct, MagicsProvider):
             else:
                 out_path.append(component)
         if len(out_path) == 1 and out_path[0] == "":
-            return self.path_separator
-        return self.path_separator.join(out_path)
+            return cast(str, self.path_separator)
+        return cast(str, self.path_separator.join(out_path))
 
-    def _path(self, path=None):
+    def _path(self, path: str | None = None) -> str:
         return self.path_cwd if path is None else self.path_join(self.path_cwd, path)
 
-    def _path_in_home_dir(self, path):
+    def _path_in_home_dir(self, path: str) -> bool:
         return self.path_normpath(path).startswith(self.path_home)
 
     @property
-    def read_only(self):
+    def read_only(self) -> bool:
         """
         bool: Whether this filesystem client should be permitted to attempt any
         write operations.
@@ -220,11 +230,11 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._read_only
 
     @read_only.setter
-    def read_only(self, read_only):
+    def read_only(self, read_only: bool) -> None:
         self._read_only = read_only
 
     @property
-    def global_writes(self):
+    def global_writes(self) -> bool:
         """
         bool: Whether writes should be permitted outside of home directory. This
         write-lock is designed to prevent inadvertent scripted writing in
@@ -233,10 +243,10 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._global_writes
 
     @global_writes.setter
-    def global_writes(self, global_writes):
+    def global_writes(self, global_writes: bool) -> None:
         self._global_writes = global_writes
 
-    def _assert_path_is_writable(self, path):
+    def _assert_path_is_writable(self, path: str) -> bool:
         if self.read_only:
             raise RuntimeError(
                 f"This filesystem client is configured for read-only access. Set `{self.name}`.`read_only` to `False` to override."
@@ -251,64 +261,64 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @inherit_docs("_exists")
     @require_connection
-    def exists(self, path):
+    def exists(self, path: str) -> bool:
         """
         Check whether nominated path exists on this filesytem.
 
         Args:
-            path (str): The path for which to check existence.
+            path: The path for which to check existence.
 
         Returns:
-            bool: `True` if file/folder exists at nominated path, and `False`
+            `True` if file/folder exists at nominated path, and `False`
                 otherwise.
         """
         return self._exists(self._path(path))
 
     @abstractmethod
-    def _exists(self, path):
+    def _exists(self, path: str) -> bool:
         raise NotImplementedError
 
     @inherit_docs("_isdir")
     @require_connection
-    def isdir(self, path):
+    def isdir(self, path: str) -> bool:
         """
         Check whether a nominated path is directory.
 
         Args:
-            path (str): The path for which to check directory nature.
+            path: The path for which to check directory nature.
 
         Returns:
-            bool: `True` if folder exists at nominated path, and `False`
+            `True` if folder exists at nominated path, and `False`
             otherwise.
         """
         return self._isdir(self._path(path))
 
     @abstractmethod
-    def _isdir(self, path):
+    def _isdir(self, path: str) -> bool:
         raise NotImplementedError
 
     @inherit_docs("_isfile")
     @require_connection
-    def isfile(self, path):
+    def isfile(self, path: str) -> bool:
         """
         Check whether a nominated path is a file.
 
         Args:
-            path (str): The path for which to check file nature.
+            path: The path for which to check file nature.
 
         Returns:
-            bool: `True` if a file exists at nominated path, and `False`
+            `True` if a file exists at nominated path, and `False`
             otherwise.
         """
         return self._isfile(self._path(path))
 
-    def _isfile(self, path):
+    def _isfile(self, path: str) -> bool:
         return not self._isdir(path)
 
     # Directory handling
 
     @abstractmethod
-    def _dir(self, path):
+    def _dir(self, path: str) -> Generator[FileSystemFileDesc, None, None]:
         """
         This method should return a generator over `FileSystemFileDesc` objects.
         """
@@ -316,7 +326,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @inherit_docs("_dir")
     @require_connection
-    def dir(self, path=None):
+    def dir(self, path: str | None = None) -> Generator[FileSystemFileDesc, None, None]:
         """
         Retrieve information about the children of a nominated directory.
 
@@ -328,17 +338,16 @@ class FileSystemClient(Duct, MagicsProvider):
         folder).
 
         Args:
-            path (str): The path to examine for children.
+            path: The path to examine for children.
 
         Returns:
-            generator<FileSystemFileDesc>: The children of `path` represented as
-            `FileSystemFileDesc` objects.
+            The children of `path` represented as `FileSystemFileDesc` objects.
         """
         if not self.isdir(path):
             raise ValueError(f"'{path}' is not a valid directory.")
         return self._dir(self._path(path))
 
-    def listdir(self, path=None):
+    def listdir(self, path: str | None = None) -> list[str]:
         """
         Retrieve the names of the children of a nomianted directory.
 
@@ -348,15 +357,15 @@ class FileSystemClient(Duct, MagicsProvider):
         will typically be the home folder).
 
         Args:
-            path (str): The path of the directory from which to enumerate filenames.
+            path: The path of the directory from which to enumerate filenames.
 
         Returns:
-            list<str>: The names of all children of the nominated directory.
+            The names of all children of the nominated directory.
         """
         return [f.name for f in self.dir(self._path(path))]
 
     @require_connection
-    def showdir(self, path=None):
+    def showdir(self, path: str | None = None) -> pd.DataFrame | str:
         """
         Return a dataframe representation of a directory.
 
@@ -367,20 +376,20 @@ class FileSystemClient(Duct, MagicsProvider):
         the columns: 'name' and 'type'.
 
         Args:
-            path (str): The path of the directory from which to show contents.
+            path: The path of the directory from which to show contents.
 
         Returns:
-            pandas.DataFrame: A DataFrame representation of the contents of the
+            A DataFrame representation of the contents of the
             nominated directory.
         """
         if not self.isdir(path):
             raise ValueError(f"'{path}' is not a valid directory.")
         return self._showdir(self._path(path))
 
-    def _showdir(self, path):
+    def _showdir(self, path: str) -> pd.DataFrame | str:
         data = [f.as_dict() for f in self._dir(path)]
         if len(data) > 0:
-            return (
+            return (  # type: ignore[no-any-return]
                 pd.DataFrame(data)
                 .sort_values(["type", "name"])
                 .reset_index(drop=True)
@@ -391,7 +400,9 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @inherit_docs("_walk")
     @require_connection
-    def walk(self, path=None):
+    def walk(
+        self, path: str | None = None
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
         """
         Explore the filesystem tree starting at a nominated path.
 
@@ -400,20 +411,22 @@ class FileSystemClient(Duct, MagicsProvider):
         (<path name>, [<directory 1>, ...], [<file 1>, ...])
 
         Args:
-            path (str): The path of the directory from which to enumerate
+            path: The path of the directory from which to enumerate
                 contents.
 
         Returns:
-            generator<tuple>: A generator of tuples, each tuple being associated
+            A generator of tuples, each tuple being associated
             with one directory that is either `path` or one of its descendants.
         """
         if not self.isdir(path):
             raise ValueError(f"'{path}' is not a valid directory.")
         return self._walk(self._path(path))
 
-    def _walk(self, path):
-        dirs = []
-        files = []
+    def _walk(
+        self, path: str
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
+        dirs: list[str] = []
+        files: list[str] = []
         for f in self._dir(path):
             if f.type == "directory":
                 dirs.append(f.name)
@@ -428,7 +441,9 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @inherit_docs("_find")
     @require_connection
-    def find(self, path_prefix=None, **attrs):
+    def find(
+        self, path_prefix: str | None = None, **attrs: Any
+    ) -> Generator[FileSystemFileDesc, None, None]:
         """
         Find a file or directory based on certain attributes.
 
@@ -438,16 +453,16 @@ class FileSystemClient(Duct, MagicsProvider):
         this method will function identically to `self.dir`.
 
         Args:
-            path_prefix (str): The path under which files/directories should be
+            path_prefix: The path under which files/directories should be
                 found.
-            **attrs (dict): Constraints on the fields of the `FileSystemFileDesc`
+            **attrs: Constraints on the fields of the `FileSystemFileDesc`
                 objects associated with this filesystem, as constant values or
                 callable objects (in which case the object will be called and
                 should return True if attribute value is match, and False
                 otherwise).
 
         Returns:
-            generator<FileSystemFileDesc>: A generator over `FileSystemFileDesc`
+            A generator over `FileSystemFileDesc`
                 objects that are descendents of `path_prefix` and which statisfy
                 provided constraints.
         """
@@ -457,8 +472,10 @@ class FileSystemClient(Duct, MagicsProvider):
             )
         return self._find(self._path(path_prefix), **attrs)
 
-    def _find(self, path_prefix, **attrs):
-        def is_match(f):
+    def _find(
+        self, path_prefix: str, **attrs: Any
+    ) -> Generator[FileSystemFileDesc, None, None]:
+        def is_match(f: FileSystemFileDesc) -> bool:
             for attr, value in attrs.items():
                 if hasattr(value, "__call__") and not value(f.as_dict().get(attr)):
                     return False
@@ -466,7 +483,7 @@ class FileSystemClient(Duct, MagicsProvider):
                     return False
             return True
 
-        dirs = []
+        dirs: list[str] = []
         for f in self._dir(path_prefix):
             if f.type == "directory":
                 dirs.append(f.name)
@@ -480,13 +497,13 @@ class FileSystemClient(Duct, MagicsProvider):
 
     @inherit_docs("_mkdir")
     @require_connection
-    def mkdir(self, path, recursive=True, exist_ok=False):
+    def mkdir(self, path: str, recursive: bool = True, exist_ok: bool = False) -> None:
         """
         Create a directory at the given path.
 
         Args:
-            path (str): The path of the directory to create.
-            recursive (bool): Whether to recursively create any parents of this
+            path: The path of the directory to create.
+            recursive: Whether to recursively create any parents of this
                 path if they do not already exist.
 
         Note: `exist_ok` is passed onto subclass implementations of `_mkdir`
@@ -498,12 +515,12 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._mkdir(self._path(path), recursive, exist_ok)
 
     @abstractmethod
-    def _mkdir(self, path, recursive, exist_ok):
+    def _mkdir(self, path: str, recursive: bool, exist_ok: bool) -> None:
         raise NotImplementedError
 
     @inherit_docs("_remove")
     @require_connection
-    def remove(self, path, recursive=False):
+    def remove(self, path: str, recursive: bool = False) -> None:
         """
         Remove file(s) at a nominated path.
 
@@ -511,8 +528,8 @@ class FileSystemClient(Duct, MagicsProvider):
         is set to `True`.
 
         Args:
-            path (str): The path of the file/directory to be removed.
-            recursive (bool): Whether to remove directories and all of their
+            path: The path of the file/directory to be removed.
+            recursive: Whether to remove directories and all of their
                 contents.
         """
         self._assert_path_is_writable(path)
@@ -525,14 +542,14 @@ class FileSystemClient(Duct, MagicsProvider):
         return self._remove(self._path(path), recursive)
 
     @abstractmethod
-    def _remove(self, path, recursive):
+    def _remove(self, path: str, recursive: bool) -> None:
         raise NotImplementedError
 
     # File handling
 
     @inherit_docs("_open")
     @require_connection
-    def open(self, path, mode="rt"):
+    def open(self, path: str, mode: str = "rt") -> FileSystemFile:
         """
         Open a file for reading and/or writing.
 
@@ -543,91 +560,101 @@ class FileSystemClient(Duct, MagicsProvider):
         to the source filesystem when the file is closed.
 
         Args:
-            path (str): The path of the file to open.
-            mode (str): All standard Python file modes.
+            path: The path of the file to open.
+            mode: All standard Python file modes.
 
         Returns:
-            FileSystemFile or file-like: An opened file-like object.
+            An opened file-like object.
         """
         if "w" in mode or "a" in mode or "+" in mode:
             self._assert_path_is_writable(path)
         return self._open(self._path(path), mode=mode)
 
-    def _open(self, path, mode):
+    def _open(self, path: str, mode: str) -> FileSystemFile:
         return FileSystemFile(self, path, mode)
 
     @inherit_docs("_file_read_")
     @require_connection
-    def _file_read(self, path, size=-1, offset=0, binary=False):
+    def _file_read(
+        self, path: str, size: int = -1, offset: int = 0, binary: bool = False
+    ) -> str | bytes:
         """
         This method is used by `FileSystemFile` to read the contents of files.
         `._file_read_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
         Args:
-            path (str): The path of the file to be read.
-            size (int): The number of bytes to read at a time (-1 for max possible).
-            offset (int): The offset in bytes from the start of the file.
-            binary (bool): Whether to read the file in binary mode.
+            path: The path of the file to be read.
+            size: The number of bytes to read at a time (-1 for max possible).
+            offset: The offset in bytes from the start of the file.
+            binary: Whether to read the file in binary mode.
 
         Returns:
-            str or bytes: The contents of the file.
+            The contents of the file.
         """
         return self._file_read_(
             self._path(path), size=size, offset=offset, binary=binary
         )
 
-    def _file_read_(self, path, size=-1, offset=0, binary=False):
+    def _file_read_(
+        self, path: str, size: int = -1, offset: int = 0, binary: bool = False
+    ) -> str | bytes:
         raise NotImplementedError
 
     @inherit_docs("_file_write_")
     @require_connection
-    def _file_write(self, path, s, binary=False):
+    def _file_write(self, path: str, s: str | bytes, binary: bool = False) -> int:
         """
         This method is used by `FileSystemFile` to write to files.
         `._file_write_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
         Args:
-            path (str): The path of the file to be read.
-            s (str, bytes): The content to be written to the file.
-            binary (bool): Whether to read the file in binary mode.
+            path: The path of the file to be read.
+            s: The content to be written to the file.
+            binary: Whether to read the file in binary mode.
 
         Returns:
-            int: Number of bytes/characters written.
+            Number of bytes/characters written.
         """
         self._assert_path_is_writable(path)
         return self._file_write_(self._path(path), s, binary)
 
-    def _file_write_(self, path, s, binary):
+    def _file_write_(self, path: str, s: str | bytes, binary: bool) -> int:
         raise NotImplementedError
 
     @inherit_docs("_file_append_")
     @require_connection
-    def _file_append(self, path, s, binary=False):
+    def _file_append(self, path: str, s: str | bytes, binary: bool = False) -> int:
         """
         This method is used by `FileSystemFile` to append content to files.
         `._file_append_` may be left unimplemented if `.open()` returns a different
         kind of file handle.
 
         Args:
-            path (str): The path of the file to be read.
-            s (str, bytes): The content to be appended to the file.
-            binary (bool): Whether to read the file in binary mode.
+            path: The path of the file to be read.
+            s: The content to be appended to the file.
+            binary: Whether to read the file in binary mode.
 
         Returns:
-            int: Number of bytes/characters written.
+            Number of bytes/characters written.
         """
         self._assert_path_is_writable(path)
         return self._file_append_(self._path(path), s, binary)
 
-    def _file_append_(self, path, s, binary):
+    def _file_append_(self, path: str, s: str | bytes, binary: bool) -> int:
         raise NotImplementedError
 
     # File transfer
 
     @inherit_docs("_download")
-    def download(self, source, dest=None, overwrite=False, fs=None):
+    def download(
+        self,
+        source: str,
+        dest: str | None = None,
+        overwrite: bool = False,
+        fs: FileSystemClient | None = None,
+    ) -> None:
         """
         Download files to another filesystem.
 
@@ -636,20 +663,20 @@ class FileSystemClient(Duct, MagicsProvider):
         existing file if `overwrite` is `True`.
 
         Args:
-            source (str): The path on this filesystem of the file to download to
+            source: The path on this filesystem of the file to download to
                 the nominated filesystem (`fs`). If `source` ends
                 with '/' then contents of the the `source` directory will be
                 copied into destination folder, and will throw an error if path
                 does not resolve to a directory.
-            dest (str): The destination path on filesystem (`fs`). If not
+            dest: The destination path on filesystem (`fs`). If not
                 specified, the file/folder is downloaded into the default path,
                 usually one's home folder. If `dest` ends with '/',
                 and corresponds to a directory, the contents of source will be
                 copied instead of copying the entire folder. If `dest` is
                 otherwise a directory, an exception will be raised.
-            overwrite (bool): `True` if the contents of any existing file by the
+            overwrite: `True` if the contents of any existing file by the
                 same name should be overwritten, `False` otherwise.
-            fs (FileSystemClient): The FileSystemClient into which the nominated
+            fs: The FileSystemClient into which the nominated
                 file/folder `source` should be downloaded. If not specified,
                 defaults to the local filesystem.
         """
@@ -672,7 +699,7 @@ class FileSystemClient(Duct, MagicsProvider):
 
         # A mapping of source to dest paths on the respective filesystems
         # In format: (source, dest, isdir?)
-        targets = []
+        targets: list[tuple[str, str, bool]] = []
 
         if self.isdir(source):
             target_prefix = (
@@ -720,14 +747,22 @@ class FileSystemClient(Duct, MagicsProvider):
             elif not target[2]:
                 self._download(target[0], target[1], overwrite, fs)
 
-    def _download(self, source, dest, overwrite, fs):
+    def _download(
+        self, source: str, dest: str, overwrite: bool, fs: FileSystemClient
+    ) -> None:
         if not overwrite and fs.exists(dest):
             raise RuntimeError("File already exists on filesystem.")
         with self.open(source, "rb") as f_src:
             with fs.open(dest, "wb") as f_dest:
                 f_dest.write(f_src.read())
 
-    def upload(self, source, dest=None, overwrite=False, fs=None):
+    def upload(
+        self,
+        source: str,
+        dest: str | None = None,
+        overwrite: bool = False,
+        fs: FileSystemClient | None = None,
+    ) -> None:
         """
         Upload files from another filesystem.
 
@@ -737,18 +772,18 @@ class FileSystemClient(Duct, MagicsProvider):
         `fs.download(..., fs=self)`.
 
         Args:
-            source (str): The path on the specified filesystem (`fs`) of the
+            source: The path on the specified filesystem (`fs`) of the
                 file to upload to this filesystem. If `source` ends with '/',
                 and corresponds to a directory, the contents of source will be
                 copied instead of copying the entire folder.
-            dest (str): The destination path on this filesystem. If not
+            dest: The destination path on this filesystem. If not
                 specified, the file/folder is uploaded into the default path,
                 usually one's home folder, on this filesystem. If `dest` ends
                 with '/' then file will be copied into destination folder, and
                 will throw an error if path does not resolve to a directory.
-            overwrite (bool): `True` if the contents of any existing file by the
+            overwrite: `True` if the contents of any existing file by the
                 same name should be overwritten, `False` otherwise.
-            fs (FileSystemClient): The FileSystemClient from which to load the
+            fs: The FileSystemClient from which to load the
                 file/folder at `source`. If not specified, defaults to the local
                 filesystem.
         """
@@ -756,38 +791,38 @@ class FileSystemClient(Duct, MagicsProvider):
             from .local import LocalFsClient
 
             fs = LocalFsClient()
-        return fs.download(source, dest, overwrite, self)
+        fs.download(source, dest, overwrite, self)
 
     # Magics
     @override
-    def _register_magics(self, base_name):
+    def _register_magics(self, base_name: str) -> None:
         from IPython.core.magic import register_cell_magic, register_line_magic
 
         @register_line_magic(f"{base_name}.listdir")
         @process_line_arguments
-        def listdir(path=""):
+        def listdir(path: str = "") -> list[str]:
             return self.listdir(path)
 
         @register_line_magic(f"{base_name}.showdir")
         @process_line_arguments
-        def showdir(path=""):
-            return self.showdir(path)
+        def showdir(path: str = "") -> pd.DataFrame | str:
+            return cast(pd.DataFrame | str, self.showdir(path))
 
         @register_line_magic(f"{base_name}.read")
         @process_line_arguments
-        def read_file(path):
+        def read_file(path: str) -> str | bytes:
             with self.open(path) as f:
-                return f.read()
+                return cast(str | bytes, f.read())
 
         @register_cell_magic(f"{base_name}.write")
         @process_line_arguments
-        def write_file(cell, path):
+        def write_file(cell: str, path: str) -> None:
             with self.open(path, "w") as f:
                 f.write(cell)
 
     # PyArrow compat
     @property
-    def pyarrow_fs(self):
+    def pyarrow_fs(self) -> Any:
         from ._pyarrow_compat import OmniductFileSystem
 
         return OmniductFileSystem(self)
@@ -800,16 +835,21 @@ class FileSystemFile:
     both by omniduct, the user and other libraries.
     """
 
-    def __init__(self, fs, path, mode="r"):
+    fs: FileSystemClient
+    path: str
+    offset: int
+    closed: bool
+
+    def __init__(self, fs: FileSystemClient, path: str, mode: str = "r") -> None:
         self.fs = fs
         self.path = path
         self.mode = mode
         self.offset = 0
         self.closed = False
-        self.__modified = False
+        self.__modified: bool = False
 
         if self.binary_mode:
-            self.__io_buffer = io.BytesIO()
+            self.__io_buffer: io.BytesIO | io.StringIO = io.BytesIO()
         else:
             self.__io_buffer = io.StringIO()
 
@@ -821,15 +861,15 @@ class FileSystemFile:
                 self.__io_buffer.seek(0)
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.path
 
     @property
-    def mode(self):
+    def mode(self) -> str:
         return self.__mode
 
     @mode.setter
-    def mode(self, mode):
+    def mode(self, mode: str) -> None:
         if (
             len(set(mode)) != len(mode)
             or sum(opt in mode for opt in ["r", "w", "a", "+", "t", "b"]) != len(mode)
@@ -840,39 +880,39 @@ class FileSystemFile:
         self.__mode = mode
 
     @property
-    def readable(self):
+    def readable(self) -> bool:
         return "r" in self.mode or "+" in self.mode
 
     @property
-    def writable(self):
+    def writable(self) -> bool:
         return "w" in self.mode or "a" in self.mode or "+" in self.mode
 
     @property
-    def seekable(self):
+    def seekable(self) -> bool:
         return True
 
     @property
-    def appending(self):
+    def appending(self) -> bool:
         return "a" in self.mode
 
     @property
-    def binary_mode(self):
+    def binary_mode(self) -> bool:
         return "b" in self.mode
 
-    def __enter__(self):
+    def __enter__(self) -> FileSystemFile:
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type: Any, value: Any, tb: Any) -> None:
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         self.flush()
         self.closed = True
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def flush(self):
+    def flush(self) -> None:
         if not self.writable or not self.__modified:
             return
 
@@ -884,44 +924,47 @@ class FileSystemFile:
 
         self.__modified = False
 
-    def isatty(self):
+    def isatty(self) -> bool:
         return self.__io_buffer.isatty()
 
     @property
-    def newlines(self):
+    def newlines(self) -> str:
         return "\n"  # TODO: Support non-Unix newlines?
 
-    def read(self, size=-1):
+    def read(self, size: int = -1) -> str | bytes:
         if not self.readable:
             raise io.UnsupportedOperation("File not open for reading.")
         return self.__io_buffer.read(size)
 
-    def readline(self, size=-1):
+    def readline(self, size: int = -1) -> str | bytes:
         if not self.readable:
             raise io.UnsupportedOperation("File not open for reading.")
         return self.__io_buffer.readline(size)
 
-    def readlines(self, hint=-1):
+    def readlines(self, hint: int = -1) -> list[str] | list[bytes]:
         if not self.readable:
             raise io.UnsupportedOperation("File not open for reading.")
         return self.__io_buffer.readlines(hint)
 
-    def seek(self, pos, whence=0):
+    def seek(self, pos: int, whence: int = 0) -> int:
         return self.__io_buffer.seek(pos, whence)
 
-    def tell(self):
+    def tell(self) -> int:
         return self.__io_buffer.tell()
 
-    def write(self, s):
+    def write(self, s: str | bytes) -> None:
         if not self.writable:
             raise io.UnsupportedOperation("File not open for writing.")
-        self.__io_buffer.write(s)
+        if isinstance(self.__io_buffer, io.BytesIO):
+            self.__io_buffer.write(s.encode() if isinstance(s, str) else s)
+        else:
+            self.__io_buffer.write(s.decode() if isinstance(s, bytes) else s)
         self.__modified = True
 
-    def __iter__(self):
+    def __iter__(self) -> FileSystemFile:
         return self
 
-    def __next__(self):
+    def __next__(self) -> str | bytes:
         line = self.readline()
         if not line:
             raise StopIteration
@@ -931,18 +974,18 @@ class FileSystemFile:
 
     # Additional methods from BufferedIOBase for compatibility
 
-    def read1(self, size=-1):
+    def read1(self, size: int = -1) -> str | bytes:
         return self.read(size)
 
-    def detach(self):
+    def detach(self) -> None:
         raise io.UnsupportedOperation()
 
-    def readinto(self, buffer):
+    def readinto(self, buffer: Any) -> int:
         data = self.read()
         buffer[: len(data)] = data
         return len(data)
 
-    def readinto1(self, buffer):
+    def readinto1(self, buffer: Any) -> int:
         return self.readinto(buffer)
 
 
@@ -974,19 +1017,19 @@ class FileSystemFileDesc(
 
     def __new__(
         cls,
-        fs,
-        path,
-        name,
-        type,
-        bytes=None,
-        owner=None,
-        group=None,
-        permissions=None,
-        created=None,
-        last_modified=None,
-        last_accessed=None,
-        **extra,
-    ):
+        fs: FileSystemClient,
+        path: str,
+        name: str,
+        type: str,
+        bytes: int | None = None,
+        owner: str | None = None,
+        group: str | None = None,
+        permissions: str | None = None,
+        created: Any | None = None,
+        last_modified: Any | None = None,
+        last_accessed: Any | None = None,
+        **extra: Any,
+    ) -> FileSystemFileDesc:
         if type not in ("directory", "file"):
             raise ValueError(f"Invalid type {type!r}: must be 'directory' or 'file'.")
         return super().__new__(
@@ -1005,7 +1048,7 @@ class FileSystemFileDesc(
             extra=extra,
         )
 
-    def as_dict(self):
+    def as_dict(self) -> OrderedDict:
         d = OrderedDict(
             [
                 ("fs", self.fs),
@@ -1026,30 +1069,35 @@ class FileSystemFileDesc(
 
     # Convenience methods
 
-    def open(self, mode="rt"):
+    def open(self, mode: str = "rt") -> io.IOBase:
         if self.type != "file":
             raise TypeError("`.open(...)` is only appropriate for files.")
-        return self.fs.open(self.path, mode=mode)
+        return self.fs.open(self.path, mode=mode)  # type: ignore[no-any-return]
 
-    def dir(self):
+    def dir(self) -> Generator[FileSystemFileDesc, None, None]:
         if self.type != "directory":
             raise TypeError("`.dir(...)` is only appropriate for directories.")
-        return self.fs.dir(self.path)
+        return self.fs.dir(self.path)  # type: ignore[no-any-return]
 
-    def listdir(self):
+    def listdir(self) -> list[str]:
         if self.type != "directory":
             raise TypeError("`.listdir(...)` is only appropriate for directories.")
-        return self.fs.listdir(self.path)
+        return self.fs.listdir(self.path)  # type: ignore[no-any-return]
 
-    def showdir(self):
+    def showdir(self) -> pd.DataFrame | str:
         if self.type != "directory":
             raise TypeError("`.showdir(...)` is only appropriate for directories.")
-        return self.fs.showdir(self.path)
+        return self.fs.showdir(self.path)  # type: ignore[no-any-return]
 
-    def find(self, **attrs):
+    def find(self, **attrs: Any) -> Generator[FileSystemFileDesc, None, None]:
         if self.type != "directory":
             raise TypeError("`.find(...)` is only appropriate for directories.")
-        return self.fs.find(self.path, **attrs)
+        return self.fs.find(self.path, **attrs)  # type: ignore[no-any-return]
 
-    def download(self, dest=None, overwrite=False, fs=None):
-        return self.fs.download(self.path, dest=dest, overwrite=overwrite, fs=fs)
+    def download(
+        self,
+        dest: str | None = None,
+        overwrite: bool = False,
+        fs: FileSystemClient | None = None,
+    ) -> None:
+        self.fs.download(self.path, dest=dest, overwrite=overwrite, fs=fs)

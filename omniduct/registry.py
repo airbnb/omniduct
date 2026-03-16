@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Generator, Iterator
+from typing import Any
+
 import yaml
 
 from omniduct.duct import Duct
@@ -17,22 +22,30 @@ class DuctRegistry:
     configuration, which is especially useful in a company deployment.
     """
 
-    def __init__(self, config=None):
+    def __init__(
+        self, config: list[dict[str, Any]] | dict[str, Any] | str | None = None
+    ) -> None:
         """
         Args:
-            config (iterable, dict, str, None): Refer to `.import_from_config`
+            config: Refer to `.import_from_config`
                 for more details (default: `None`).
         """
-        self._registry = {}
+        self._registry: dict[str, Duct] = {}
 
         if config:
             self.register_from_config(config)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<DuctRegistry with {len(self._registry)} registered ducts>"
 
     # Registration methods
-    def register(self, duct, name=None, override=False, register_magics=True):
+    def register(
+        self,
+        duct: Duct,
+        name: str | None = None,
+        override: bool = False,
+        register_magics: bool = True,
+    ) -> Duct:
         """
         Register an existing Duct instance into the registry.
 
@@ -42,18 +55,18 @@ class DuctRegistry:
         any name must uniquely identify one `Duct` instance.
 
         Args:
-            duct (Duct): The `Duct` instance to be registered.
-            name (str): An optional name to use when registering. If not
+            duct: The `Duct` instance to be registered.
+            name: An optional name to use when registering. If not
                 provided this will fall back to `duct.name`. If neither is
                 configured, an error will be thrown. Name can be a
                 comma-separated list of names, in which case the names are
                 aliases and will point to the same `Duct` instance.
-            override (bool): Whether to override any existing `Duct` instance
+            override: Whether to override any existing `Duct` instance
                 of the same name. If `False`, any overrides will result in an
                 exception.
 
         Returns:
-            Duct: The `Duct` instance being registered.
+            The `Duct` instance being registered.
         """
         name = name or duct.name
         if name is None:
@@ -71,25 +84,32 @@ class DuctRegistry:
             self._registry[alias] = duct
         return duct
 
-    def new(self, name, protocol, override=False, register_magics=True, **kwargs):
+    def new(
+        self,
+        name: str,
+        protocol: str,
+        override: bool = False,
+        register_magics: bool = True,
+        **kwargs: Any,
+    ) -> Duct:
         """
         Create a new service and register it into the registry.
 
         Args:
-            name (str): The name (or names) of the target service. If multiple
+            name: The name (or names) of the target service. If multiple
                 aliases are to be used, names should be a comma separated list.
                 See `.register` for more details.
-            protocol (str): The protocol of the new service.
-            override (bool): Whether to override any existing `Duct` instance
+            protocol: The protocol of the new service.
+            override: Whether to override any existing `Duct` instance
                 of the same name. If `False`, any overrides will result in an
                 exception.
-            register_magics (bool): Whether to register the magics if running in
+            register_magics: Whether to register the magics if running in
                 and IPython session (default: `True`).
-            **kwargs (dict): Additional arguments to pass to the constructor of
+            **kwargs: Additional arguments to pass to the constructor of
                 the class associated with the nominated protocol.
 
         Returns:
-            Duct: The `Duct` instance registered into the registry.
+            The `Duct` instance registered into the registry.
         """
         return self.register(
             Duct.for_protocol(protocol)(
@@ -102,30 +122,30 @@ class DuctRegistry:
 
     # Inspection and retrieval methods
     @property
-    def names(self):
-        """list: The names of all ducts in the registry."""
+    def names(self) -> list[str]:
+        """The names of all ducts in the registry."""
         return sorted(self._registry.keys())
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Duct:
         return self._registry[name]
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         return name in self._registry
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Duct]:
         return iter(self._registry.values())
 
-    def lookup(self, name, kind=None):
+    def lookup(self, name: str, kind: str | Duct.Type | None = None) -> Duct:
         """
         Look up an existing registered `Duct` by name and (optionally) kind.
 
         Args:
-            name (str): The name of the `Duct` instance.
-            kind (str, Duct.Type): The kind of `Duct` to which the lookup should
+            name: The name of the `Duct` instance.
+            kind: The kind of `Duct` to which the lookup should
                 be restricted.
 
         Returns:
-            `Duct`: The looked up `Duct` instance.
+            The looked up `Duct` instance.
 
         Raises:
             DuctNotFound: If no `Duct` can be found for requested name and/or
@@ -143,7 +163,12 @@ class DuctRegistry:
         return duct
 
     # Exposing `Duct` instances.
-    def populate_namespace(self, namespace=None, names=None, kinds=None):
+    def populate_namespace(
+        self,
+        namespace: dict[str, Any] | None = None,
+        names: list[str] | None = None,
+        kinds: list[str | Duct.Type] | None = None,
+    ) -> dict[str, Any]:
         """
         Populate a nominated namespace with references to a subset of ducts.
 
@@ -153,16 +178,16 @@ class DuctRegistry:
         your module).
 
         Args:
-            namespace (dict, None): The namespace to populate. If using from a
+            namespace: The namespace to populate. If using from a
                 module you can pass `globals()`. If `None`, a new dictionary is
                 created, populated and then returned.
-            names (list<str>, None): The names to include in the population. If
+            names: The names to include in the population. If
                 not specified then all names will be exported.
-            kinds (list<str>, None): The kinds of ducts to include in the
+            kinds: The kinds of ducts to include in the
                 population. If not specified, all kinds will be exported.
 
         Returns:
-            dict: The populated namespace.
+            The populated namespace.
         """
         if namespace is None:
             namespace = {}
@@ -178,7 +203,7 @@ class DuctRegistry:
                 namespace[name.split("/")[-1]] = duct
         return namespace
 
-    def get_proxy(self, by_kind=True):
+    def get_proxy(self, by_kind: bool = True) -> TreeProxy:
         """
         Return a structured proxy object for easy exploration of services.
 
@@ -194,25 +219,29 @@ class DuctRegistry:
         >>> proxy.databases.my_service
 
         Args:
-            by_kind (bool): Whether to nest proxy of `Duct` instances by kind.
+            by_kind: Whether to nest proxy of `Duct` instances by kind.
 
         Returns:
-            ServicesProxy: The proxy object.
+            The proxy object.
         """
 
-        def key_parser(k, v):
+        def key_parser(k: str, v: Any) -> list[str]:
             keys = k.split("/")
             if by_kind and getattr(v, "DUCT_TYPE", None) is not None:
                 keys.insert(0, v.DUCT_TYPE.value)
             return keys
 
-        dct = self._registry.copy()
+        dct: dict[str, Duct | DuctRegistry] = dict(self._registry)
         dct["registry"] = self
 
         return TreeProxy._for_dict(dct, key_parser=key_parser, name="services")
 
     # Batch registration of duct configurations
-    def register_from_config(self, config, override=False):
+    def register_from_config(
+        self,
+        config: list[dict[str, Any]] | dict[str, Any] | str,
+        override: bool = False,
+    ) -> DuctRegistry:
         """
         Register a collection of Duct service configurations.
 
@@ -238,22 +267,22 @@ class DuctRegistry:
           register any magics defined by this Duct class (default: True).
 
         Args:
-            config (iterable, dict, str, None): A configuration specified in one
+            config: A configuration specified in one
                 of the above described formats.
-            override (bool): Whether to override any existing `Duct` instance
+            override: Whether to override any existing `Duct` instance
                 of the same name(s). If `False`, any overrides will result in an
                 exception.
         """
         # Extract configuration from a file if necessary, and then process it.
-        if isinstance(config, str):
-            if "\n" in config:
-                config = yaml.safe_load(config)
+        raw_config: Any = config
+        if isinstance(raw_config, str):
+            if "\n" in raw_config:
+                raw_config = yaml.safe_load(raw_config)
             else:
-                with open(config, encoding="utf-8") as f:
-                    config = yaml.safe_load(f.read())
-        config = self._process_config(config)
+                with open(raw_config, encoding="utf-8") as f:
+                    raw_config = yaml.safe_load(f.read())
 
-        for duct_config in config:
+        for duct_config in self._process_config(raw_config):
             names = duct_config.pop("name")
             protocol = duct_config.pop("protocol")
             register_magics = duct_config.pop("register_magics", True)
@@ -274,7 +303,9 @@ class DuctRegistry:
 
         return self
 
-    def _process_config(self, config, name=None):
+    def _process_config(
+        self, config: Any, name: str | None = None
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Coerce the configuration into a generator of dictionaries of keyword
         arguments; each corresponding to a duct instance.

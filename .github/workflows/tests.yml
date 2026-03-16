@@ -28,7 +28,7 @@ jobs:
         pip install hatch hatch-vcs
     - name: Run tests
       run: hatch run tests
-    - if: matrix.python-version == '3.9'
+    - if: matrix.python-version == '3.14'
       name: Lint
       run: hatch run lint:check
     - name: Upload coverage to Codecov

@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 
-def about():
+def about() -> None:
     from collections import OrderedDict
 
     from .utils.about import show_about

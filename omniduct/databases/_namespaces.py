@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import re
 from collections import OrderedDict
+from typing import Any
 
 
 class ParsedNamespaces:
@@ -20,8 +23,19 @@ class ParsedNamespaces:
     namespaces to `None` (e.g. in this case, the 'database' namespace to `None`).
     """
 
+    _names: OrderedDict[str, str | None]
+    _quote_char: str
+    _separator: str
+
     @classmethod
-    def from_name(cls, name, namespaces, quote_char='"', separator=".", defaults=None):
+    def from_name(
+        cls,
+        name: str | ParsedNamespaces,
+        namespaces: list[str],
+        quote_char: str = '"',
+        separator: str = ".",
+        defaults: dict[str, str] | None = None,
+    ) -> ParsedNamespaces:
         """
         Return an instance of `ParsedNamespaces` from a given name.
 
@@ -32,21 +46,19 @@ class ParsedNamespaces:
         `ParsedNamespaces` will be ignored.
 
         Args:
-            name (str, ParsedNamespaces): The name to be parsed.
-            namespaces (list<str>): The namespaces into which the name should be
-                parsed.
-            defaults (None, dict): Default values for namespaces. Note that if a
-                default is provided for a namespace, it will only be used if all
+            name: The name to be parsed.
+            namespaces: The namespaces into which the name should be parsed.
+            defaults: Default values for namespaces. Note that if a default is
+                provided for a namespace, it will only be used if all
                 sub-namespaces also resolve to a value (either via defaults or
                 by being explicitly passed).
-            quote_char (str): The character to used for optional encapsulation
-                of namespace names. (default='"')
-            separator (str): The character used to separate namespaces.
-                (default='.')
+            quote_char: The character to used for optional encapsulation of
+                namespace names. (default='"')
+            separator: The character used to separate namespaces. (default='.')
 
         Returns:
-            ParsedNamespaces: The `ParsedNamespaces` instance representing the
-                parsed value of the nominated name.
+            The `ParsedNamespaces` instance representing the parsed value of
+            the nominated name.
         """
         defaults = defaults or {}
 
@@ -95,45 +107,51 @@ class ParsedNamespaces:
 
         return cls(parsed, quote_char=quote_char, separator=separator)
 
-    def __init__(self, names, namespaces=None, quote_char='"', separator="."):
+    def __init__(
+        self,
+        names: OrderedDict[str, str | None] | dict[str, str | None],
+        namespaces: list[str] | None = None,
+        quote_char: str = '"',
+        separator: str = ".",
+    ) -> None:
         if namespaces:
             names = OrderedDict(
                 (namespace, names.get(namespace, None)) for namespace in namespaces
             )
 
-        self._names = names
+        self._names = names  # type: ignore[assignment]
         self._quote_char = quote_char
         self._separator = separator
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> str | None:
         if "_names" in self.__dict__ and name in self._names:
             return self._names[name]
         raise AttributeError(name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         if "_names" in self.__dict__ and name in self._names:
             self._names[name] = value
         else:
             super().__setattr__(name, value)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.name)
 
-    def __nonzero__(self):  # Python 2 support for bool
+    def __nonzero__(self) -> bool:  # Python 2 support for bool
         return bool(self.name)
 
     @property
-    def namespaces(self):
-        """list<str> The namespaces parsed in order of most to least specific."""
+    def namespaces(self) -> list[str]:
+        """list[str]: The namespaces parsed in order of most to least specific."""
         return list(self._names)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """str: The full name provided (with quotes)."""
         return self.render()
 
     @property
-    def parent(self):
+    def parent(self) -> ParsedNamespaces:
         """ParsedNamespaces: An instance of `ParsedNamespaces` with the most specific namespace truncated."""
         names = self._names.copy()
         names.popitem()
@@ -141,27 +159,29 @@ class ParsedNamespaces:
             names=names, quote_char=self._quote_char, separator=self._separator
         )
 
-    def as_dict(self):
+    def as_dict(self) -> OrderedDict[str, str | None]:
         """dict: Returns the parsed namespaces as an OrderedDict from most to least general."""
         return self._names
 
-    def render(self, quote_char=None, separator=None):
+    def render(
+        self,
+        quote_char: str | None = None,
+        separator: str | None = None,
+    ) -> str:
         if quote_char is None:
             quote_char = self._quote_char
         if separator is None:
             separator = self._separator
 
-        names = [
-            self._names[namespace] for namespace, name in self._names.items() if name
-        ]
+        names = [name for name in self._names.values() if name is not None]
         if len(names) == 0:
             return ""
         return (
             quote_char + f"{quote_char}{separator}{quote_char}".join(names) + quote_char
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Namespace<{self.name}>"

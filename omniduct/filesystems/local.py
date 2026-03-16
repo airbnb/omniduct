@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import builtins
 import datetime
 import errno
 import os
 import shutil
+from collections.abc import Generator
+from typing import IO, Any
 
 from interface_meta import override
 
@@ -25,11 +29,11 @@ class LocalFsClient(FileSystemClient):
     PROTOCOLS = ["localfs"]
 
     @override
-    def _init(self):
+    def _init(self) -> None:
         self._path_cwd = self._path_cwd or os.getcwd()
 
     @override
-    def _prepare(self):
+    def _prepare(self) -> None:
         if self.remote is not None:
             raise ValueError(
                 "LocalFsClient cannot be used in conjunction with a remote client."
@@ -37,46 +41,46 @@ class LocalFsClient(FileSystemClient):
         super()._prepare()
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         pass
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         return True
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         pass
 
     # File enumeration
     @override
-    def _path_home(self):
+    def _path_home(self) -> str:
         return os.path.expanduser("~")
 
     @override
-    def _path_separator(self):
+    def _path_separator(self) -> str:
         return os.path.sep
 
     @override
-    def _exists(self, path):
+    def _exists(self, path: str) -> bool:
         return os.path.exists(path)
 
     @override
-    def _isdir(self, path):
+    def _isdir(self, path: str) -> bool:
         return os.path.isdir(path)
 
     @override
-    def _isfile(self, path):
+    def _isfile(self, path: str) -> bool:
         return os.path.isfile(path)
 
     @override
-    def _dir(self, path):
+    def _dir(self, path: str) -> Generator[FileSystemFileDesc, None, None]:
         if not os.path.isdir(path):
             raise RuntimeError("No such folder.")
         for f in os.listdir(path):
             f_path = os.path.join(path, f)
 
-            attrs = {}
+            attrs: dict[str, Any] = {}
 
             if os.name == "posix":
                 import grp
@@ -109,11 +113,13 @@ class LocalFsClient(FileSystemClient):
             )
 
     @override
-    def _walk(self, path):
-        return os.walk(path)
+    def _walk(
+        self, path: str
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
+        yield from os.walk(path)
 
     @override
-    def _mkdir(self, path, recursive, exist_ok):
+    def _mkdir(self, path: str, recursive: bool, exist_ok: bool) -> None:
         try:
             os.makedirs(path) if recursive else os.mkdir(path)
         except OSError as exc:  # Python >2.5
@@ -121,7 +127,7 @@ class LocalFsClient(FileSystemClient):
                 raise
 
     @override
-    def _remove(self, path, recursive):
+    def _remove(self, path: str, recursive: bool) -> None:
         if recursive and self.isdir(path):
             shutil.rmtree(path)
         else:
@@ -129,5 +135,5 @@ class LocalFsClient(FileSystemClient):
 
     # File opening
     @override
-    def _open(self, path, mode):
+    def _open(self, path: str, mode: str) -> IO[Any]:
         return builtins.open(path, mode=mode, encoding=None if "b" in mode else "utf-8")

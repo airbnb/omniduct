@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import sys
 import time
+from typing import Any
 
 import progressbar
 from decorator import decorate
 
 from .config import config
+
+logger: StatusLogger
 
 config.register(
     "logging_level",
@@ -32,8 +37,10 @@ class StatusLogger:
     include it in the log messages.
     """
 
-    def __init__(self, auto_scoping=False):
-        self.__scopes = []
+    _progress_bar: progressbar.ProgressBar | None
+
+    def __init__(self, auto_scoping: bool = False) -> None:
+        self.__scopes: list[dict[str, Any]] = []
 
         ch = LoggingHandler()
         formatter = logging.Formatter(
@@ -49,20 +56,20 @@ class StatusLogger:
         self._progress_bar = None
 
     @property
-    def disabled(self):
+    def disabled(self) -> bool:
         return self.__get_logger_instance().disabled
 
     @disabled.setter
-    def disabled(self, disabled):
+    def disabled(self, disabled: bool) -> None:
         self.__get_logger_instance().disabled = disabled
 
-    def _scope_enter(self, name, timed=False, extra=None):
+    def _scope_enter(self, name: str, timed: bool = False, extra: Any = None) -> None:
         if config.logging_level < logging.INFO:
             print(
                 "\t" * len(self.__scopes) + f"Entering manual scope: {name}",
                 file=sys.stderr,
             )
-        props = {"name": name}
+        props: dict[str, Any] = {"name": name}
         if timed:
             props["time"] = time.time()
         if extra is not None:
@@ -70,7 +77,7 @@ class StatusLogger:
         props["caveats"] = []
         self.__scopes.append(props)
 
-    def _scope_exit(self, success=True):
+    def _scope_exit(self, success: bool = True) -> None:
         if self._progress_bar is not None:
             self.progress(100, complete=True)
         props = self.__scopes[-1]
@@ -90,12 +97,12 @@ class StatusLogger:
                 file=sys.stderr,
             )
         elif "has_logged" in scope:
-            if len(self.__scopes) != 0:
+            if len(self.__scopes) != 0 and self.current_scope_props is not None:
                 self.current_scope_props["has_logged"] = self.current_scope_props.get(
                     "has_logged"
                 ) or props.get("has_logged", False)
 
-    def __get_time(self, seconds):
+    def __get_time(self, seconds: float) -> str:
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
 
@@ -105,14 +112,15 @@ class StatusLogger:
             return f"{m:.0f} min, {s:.0f} sec"
         return f"{s:.2f} sec"
 
-    def caveat(self, caveat):
+    def caveat(self, caveat: str) -> None:
         if len(self.__scopes) == 0:
             self.warning(f"CAVEAT: {caveat}")
         else:
-            self.current_scope_props["caveats"].append(caveat)
+            if self.current_scope_props is not None:
+                self.current_scope_props["caveats"].append(caveat)
 
     @property
-    def current_scopes(self):
+    def current_scopes(self) -> list[str]:
         """
         The current logger scopes. This is not designed to work with multiple
         threads.
@@ -120,7 +128,7 @@ class StatusLogger:
         return detect_scopes()
 
     @property
-    def current_scope_props(self):
+    def current_scope_props(self) -> dict[str, Any] | None:
         """
         The properties for the most nested manual scope.
         """
@@ -128,7 +136,9 @@ class StatusLogger:
             return None
         return self.__scopes[-1]
 
-    def __get_progress_bar(self, indeterminate=False):
+    def __get_progress_bar(
+        self, indeterminate: bool = False
+    ) -> progressbar.ProgressBar:
         if self._progress_bar is None:
             if config.logging_level >= logging.INFO:
                 prefix = ": ".join(self.current_scopes) + ": "
@@ -149,7 +159,12 @@ class StatusLogger:
 
         return self._progress_bar
 
-    def progress(self, progress=None, complete=False, indeterminate=False):
+    def progress(
+        self,
+        progress: int | None = None,
+        complete: bool = False,
+        indeterminate: bool = False,
+    ) -> None:
         """
         Set the current progress to `progress`, and if not already showing, display
         a progress bar. If `complete` evaluates to True, then finish displaying the progress.
@@ -160,12 +175,12 @@ class StatusLogger:
         if config.logging_level <= logging.INFO:
             self.__get_progress_bar(indeterminate=indeterminate).update(progress)
             if complete:
-                self.__get_progress_bar().finish(end=None)
+                self.__get_progress_bar().finish(end="")
                 self._progress_bar = None
 
     # Logging emulation
 
-    def __get_logger_instance(self, context=None):
+    def __get_logger_instance(self, context: str | None = None) -> logging.Logger:
         """
         Get a `logger.Logger` instance for the provided context; inferring the
         context from the runtime stack if the provided context is `None`.
@@ -173,21 +188,22 @@ class StatusLogger:
         if context is None:
             try:
                 caller = inspect.stack()[2]
-                context = inspect.getmodule(caller.frame).__name__
+                module = inspect.getmodule(caller.frame)
+                context = module.__name__ if module is not None else "omniduct"
             except:
                 context = "omniduct"
         if context != "omniduct" and not context.startswith("omniduct."):
             context = f"omniduct.external.{context}"
         return logging.getLogger(context)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """
         Return the attributes of the wrapped `logging.Logger` instance rather
         than this one (unless the property actually exists in StatusLogger).
         """
         return getattr(self.__get_logger_instance(), name)
 
-    def setLevel(self, level, context=None):
+    def setLevel(self, level: int, context: str | None = None) -> None:
         """
         Add a keyword argument `context` to the standard `setLevel` method, in
         order to allow for fine-grained logging levels, while retaining the
@@ -196,8 +212,8 @@ class StatusLogger:
         self.__get_logger_instance(context).setLevel(level)
 
 
-def detect_scopes():
-    scopes = []
+def detect_scopes() -> list[str]:
+    scopes: list[Any] = []
     current_frame = inspect.currentframe()
 
     while current_frame is not None:
@@ -211,8 +227,8 @@ def detect_scopes():
                 scopes.append(argvalues.locals["self"])
         current_frame = current_frame.f_back
 
-    out_scopes = []
-    seen = set()
+    out_scopes: list[str] = []
+    seen: set[Any] = set()
     for scope in scopes[::-1]:
         if scope not in seen:
             out_scopes.append(
@@ -233,7 +249,7 @@ class LoggingHandler(logging.Handler):
     An implementation of Logging.Handler to render the logging methods shown in Omniduct and derivatives.
     """
 
-    def __init__(self, level=logging.NOTSET):
+    def __init__(self, level: int = logging.NOTSET) -> None:
         logging.Handler.__init__(self, level=level)
         self.setFormatter(
             logging.Formatter(
@@ -241,10 +257,10 @@ class LoggingHandler(logging.Handler):
             )
         )
 
-    def format_simple(self, record):
+    def format_simple(self, record: logging.LogRecord) -> str:
         return f"{record.getMessage()}"
 
-    def handle(self, record):
+    def handle(self, record: logging.LogRecord) -> bool:
         try:
             scopes = logger.current_scopes
         except:
@@ -275,8 +291,15 @@ class LoggingHandler(logging.Handler):
             )
 
         sys.stderr.flush()
+        return True
 
-    def _overwrite(self, text, overwritable=True, truncate=True, file=sys.stderr):
+    def _overwrite(
+        self,
+        text: str,
+        overwritable: bool = True,
+        truncate: bool = True,
+        file: Any = sys.stderr,
+    ) -> None:
         w, _ = progressbar.utils.get_terminal_size()
         file.write("\r" + " " * w + "\r")  # Clear current line
         if overwritable:
@@ -289,7 +312,7 @@ class LoggingHandler(logging.Handler):
         file.write(text)
 
 
-def logging_scope(name, *wargs, **wkwargs):
+def logging_scope(name: str, *wargs: Any, **wkwargs: Any) -> Any:
     """
     A decorator to add the decorated function as a new logging scope, with name `name`.
     All additional arguments are passed to `StatusLogger._scope_enter`. Current
@@ -297,7 +320,7 @@ def logging_scope(name, *wargs, **wkwargs):
     the duration of the call is shown.
     """
 
-    def logging_scope(func, *args, **kwargs):
+    def logging_scope(func: Any, *args: Any, **kwargs: Any) -> Any:
         logger._scope_enter(name, *wargs, **wkwargs)
         success = True
         try:

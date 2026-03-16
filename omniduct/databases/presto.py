@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import ast
 import logging
 import re
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas.io.sql
 from interface_meta import override
@@ -8,8 +11,13 @@ from interface_meta import override
 from omniduct.utils.debug import logger
 
 from . import _pandas
+from ._namespaces import ParsedNamespaces
 from ._schemas import SchemasMixin
 from .base import DatabaseClient
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import requests
 
 
 class PrestoClient(DatabaseClient, SchemasMixin):
@@ -31,41 +39,48 @@ class PrestoClient(DatabaseClient, SchemasMixin):
     PROTOCOLS = ["presto"]
     DEFAULT_PORT = 3506
     SUPPORTS_SESSION_PROPERTIES = True
-    NAMESPACE_NAMES = ["catalog", "schema", "table"]
-    NAMESPACE_QUOTECHAR = '"'
-    NAMESPACE_SEPARATOR = "."
+    NAMESPACE_NAMES: list[str] = ["catalog", "schema", "table"]
+    NAMESPACE_QUOTECHAR: str = '"'
+    NAMESPACE_SEPARATOR: str = "."
+
+    catalog: str
+    schema: str
+    server_protocol: str
+    _source: str
+    _requests_session: requests.Session | None
 
     @property
     @override
-    def NAMESPACE_DEFAULT(self):
+    def NAMESPACE_DEFAULT(self) -> dict[str, str]:  # type: ignore[override]
         return {"catalog": self.catalog, "schema": self.schema}
 
     @property
     @override
-    def NAMESPACE_DEFAULTS_WRITE(self):
-        defaults = self.NAMESPACE_DEFAULTS_READ.copy()
-        defaults["schema"] = self.username
+    def NAMESPACE_DEFAULTS_WRITE(self) -> dict[str, str]:
+        defaults = dict(self.NAMESPACE_DEFAULTS_READ or {})
+        defaults["schema"] = self.username or ""
         return defaults
 
     @override
     def _init(
         self,
-        catalog="default",
-        schema="default",
-        server_protocol="http",
-        source=None,
-        requests_session=None,
-    ):
+        catalog: str = "default",
+        schema: str = "default",
+        server_protocol: str = "http",
+        source: str | None = None,
+        requests_session: requests.Session | None = None,
+    ) -> None:
         """
-        catalog (str): The default catalog to use in database queries.
-        schema (str): The default schema/database to use in database queries.
-        server_protocol (str): The protocol over which to connect to the Presto REST
+        catalog: The default catalog to use in database queries.
+        schema: The default schema/database to use in database queries.
+        server_protocol: The protocol over which to connect to the Presto REST
             service ('http' or 'https'). (default='http')
-        source (str): The source of this query (by default "omniduct <version>").
+        source: The source of this query (by default "omniduct <version>").
             If manually specified, result will be: "<source> / omniduct <version>".
-        requests_session (requests.Session): an optional requests.Session object for advanced usage.
-            Passed through to the pyhive Cursor which supports custom requests sessions for advanced usage
-            such as custom headers, cookie values, retry logic, etc.
+        requests_session: an optional requests.Session object for advanced
+            usage. Passed through to the pyhive Cursor which supports custom
+            requests sessions for advanced usage such as custom headers, cookie
+            values, retry logic, etc.
         """
         self.catalog = catalog
         self.schema = schema
@@ -75,17 +90,17 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         self._requests_session = requests_session
 
     @property
-    def source(self):
+    def source(self) -> str:
         return self._source
 
     @source.setter
-    def source(self, source):
+    def source(self, source: str | None) -> None:
         self._source = source or "omniduct"
 
     # Connection
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         from sqlalchemy import create_engine
 
         logging.getLogger("pyhive").setLevel(1000)  # Silence pyhive logging.
@@ -95,18 +110,24 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         )
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         return True
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         logger.info("Disconnecting from Presto coordinator...")
         self._sqlalchemy_engine = None
         self._schemas = None
 
     # Querying
     @override
-    def _execute(self, statement, cursor, wait, session_properties):
+    def _execute(
+        self,
+        statement: str,
+        cursor: Any,
+        wait: bool,
+        session_properties: dict[str, Any],
+    ) -> Any:
         """
         If something goes wrong, `PrestoClient` will attempt to parse the error
         log and present the user with useful debugging information. If that fails,
@@ -146,13 +167,18 @@ class PrestoClient(DatabaseClient, SchemasMixin):
                     status = cursor.poll()
                 logger.progress(100, complete=True)
             return cursor
-        except (DatabaseError, pandas.io.sql.DatabaseError) as e:
+        except (DatabaseError, Exception) as e:
+            if not isinstance(
+                e, (DatabaseError, getattr(pandas.io.sql, "DatabaseError", type(None)))
+            ):
+                raise
             try:
                 message = e.args[0]
                 if isinstance(message, str):
-                    message = ast.literal_eval(
-                        re.match("[^{]*({.*})[^}]*$", message).group(1)
-                    )
+                    _match = re.match("[^{]*({.*})[^}]*$", message)
+                    if _match is None:
+                        raise
+                    message = ast.literal_eval(_match.group(1))
 
                 linenumber = message["errorLocation"]["lineNumber"] - 1
                 splt = statement.splitlines()
@@ -182,7 +208,13 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             raise
 
     @override
-    def _query_to_table(self, statement, table, if_exists, **kwargs):
+    def _query_to_table(
+        self,
+        statement: str,
+        table: ParsedNamespaces,
+        if_exists: str,
+        **kwargs: Any,
+    ) -> Any:
         from pyhive.exc import DatabaseError
 
         statements = []
@@ -207,7 +239,13 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             raise
 
     @override
-    def _dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
+    def _dataframe_to_table(
+        self,
+        df: pd.DataFrame,
+        table: ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
+        **kwargs: Any,
+    ) -> None:
         """
         If if the schema namespace is not specified, `table.schema` will be
         defaulted to your username. Catalog overrides will be ignored, and will
@@ -215,7 +253,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         """
         return _pandas.to_sql(
             df=df,
-            name=table.table,
+            name=table.table,  # type: ignore
             schema=table.schema,
             con=self._sqlalchemy_engine,
             index=False,
@@ -224,11 +262,16 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         )
 
     @override
-    def _cursor_empty(self, cursor):
+    def _cursor_empty(self, cursor: Any) -> bool:
         return False
 
     @override
-    def _table_list(self, namespace, like=None, **kwargs):
+    def _table_list(
+        self,
+        namespace: ParsedNamespaces,
+        like: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
         cmd = "SHOW TABLES "
         if namespace:
             cmd = cmd + " FROM " + namespace.name
@@ -237,7 +280,7 @@ class PrestoClient(DatabaseClient, SchemasMixin):
         return self.query(cmd, **kwargs)
 
     @override
-    def _table_exists(self, table, **kwargs):
+    def _table_exists(self, table: ParsedNamespaces, **kwargs: Any) -> bool:
         from pyhive.exc import DatabaseError
 
         logger.disabled = True
@@ -250,24 +293,26 @@ class PrestoClient(DatabaseClient, SchemasMixin):
             logger.disabled = False
 
     @override
-    def _table_drop(self, table, **kwargs):
+    def _table_drop(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         return self.execute(f"DROP TABLE {table}")
 
     @override
-    def _table_desc(self, table, **kwargs):
+    def _table_desc(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         return self.query(f"DESCRIBE {table}", **kwargs)
 
     @override
-    def _table_partition_cols(self, table, **kwargs):
+    def _table_partition_cols(
+        self, table: ParsedNamespaces, **kwargs: Any
+    ) -> list[str]:
         desc = self._table_desc(table, **kwargs)
         if "Extra" in desc:
             return list(desc[desc["Extra"].str.contains("partition key")]["Column"])
         return []
 
     @override
-    def _table_head(self, table, n=10, **kwargs):
+    def _table_head(self, table: ParsedNamespaces, n: int = 10, **kwargs: Any) -> Any:
         return self.query(f"SELECT * FROM {table} LIMIT {n}", **kwargs)
 
     @override
-    def _table_props(self, table, **kwargs):
+    def _table_props(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise NotImplementedError
