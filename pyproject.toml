@@ -33,6 +33,7 @@ dependencies = [
     "jinja2",
     "lazy-object-proxy",
     "packaging",
+    "typing_extensions>=4.0.0",
     "pandas>=0.20.3",
     "progressbar2>=3.30.0",
     "python-dateutil",
@@ -161,12 +162,20 @@ python = ["310", "311", "312", "313", "314"]
 detached=true
 dependencies = [
     "ruff==0.15.6",
+    # Type-checking deps
+    "mypy==1.19.1",
+    "pandas-stubs",
+    "types-python-dateutil",
+    "types-PyYAML",
+    "types-requests",
+    "typing_extensions",
 ]
 
 [tool.hatch.envs.lint.scripts]
 check = [
     "ruff check omniduct tests",
     "ruff format --check omniduct tests",
+    "mypy omniduct",
 ]
 format = [
     "ruff check --fix omniduct tests",
@@ -198,3 +207,56 @@ ignore = [
 "tests/*" = [
     "S101",  # Allow use of assert in tests
 ]
+
+# Mypy type-checking configuration
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+# Optional dependencies that ship no type stubs
+[[tool.mypy.overrides]]
+module = [
+    "boto3",
+    "botocore",
+    "botocore.*",
+    "decorator",
+    "jinja2",
+    "jinja2.*",
+    "impala",
+    "impala.*",
+    "interface_meta",
+    "interface_meta.*",
+    "IPython",
+    "IPython.*",
+    "lazy_object_proxy",
+    "neo4j.*",
+    "opinel.*",
+    "progressbar2",
+    "progressbar",
+    "pyarrow.*",
+    "TCLIService.*",
+    "wrapt",
+    "sqlparse",
+    "pexpect",
+    "pydruid.*",
+    "pyhive.*",
+    "pywebhdfs.*",
+    "pyexasol",
+    "pyspark.*",
+    "thrift.*",
+    "packaging",
+    "packaging.*",
+    "paramiko",
+    "snowflake.*",
+    "sqlalchemy",
+    "sqlalchemy.*",
+]
+ignore_missing_imports = true

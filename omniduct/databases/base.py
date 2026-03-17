@@ -1,15 +1,20 @@
+from __future__ import annotations
+
 import hashlib
 import inspect
 import itertools
 import logging
 import os
 from abc import abstractmethod
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, Literal
 
 import jinja2
 import jinja2.meta
 import sqlparse
 from decorator import decorator
 from interface_meta import inherit_docs, override
+from typing_extensions import Self
 
 from omniduct.caches.base import cached_method
 from omniduct.duct import Duct
@@ -26,11 +31,18 @@ from . import _cursor_formatters
 from ._cursor_serializer import CursorSerializer
 from ._namespaces import ParsedNamespaces
 
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from omniduct.filesystems.base import FileSystemClient
+
 logging.getLogger("requests").setLevel(logging.WARNING)
 
 
 @decorator
-def render_statement(method, self, statement, *args, **kwargs):
+def render_statement(
+    method: Any, self: Any, statement: Any, *args: Any, **kwargs: Any
+) -> Any:
     """
     Pre-render a statement template prior to wrapped function execution.
 
@@ -62,9 +74,9 @@ class DatabaseClient(Duct, MagicsProvider):
     """
 
     DUCT_TYPE = Duct.Type.DATABASE
-    DEFAULT_PORT = None
+    DEFAULT_PORT: int | None = None
 
-    CURSOR_FORMATTERS = {
+    CURSOR_FORMATTERS: dict[str, type[_cursor_formatters.CursorFormatter]] = {
         "pandas": _cursor_formatters.PandasCursorFormatter,
         "hive": _cursor_formatters.HiveCursorFormatter,
         "csv": _cursor_formatters.CsvCursorFormatter,
@@ -72,23 +84,25 @@ class DatabaseClient(Duct, MagicsProvider):
         "dict": _cursor_formatters.DictCursorFormatter,
         "raw": _cursor_formatters.RawCursorFormatter,
     }
-    DEFAULT_CURSOR_FORMATTER = "pandas"
-    SUPPORTS_SESSION_PROPERTIES = False
-    NAMESPACE_NAMES = ["database", "table"]
-    NAMESPACE_QUOTECHAR = '"'
-    NAMESPACE_SEPARATOR = "."
+    DEFAULT_CURSOR_FORMATTER: str = "pandas"
+    SUPPORTS_SESSION_PROPERTIES: bool = False
+    NAMESPACE_NAMES: list[str] = ["database", "table"]
+    NAMESPACE_QUOTECHAR: str = '"'
+    NAMESPACE_SEPARATOR: str = "."
 
-    NAMESPACE_DEFAULT = None  # DEPRECATED (use NAMESPACE_DEFAULTS_READ instead): Will be removed in Omniduct 2.0.0
+    NAMESPACE_DEFAULT: dict[str, str] | None = (
+        None  # DEPRECATED (use NAMESPACE_DEFAULTS_READ instead): Will be removed in Omniduct 2.0.0
+    )
 
     @property
-    def NAMESPACE_DEFAULTS_READ(self):
+    def NAMESPACE_DEFAULTS_READ(self) -> dict[str, str] | None:
         """
         Backwards compatible shim for `NAMESPACE_DEFAULTS`.
         """
         return self.NAMESPACE_DEFAULT
 
     @property
-    def NAMESPACE_DEFAULTS_WRITE(self):
+    def NAMESPACE_DEFAULTS_WRITE(self) -> dict[str, str] | None:
         """
         Unless overridden, this is the same as `NAMESPACE_DEFAULTS_READ`.
         """
@@ -97,47 +111,51 @@ class DatabaseClient(Duct, MagicsProvider):
     @inherit_docs("_init", mro=True)
     def __init__(
         self,
-        session_properties=None,
-        templates=None,
-        template_context=None,
-        default_format_opts=None,
-        **kwargs,
-    ):
+        session_properties: dict[str, Any] | None = None,
+        templates: dict[str, str] | None = None,
+        template_context: dict[str, Any] | None = None,
+        default_format_opts: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
-        session_properties (dict): A mapping of default session properties
-            to values. Interpretation is left up to implementations.
-        templates (dict): A dictionary of name to template mappings. Additional
+        session_properties: A mapping of default session properties to values.
+            Interpretation is left up to implementations.
+        templates: A dictionary of name to template mappings. Additional
             templates can be added using `.template_add`.
-        template_context (dict): The default template context to use when
-            rendering templates.
-        default_format_opts (dict): The default formatting options passed to
-            cursor formatter.
+        template_context: The default template context to use when rendering
+            templates.
+        default_format_opts: The default formatting options passed to cursor
+            formatter.
         """
         Duct.__init_with_kwargs__(self, kwargs, port=self.DEFAULT_PORT)
 
         self.session_properties = session_properties or {}
-        self._templates = templates or {}
-        self._template_context = template_context or {}
-        self._sqlalchemy_engine = None
-        self._default_format_opts = default_format_opts or {}
+        self._templates: dict[str, str] = templates or {}
+        self._template_context: dict[str, Any] = template_context or {}
+        self._sqlalchemy_engine: Any = None
+        self._default_format_opts: dict[str, Any] = default_format_opts or {}
 
         self._init(**kwargs)
 
     @abstractmethod
-    def _init(self):
+    def _init(self) -> None:
         pass
 
     # Session property management and configuration
     @property
-    def session_properties(self):
+    def session_properties(self) -> dict[str, Any]:
         """dict: The default session properties used in statement executions."""
         return self._session_properties
 
     @session_properties.setter
-    def session_properties(self, properties):
+    def session_properties(self, properties: dict[str, Any]) -> None:
         self._session_properties = self._get_session_properties(default=properties)
 
-    def _get_session_properties(self, overrides=None, default=None):
+    def _get_session_properties(
+        self,
+        overrides: dict[str, Any] | None = None,
+        default: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Retrieve the default session properties with optional overrides.
 
@@ -145,12 +163,12 @@ class DatabaseClient(Duct, MagicsProvider):
         overrides to remove default properties.
 
         Args:
-            overrides (dict, None): A dictionary of session property overrides.
-            default (dict, None): A dictionary of default session properties, if
-                it is necessary to override `self.session_properties`.
+            overrides: A dictionary of session property overrides.
+            default: A dictionary of default session properties, if it is
+                necessary to override `self.session_properties`.
 
         Returns:
-            dict: A dictionary of session properties.
+            A dictionary of session properties.
         """
         if (default or overrides) and not self.SUPPORTS_SESSION_PROPERTIES:
             raise RuntimeError("Session properties are not supported by this backend.")
@@ -165,11 +183,16 @@ class DatabaseClient(Duct, MagicsProvider):
 
         return props
 
-    def __call__(self, query, **kwargs):
+    def __call__(self, query: str, **kwargs: Any) -> Any:
         return self.query(query, **kwargs)
 
     # Querying
-    def _statement_prepare(self, statement, session_properties, **kwargs):
+    def _statement_prepare(
+        self,
+        statement: str,
+        session_properties: dict[str, Any],
+        **kwargs: Any,
+    ) -> str:
         """
         Prepare a statement for execution.
 
@@ -178,20 +201,20 @@ class DatabaseClient(Duct, MagicsProvider):
         inserting session properties in query headers.
 
         Args:
-            statement (str): The statement to be executed.
-            session_properties (dict): A mutable dictionary of session properties
-                and their values (this method can mutate it depending on statement
+            statement: The statement to be executed.
+            session_properties: A mutable dictionary of session properties and
+                their values (this method can mutate it depending on statement
                 contents).
-            **kwargs (dict): Any additional keyword arguments passed through to
+            **kwargs: Any additional keyword arguments passed through to
                 `self.execute` (will match the extra keyword arguments added to
                 `self._execute`).
 
         Returns:
-            statement (str): The statement to be executed (potentially transformed).
+            The statement to be executed (potentially transformed).
         """
         return statement
 
-    def _statement_split(self, statements):
+    def _statement_split(self, statements: str) -> Iterator[str]:
         """
         Split a statement into separate SQL statements.
 
@@ -201,10 +224,10 @@ class DatabaseClient(Duct, MagicsProvider):
         should be overloaded appropriately.
 
         Args:
-            statements (str): A string containing one or more SQL statements.
+            statements: A string containing one or more SQL statements.
 
         Returns:
-            iterator<str>: An iterator of SQL statements.
+            An iterator of SQL statements.
         """
         for statement in sqlparse.split(statements):
             statement = statement.strip()
@@ -214,25 +237,24 @@ class DatabaseClient(Duct, MagicsProvider):
                 yield statement
 
     @classmethod
-    def statement_hash(cls, statement, cleanup=True):
+    def statement_hash(cls, statement: str, cleanup: bool = True) -> str:
         """
         Retrieve the hash to use to identify query statements to the cache.
 
         Args:
-            statement (str): A string representation of the statement to be
-                hashed.
-            cleanup (bool): Whether the statement should first be consistently
+            statement: A string representation of the statement to be hashed.
+            cleanup: Whether the statement should first be consistently
                 reformatted using `statement_cleanup`.
 
         Returns:
-            str: The hash used to identify a statement to the cache.
+            The hash used to identify a statement to the cache.
         """
         if cleanup:
             statement = cls.statement_cleanup(statement)
         return hashlib.sha256(statement.encode("utf8")).hexdigest()
 
     @classmethod
-    def statement_cleanup(cls, statement):
+    def statement_cleanup(cls, statement: str) -> str:
         """
         Clean up statements prior to hash computation.
 
@@ -243,10 +265,10 @@ class DatabaseClient(Duct, MagicsProvider):
         method should be overloaded appropriately.
 
         Args:
-            statement (str): The statement to be reformatted/cleaned-up.
+            statement: The statement to be reformatted/cleaned-up.
 
         Returns:
-            str: The new statement, consistently reformatted.
+            The new statement, consistently reformatted.
         """
         statement = sqlparse.format(statement, strip_comments=True, reindent=True)
         statement = os.linesep.join([line for line in statement.splitlines() if line])
@@ -267,8 +289,13 @@ class DatabaseClient(Duct, MagicsProvider):
     @inherit_docs("_execute")
     @require_connection
     def execute(
-        self, statement, wait=True, cursor=None, session_properties=None, **kwargs
-    ):
+        self,
+        statement: str,
+        wait: bool = True,
+        cursor: Any = None,
+        session_properties: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Execute a statement against this database and return a cursor object.
 
@@ -276,18 +303,17 @@ class DatabaseClient(Duct, MagicsProvider):
         in future executions, by passing it as the `cursor` keyword argument.
 
         Args:
-            statement (str): The statement to be executed by the query client
+            statement: The statement to be executed by the query client
                 (possibly templated).
-            wait (bool): Whether the cursor should be returned before the
-                server-side query computation is complete and the relevant
-                results downloaded.
-            cursor (DBAPI2 cursor):  Rather than creating a new cursor, execute
-                the statement against the provided cursor.
-            session_properties (dict): Additional session properties and/or
-                overrides to use for this query. Setting a session property
-                value to `None` will cause it to be omitted.
-            **kwargs (dict): Extra keyword arguments to be passed on to
-                `_execute`, as implemented by subclasses.
+            wait: Whether the cursor should be returned before the server-side
+                query computation is complete and the relevant results downloaded.
+            cursor: Rather than creating a new cursor, execute the statement
+                against the provided cursor.
+            session_properties: Additional session properties and/or overrides
+                to use for this query. Setting a session property value to
+                `None` will cause it to be omitted.
+            **kwargs: Extra keyword arguments to be passed on to `_execute`, as
+                implemented by subclasses.
             template (bool): Whether the statement should be treated as a Jinja2
                 template. [Used by `render_statement` decorator.]
             context (dict): The context in which the template should be
@@ -303,7 +329,7 @@ class DatabaseClient(Duct, MagicsProvider):
                 decorator.]
 
         Returns:
-            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
+            A DBAPI2 compatible cursor instance.
         """
 
         session_properties = self._get_session_properties(overrides=session_properties)
@@ -338,21 +364,28 @@ class DatabaseClient(Duct, MagicsProvider):
 
     @logging_scope("Query", timed=True)
     @render_statement
-    def query(self, statement, format=None, format_opts=None, use_cache=True, **kwargs):
+    def query(
+        self,
+        statement: str,
+        format: str | type[_cursor_formatters.CursorFormatter] | None = None,
+        format_opts: dict[str, Any] | None = None,
+        use_cache: bool = True,
+        **kwargs: Any,
+    ) -> Any:
         """
         Execute a statement against this database and collect formatted data.
 
         Args:
-            statement (str): The statement to be executed by the query client
+            statement: The statement to be executed by the query client
                 (possibly templated).
-            format (str): A subclass of CursorFormatter, or one of: 'pandas',
-                'hive', 'csv', 'tuple' or 'dict'. Defaults to
+            format: A subclass of CursorFormatter, or one of: 'pandas', 'hive',
+                'csv', 'tuple' or 'dict'. Defaults to
                 `self.DEFAULT_CURSOR_FORMATTER`.
-            format_opts (dict): A dictionary of format-specific options.
-            use_cache (bool): Whether to cache the cursor returned by
-                `DatabaseClient.execute()` (overrides the default of False
-                for `.execute()`). (default=True)
-            **kwargs (dict): Additional arguments to pass on to
+            format_opts: A dictionary of format-specific options.
+            use_cache: Whether to cache the cursor returned by
+                `DatabaseClient.execute()` (overrides the default of False for
+                `.execute()`). (default=True)
+            **kwargs: Additional arguments to pass on to
                 `DatabaseClient.execute()`.
 
         Returns:
@@ -371,7 +404,14 @@ class DatabaseClient(Duct, MagicsProvider):
         formatter = self._get_formatter(format, cursor, **format_opts)
         return formatter.dump()
 
-    def stream(self, statement, format=None, format_opts=None, batch=None, **kwargs):
+    def stream(
+        self,
+        statement: str,
+        format: str | type[_cursor_formatters.CursorFormatter] | None = None,
+        format_opts: dict[str, Any] | None = None,
+        batch: int | None = None,
+        **kwargs: Any,
+    ) -> Iterator[Any]:
         """
         Execute a statement against this database and stream formatted results.
 
@@ -380,19 +420,19 @@ class DatabaseClient(Duct, MagicsProvider):
         will be over lists of length `batch` containing formatted rows.
 
         Args:
-            statement (str): The statement to be executed against the database.
-            format (str): A subclass of CursorFormatter, or one of: 'pandas',
-                'hive', 'csv', 'tuple' or 'dict'. Defaults to
+            statement: The statement to be executed against the database.
+            format: A subclass of CursorFormatter, or one of: 'pandas', 'hive',
+                'csv', 'tuple' or 'dict'. Defaults to
                 `self.DEFAULT_CURSOR_FORMATTER`.
-            format_opts (dict): A dictionary of format-specific options.
-            batch (int): If not `None`, the number of rows from the resulting
-                cursor to be returned at once.
-            **kwargs (dict): Additional keyword arguments to pass onto
+            format_opts: A dictionary of format-specific options.
+            batch: If not `None`, the number of rows from the resulting cursor
+                to be returned at once.
+            **kwargs: Additional keyword arguments to pass onto
                 `DatabaseClient.execute`.
 
         Returns:
-            iterator: An iterator over objects of the nominated format or, if
-                batched, a list of such objects.
+            An iterator over objects of the nominated format or, if batched, a
+            list of such objects.
         """
         format_opts = format_opts or {}
         cursor = self.execute(statement, wait=True, **kwargs)
@@ -400,13 +440,21 @@ class DatabaseClient(Duct, MagicsProvider):
 
         yield from formatter.stream(batch=batch)
 
-    def _get_formatter(self, formatter, cursor, **kwargs):
+    def _get_formatter(
+        self,
+        formatter: str | type[_cursor_formatters.CursorFormatter] | None,
+        cursor: Any,
+        **kwargs: Any,
+    ) -> _cursor_formatters.CursorFormatter:
         formatter = formatter or self.DEFAULT_CURSOR_FORMATTER
         if not (
             inspect.isclass(formatter)
             and issubclass(formatter, _cursor_formatters.CursorFormatter)
         ):
-            if formatter not in self.CURSOR_FORMATTERS:
+            if (
+                not isinstance(formatter, str)
+                or formatter not in self.CURSOR_FORMATTERS
+            ):
                 raise ValueError(
                     f"Invalid format '{formatter}'. Choose from: {','.join(self.CURSOR_FORMATTERS.keys())}"
                 )
@@ -416,7 +464,14 @@ class DatabaseClient(Duct, MagicsProvider):
         )
         return formatter(cursor, **format_opts)
 
-    def stream_to_file(self, statement, file, format="csv", fs=None, **kwargs):
+    def stream_to_file(
+        self,
+        statement: str,
+        file: str | Any,
+        format: str = "csv",
+        fs: FileSystemClient | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Execute a statement against this database and stream results to a file.
 
@@ -427,14 +482,13 @@ class DatabaseClient(Duct, MagicsProvider):
         default format for this method (rather than `pandas`).
 
         Args:
-            statement (str): The statement to be executed against the database.
-            file (str, file-like-object): The filename where the data should be
-                written, or an open file-like resource.
-            format (str): The format to be used ('csv' by default). Format
-                options can be passed via `**kwargs`.
-            fs (None, FileSystemClient): The filesystem wihin which the
-                nominated file should be found. If `None`, the local filesystem
-                will be used.
+            statement: The statement to be executed against the database.
+            file: The filename where the data should be written, or an open
+                file-like resource.
+            format: The format to be used ('csv' by default). Format options
+                can be passed via `**kwargs`.
+            fs: The filesystem within which the nominated file should be found.
+                If `None`, the local filesystem will be used.
             **kwargs: Additional keyword arguments to pass onto
                 `DatabaseClient.stream`.
         """
@@ -449,22 +503,25 @@ class DatabaseClient(Duct, MagicsProvider):
             if close_later:
                 file.close()
 
-    def execute_from_file(self, file, fs=None, **kwargs):
+    def execute_from_file(
+        self,
+        file: str | Any,
+        fs: FileSystemClient | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Execute a statement stored in a file.
 
         Args:
-            file (str, file-like-object): The path of the file containing the
-                query statement to be executed against the database, or an open
-                file-like resource.
-            fs (None, FileSystemClient): The filesystem wihin which the
-                nominated file should be found. If `None`, the local filesystem
-                will be used.
-            **kwargs (dict): Extra keyword arguments to pass on to
+            file: The path of the file containing the query statement to be
+                executed against the database, or an open file-like resource.
+            fs: The filesystem within which the nominated file should be found.
+                If `None`, the local filesystem will be used.
+            **kwargs: Extra keyword arguments to pass on to
                 `DatabaseClient.execute`.
 
         Returns:
-            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
+            A DBAPI2 compatible cursor instance.
         """
         close_later = False
         if isinstance(file, str):
@@ -477,22 +534,25 @@ class DatabaseClient(Duct, MagicsProvider):
             if close_later:
                 file.close()
 
-    def query_from_file(self, file, fs=None, **kwargs):
+    def query_from_file(
+        self,
+        file: str | Any,
+        fs: FileSystemClient | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Query using a statement stored in a file.
 
         Args:
-            file (str, file-like-object): The path of the file containing the
-                query statement to be executed against the database, or an open
-                file-like resource.
-            fs (None, FileSystemClient): The filesystem wihin which the
-                nominated file should be found. If `None`, the local filesystem
-                will be used.
-            **kwargs (dict): Extra keyword arguments to pass on to
+            file: The path of the file containing the query statement to be
+                executed against the database, or an open file-like resource.
+            fs: The filesystem within which the nominated file should be found.
+                If `None`, the local filesystem will be used.
+            **kwargs: Extra keyword arguments to pass on to
                 `DatabaseClient.query`.
 
         Returns:
-            object: The results of the query formatted as nominated.
+            The results of the query formatted as nominated.
         """
         close_later = False
         if isinstance(file, str):
@@ -506,14 +566,14 @@ class DatabaseClient(Duct, MagicsProvider):
                 file.close()
 
     @property
-    def template_names(self):
+    def template_names(self) -> list[str]:
         """
         list: A list of names associated with the templates associated with this
         client.
         """
         return list(self._templates)
 
-    def template_add(self, name, body):
+    def template_add(self, name: str, body: str) -> Self:
         """
         Add a named template to the internal dictionary of templates.
 
@@ -521,59 +581,63 @@ class DatabaseClient(Duct, MagicsProvider):
         `.template_render` for more information.
 
         Args:
-            name (str): The name of the template.
-            body (str): The (typically) multiline body of the template.
+            name: The name of the template.
+            body: The (typically) multiline body of the template.
 
         Returns:
-            PrestoClient: A reference to this object.
+            A reference to this object.
         """
         self._templates[name] = body
         return self
 
-    def template_get(self, name):
+    def template_get(self, name: str) -> str:
         """
         Retrieve a named template.
 
         Args:
-            name (str): The name of the template to retrieve.
+            name: The name of the template to retrieve.
 
         Raises:
             ValueError: If `name` is not associated with a template.
 
         Returns:
-            str: The requested template.
+            The requested template.
         """
         if name not in self._templates:
             raise ValueError(f"No such template named: '{name}'.")
         return self._templates[name]
 
-    def template_variables(self, name_or_statement, by_name=False):
+    def template_variables(
+        self,
+        name_or_statement: str,
+        by_name: bool = False,
+    ) -> set[str]:
         """
         Return the set of undeclared variables required for this template.
 
         Args:
-            name_or_statement (str): The name of a template (if `by_name` is True)
-                or else a string representation of a `jinja2` template.
-            by_name (bool): `True` if `name_or_statement` should be interpreted as a
-                template name, or `False` (default) if `name_or_statement` should be
-                interpreted as a template body.
+            name_or_statement: The name of a template (if `by_name` is True) or
+                else a string representation of a `jinja2` template.
+            by_name: `True` if `name_or_statement` should be interpreted as a
+                template name, or `False` (default) if `name_or_statement`
+                should be interpreted as a template body.
 
         Returns:
-            set<str>: A set of names which the template requires to be rendered.
+            A set of names which the template requires to be rendered.
         """
         ast = jinja2.Environment().parse(  # noqa: S701
             self.template_render(name_or_statement, by_name=by_name, meta_only=True)
         )
-        return jinja2.meta.find_undeclared_variables(ast)
+        return jinja2.meta.find_undeclared_variables(ast)  # type: ignore[no-any-return]
 
     def template_render(
         self,
-        name_or_statement,
-        context=None,
-        by_name=False,
-        cleanup=False,
-        meta_only=False,
-    ):
+        name_or_statement: str,
+        context: dict[str, Any] | None = None,
+        by_name: bool = False,
+        cleanup: bool = False,
+        meta_only: bool = False,
+    ) -> str:
         """
         Render a template by name or value.
 
@@ -603,21 +667,21 @@ class DatabaseClient(Duct, MagicsProvider):
         chain template embedding, provided that such embedding is not recursive.
 
         Args:
-            name_or_statement (str): The name of a template (if `by_name` is True)
-                or else a string representation of a `jinja2` template.
-            context (dict, None): A dictionary to use as the template context.
-                If not specified, an empty dictionary is used.
-            by_name (bool): `True` if `name_or_statement` should be interpreted as a
-                template name, or `False` (default) if `name_or_statement` should be
-                interpreted as a template body.
-            cleanup (bool): `True` if the rendered statement should be formatted,
+            name_or_statement: The name of a template (if `by_name` is True) or
+                else a string representation of a `jinja2` template.
+            context: A dictionary to use as the template context. If not
+                specified, an empty dictionary is used.
+            by_name: `True` if `name_or_statement` should be interpreted as a
+                template name, or `False` (default) if `name_or_statement`
+                should be interpreted as a template body.
+            cleanup: `True` if the rendered statement should be formatted,
                 `False` (default) otherwise
-            meta_only (bool): `True` if rendering should only progress as far as
+            meta_only: `True` if rendering should only progress as far as
                 rendering nested templates (i.e. don't actually substitute in
                 variables from the context); `False` (default) otherwise.
 
         Returns:
-            str: The rendered template.
+            The rendered template.
         """
         if by_name:
             if name_or_statement not in self._templates:
@@ -639,7 +703,7 @@ class DatabaseClient(Duct, MagicsProvider):
         if context is None or context is False:
             context = {}
 
-        template_context = {}
+        template_context: dict[str, Any] = {}
         template_context.update(self._template_context)  # default context
         template_context.update(context)  # context passed in
         intersection = set(self._template_context.keys()) & set(context.keys())
@@ -671,33 +735,43 @@ class DatabaseClient(Duct, MagicsProvider):
 
         return statement
 
-    def execute_from_template(self, name, context=None, **kwargs):
+    def execute_from_template(
+        self,
+        name: str,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Render and then execute a named template.
 
         Args:
-            name (str): The name of the template to be rendered and executed.
-            context (dict): The context in which the template should be rendered.
-            **kwargs (dict): Additional parameters to pass to `.execute()`.
+            name: The name of the template to be rendered and executed.
+            context: The context in which the template should be rendered.
+            **kwargs: Additional parameters to pass to `.execute()`.
 
         Returns:
-            DBAPI2 cursor: A DBAPI2 compatible cursor instance.
+            A DBAPI2 compatible cursor instance.
         """
         statement = self.template_render(name, context, by_name=True)
         return self.execute(statement, **kwargs)
 
-    def query_from_template(self, name, context=None, **kwargs):
+    def query_from_template(
+        self,
+        name: str,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Render and then query using a named tempalte.
 
         Args:
-            name (str): The name of the template to be rendered and used to query
+            name: The name of the template to be rendered and used to query
                 the database.
-            context (dict): The context in which the template should be rendered.
-            **kwargs (dict): Additional parameters to pass to `.query()`.
+            context: The context in which the template should be rendered.
+            **kwargs: Additional parameters to pass to `.query()`.
 
         Returns:
-           object: The results of the query formatted as nominated.
+           The results of the query formatted as nominated.
         """
         statement = self.template_render(name, context, by_name=True)
         return self.query(statement, **kwargs)
@@ -705,23 +779,28 @@ class DatabaseClient(Duct, MagicsProvider):
     # Uploading/querying data into data store
     @logging_scope("Query [CTAS]", timed=True)
     @inherit_docs("_query_to_table")
-    def query_to_table(self, statement, table, if_exists="fail", **kwargs):
+    def query_to_table(
+        self,
+        statement: str,
+        table: str | ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
+        **kwargs: Any,
+    ) -> Any:
         """
         Run a query and store the results in a table in this database.
 
         Args:
             statement: The statement to be executed.
-            table (str): The name of the table into which the dataframe should
-                be uploaded.
-            if_exists (str): if nominated table already exists: 'fail' to do
-                nothing, 'replace' to drop, recreate and insert data into new
-                table, and 'append' to add data from this table into the
-                existing table.
-            **kwargs (dict): Additional keyword arguments to pass onto
+            table: The name of the table into which the dataframe should be
+                uploaded.
+            if_exists: if nominated table already exists: 'fail' to do nothing,
+                'replace' to drop, recreate and insert data into new table, and
+                'append' to add data from this table into the existing table.
+            **kwargs: Additional keyword arguments to pass onto
                 `DatabaseClient._query_to_table`.
 
         Returns:
-            DB-API cursor: The cursor object associated with the execution.
+            The cursor object associated with the execution.
         """
         if if_exists not in {"fail", "replace", "append"}:
             raise ValueError(
@@ -733,19 +812,24 @@ class DatabaseClient(Duct, MagicsProvider):
     @logging_scope("Dataframe Upload", timed=True)
     @inherit_docs("_dataframe_to_table")
     @require_connection
-    def dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
+    def dataframe_to_table(
+        self,
+        df: pd.DataFrame,
+        table: str | ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
+        **kwargs: Any,
+    ) -> None:
         """
         Upload a local pandas dataframe into a table in this database.
 
         Args:
-            df (pandas.DataFrame): The dataframe to upload into the database.
-            table (str, ParsedNamespaces): The name of the table into which the
-                dataframe should be uploaded.
-            if_exists (str): if nominated table already exists: 'fail' to do
-                nothing, 'replace' to drop, recreate and insert data into new
-                table, and 'append' to add data from this table into the
-                existing table.
-            **kwargs (dict): Additional keyword arguments to pass onto
+            df: The dataframe to upload into the database.
+            table: The name of the table into which the dataframe should be
+                uploaded.
+            if_exists: if nominated table already exists: 'fail' to do nothing,
+                'replace' to drop, recreate and insert data into new table, and
+                'append' to add data from this table into the existing table.
+            **kwargs: Additional keyword arguments to pass onto
                 `DatabaseClient._dataframe_to_table`.
         """
         if if_exists not in {"fail", "replace", "append"}:
@@ -759,19 +843,43 @@ class DatabaseClient(Duct, MagicsProvider):
     # Table properties
 
     @abstractmethod
-    def _execute(self, statement, cursor, wait, session_properties):
+    def _execute(
+        self,
+        statement: str,
+        cursor: Any,
+        wait: bool,
+        session_properties: dict[str, Any],
+    ) -> Any:
         pass
 
-    def _query_to_table(self, statement, table, if_exists, **kwargs):
+    def _query_to_table(
+        self,
+        statement: str,
+        table: ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"],
+        **kwargs: Any,
+    ) -> Any:
         raise NotImplementedError
 
-    def _dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
+    def _dataframe_to_table(
+        self,
+        df: pd.DataFrame,
+        table: ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
+        **kwargs: Any,
+    ) -> None:
         raise NotImplementedError
 
-    def _cursor_empty(self, cursor):
+    def _cursor_empty(self, cursor: Any) -> bool:
         return cursor is None
 
-    def _parse_namespaces(self, name, level=0, defaults=None, write=False):
+    def _parse_namespaces(
+        self,
+        name: str | ParsedNamespaces,
+        level: int = 0,
+        defaults: dict[str, str] | None = None,
+        write: bool = False,
+    ) -> ParsedNamespaces:
         return ParsedNamespaces.from_name(
             name,
             self.NAMESPACE_NAMES[:-level] if level > 0 else self.NAMESPACE_NAMES,
@@ -785,161 +893,195 @@ class DatabaseClient(Duct, MagicsProvider):
         )
 
     @inherit_docs("_table_list")
-    def table_list(self, namespace=None, renew=True, **kwargs):
+    def table_list(
+        self,
+        namespace: str,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> Any:
         """
         Return a list of table names in the data source as a DataFrame.
 
         Args:
-            namespace (str): The namespace in which to look for tables.
-            renew (bool): Whether to renew the table list or use cached results
+            namespace: The namespace in which to look for tables.
+            renew: Whether to renew the table list or use cached results
                 (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            list<str>: The names of schemas in this database.
+            The names of schemas in this database.
         """
         return self._table_list(
             self._parse_namespaces(namespace, level=1), renew=renew, **kwargs
         )
 
     @abstractmethod
-    def _table_list(self, namespace, **kwargs):
+    def _table_list(self, namespace: ParsedNamespaces, **kwargs: Any) -> Any:
         pass
 
     @inherit_docs("_table_exists")
-    def table_exists(self, table, renew=True, **kwargs):
+    def table_exists(
+        self,
+        table: str | ParsedNamespaces,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> bool:
         """
         Check whether a table exists.
 
         Args:
-            table (str): The table for which to check.
-            renew (bool): Whether to renew the table list or use cached results
+            table: The table for which to check.
+            renew: Whether to renew the table list or use cached results
                 (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            bool: `True` if table exists, and `False` otherwise.
+            `True` if table exists, and `False` otherwise.
         """
         return self._table_exists(
             table=self._parse_namespaces(table), renew=renew, **kwargs
         )
 
     @abstractmethod
-    def _table_exists(self, table, **kwargs):
+    def _table_exists(self, table: ParsedNamespaces, **kwargs: Any) -> bool:
         pass
 
     @inherit_docs("_table_drop")
-    def table_drop(self, table, **kwargs):
+    def table_drop(self, table: str | ParsedNamespaces, **kwargs: Any) -> Any:
         """
         Remove a table from the database.
 
         Args:
-            table (str): The table to drop.
-            **kwargs (dict): Additional arguments passed through to implementation.
+            table: The table to drop.
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            DB-API cursor: The cursor associated with this execution.
+            The cursor associated with this execution.
         """
         return self._table_drop(
             table=self._parse_namespaces(table, write=True), **kwargs
         )
 
     @abstractmethod
-    def _table_drop(self, table, **kwargs):
+    def _table_drop(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         pass
 
     @inherit_docs("_table_desc")
-    def table_desc(self, table, renew=True, **kwargs):
+    def table_desc(
+        self,
+        table: str | ParsedNamespaces,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
         """
         Describe a table in the database.
 
         Args:
-            table (str): The table to describe.
-            renew (bool): Whether to renew the results (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            table: The table to describe.
+            renew: Whether to renew the results (default: True).
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            pandas.DataFrame: A dataframe description of the table.
+            A dataframe description of the table.
         """
         return self._table_desc(
             table=self._parse_namespaces(table), renew=renew, **kwargs
         )
 
     @abstractmethod
-    def _table_desc(self, table, **kwargs):
+    def _table_desc(self, table: ParsedNamespaces, **kwargs: Any) -> pd.DataFrame:
         pass
 
     @inherit_docs("_table_partition_cols")
-    def table_partition_cols(self, table, renew=True, **kwargs):
+    def table_partition_cols(
+        self,
+        table: str | ParsedNamespaces,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> list[str]:
         """
         Extract the columns by which a table is partitioned (if database supports partitions).
 
         Args:
-            table (str): The table from which to extract data.
-            renew (bool): Whether to renew the results (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            table: The table from which to extract data.
+            renew: Whether to renew the results (default: True).
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            list<str>: A list of columns by which table is partitioned.
+            A list of columns by which table is partitioned.
         """
         return self._table_partition_cols(
             table=self._parse_namespaces(table), renew=renew, **kwargs
         )
 
-    def _table_partition_cols(self, table, **kwargs):
+    def _table_partition_cols(
+        self, table: ParsedNamespaces, **kwargs: Any
+    ) -> list[str]:
         raise NotImplementedError(
             f"Database backend `{self.__class__.__name__}` does not support, or has not implemented, support for extracting partition columns."
         )
 
     @inherit_docs("_table_head")
-    def table_head(self, table, n=10, renew=True, **kwargs):
+    def table_head(
+        self,
+        table: str | ParsedNamespaces,
+        n: int = 10,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
         """
         Retrieve the first `n` rows from a table.
 
         Args:
-            table (str): The table from which to extract data.
-            n (int): The number of rows to extract.
-            renew (bool): Whether to renew the table list or use cached results
+            table: The table from which to extract data.
+            n: The number of rows to extract.
+            renew: Whether to renew the table list or use cached results
                 (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            pandas.DataFrame: A dataframe representation of the first `n` rows
-                of the nominated table.
+            A dataframe representation of the first `n` rows of the nominated
+            table.
         """
         return self._table_head(
             table=self._parse_namespaces(table), n=n, renew=renew, **kwargs
         )
 
     @abstractmethod
-    def _table_head(self, table, n=10, **kwargs):
+    def _table_head(
+        self, table: ParsedNamespaces, n: int = 10, **kwargs: Any
+    ) -> pd.DataFrame:
         pass
 
     @inherit_docs("_table_props")
-    def table_props(self, table, renew=True, **kwargs):
+    def table_props(
+        self,
+        table: str | ParsedNamespaces,
+        renew: bool = True,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
         """
         Retrieve the properties associated with a table.
 
         Args:
-            table (str): The table from which to extract data.
-            renew (bool): Whether to renew the table list or use cached results
+            table: The table from which to extract data.
+            renew: Whether to renew the table list or use cached results
                 (default: True).
-            **kwargs (dict): Additional arguments passed through to implementation.
+            **kwargs: Additional arguments passed through to implementation.
 
         Returns:
-            pandas.DataFrame: A dataframe representation of the table
-                properties.
+            A dataframe representation of the table properties.
         """
         return self._table_props(
             table=self._parse_namespaces(table), renew=renew, **kwargs
         )
 
     @abstractmethod
-    def _table_props(self, table, **kwargs):
+    def _table_props(self, table: ParsedNamespaces, **kwargs: Any) -> pd.DataFrame:
         pass
 
     @override
-    def _register_magics(self, base_name):
+    def _register_magics(self, base_name: str) -> None:
         """
         The following magic functions will be registered (assuming that
         the base name is chosen to be 'hive'):
@@ -971,15 +1113,15 @@ class DatabaseClient(Duct, MagicsProvider):
         )
 
         def statement_executor_magic(
-            executor,
-            statement,
-            variable=None,
-            show="head",
-            transpose=False,
-            template=True,
-            context=None,
-            **kwargs,
-        ):
+            executor: str,
+            statement: str | None,
+            variable: str | None = None,
+            show: str | int = "head",
+            transpose: bool = False,
+            template: bool = True,
+            context: dict[str, Any] | None = None,
+            **kwargs: Any,
+        ) -> Any:
             ip = get_ipython()
 
             if context is None:
@@ -987,6 +1129,10 @@ class DatabaseClient(Duct, MagicsProvider):
 
             # Line magic
             if statement is None:
+                if variable is None:
+                    raise ValueError(
+                        "A template name must be provided when using line magic."
+                    )
                 return self.query_from_template(variable, context=context, **kwargs)
 
             # Cell magic
@@ -1024,34 +1170,34 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_cell_magic(base_name)
         @process_line_cell_arguments
-        def query_magic(*args, **kwargs):
+        def query_magic(*args: Any, **kwargs: Any) -> Any:
             return statement_executor_magic("query", *args, **kwargs)
 
         @register_line_cell_magic(f"{base_name}.execute")
         @process_line_cell_arguments
-        def execute_magic(*args, **kwargs):
+        def execute_magic(*args: Any, **kwargs: Any) -> Any:
             return statement_executor_magic("execute", *args, **kwargs)
 
         @register_line_cell_magic(f"{base_name}.stream")
         @process_line_cell_arguments
-        def stream_magic(*args, **kwargs):
+        def stream_magic(*args: Any, **kwargs: Any) -> Any:
             return statement_executor_magic("stream", *args, **kwargs)
 
         @register_cell_magic(f"{base_name}.template")
         @process_line_arguments
-        def template_add(body, name):
+        def template_add(body: str, name: str) -> None:
             self.template_add(name, body)
 
         @register_line_cell_magic(f"{base_name}.render")
         @process_line_cell_arguments
         def template_render_magic(
-            body=None,
-            name=None,
-            context=None,
-            show=True,
-            cleanup=False,
-            meta_only=False,
-        ):
+            body: str | None = None,
+            name: str | None = None,
+            context: dict[str, Any] | None = None,
+            show: bool = True,
+            cleanup: bool = False,
+            meta_only: bool = False,
+        ) -> Any:
             ip = get_ipython()
 
             if body is None:
@@ -1081,15 +1227,15 @@ class DatabaseClient(Duct, MagicsProvider):
 
         @register_line_magic(f"{base_name}.desc")
         @process_line_arguments
-        def table_desc(table_name, **kwargs):
+        def table_desc(table_name: str, **kwargs: Any) -> Any:
             return self.table_desc(table_name, **kwargs)
 
         @register_line_magic(f"{base_name}.head")
         @process_line_arguments
-        def table_head(table_name, **kwargs):
+        def table_head(table_name: str, **kwargs: Any) -> Any:
             return self.table_head(table_name, **kwargs)
 
         @register_line_magic(f"{base_name}.props")
         @process_line_arguments
-        def table_props(table_name, **kwargs):
+        def table_props(table_name: str, **kwargs: Any) -> Any:
             return self.table_props(table_name, **kwargs)

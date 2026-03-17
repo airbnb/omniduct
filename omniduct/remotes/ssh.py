@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import datetime
 import getpass
 import os
 import posixpath
 import re
 import tempfile
+from collections.abc import Generator
 from shlex import quote as escape_path
+from typing import Any
 
 import pandas as pd
 from interface_meta import override
@@ -14,7 +18,7 @@ from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
 from omniduct.utils.decorators import require_connection
-from omniduct.utils.processes import run_in_subprocess
+from omniduct.utils.processes import SubprocessResults, run_in_subprocess
 
 SSH_ASKPASS = f"{os.path.dirname(__file__)}/utils/ssh_askpass"
 SESSION_SSH_USERNAME = None
@@ -42,8 +46,11 @@ class SSHClient(RemoteClient):
     PROTOCOLS = ["ssh", "ssh_cli"]
     DEFAULT_PORT = 22
 
+    interactive: bool
+    check_known_hosts: bool
+
     @override
-    def _init(self, interactive=False, check_known_hosts=True):
+    def _init(self, interactive: bool = False, check_known_hosts: bool = True) -> None:
         """
         interactive (bool):  Whether `SSHClient` should ask the user questions,
             if necessary, to establish the connection. Production deployments
@@ -57,7 +64,7 @@ class SSHClient(RemoteClient):
 
     # Duct connection implementation
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         """
         The workflow to handle passwords and host keys used by this method is
         inspired by the `pxssh` module of `pexpect` (https://github.com/pexpect/pexpect).
@@ -177,7 +184,7 @@ class SSHClient(RemoteClient):
             )
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         cmd = f"ssh {self._login_info} -T -S {self._socket_path} -O check"
         proc = run_in_subprocess(cmd)
 
@@ -188,14 +195,14 @@ class SSHClient(RemoteClient):
         return True
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         # Send exit request to control socket.
         cmd = f"ssh {self._login_info} -T -S {self._socket_path} -O exit"
         run_in_subprocess(cmd)
 
     # RemoteClient implementation
     @override
-    def _execute(self, cmd, skip_cwd=False, **kwargs):
+    def _execute(self, cmd: str, skip_cwd: bool = False, **kwargs: Any) -> Any:
         """
         Additional Args:
             skip_cwd (bool): Whether to skip changing to the current working
@@ -218,7 +225,9 @@ class SSHClient(RemoteClient):
 
     @override
     @require_connection
-    def _port_forward_start(self, local_port, remote_host, remote_port):
+    def _port_forward_start(
+        self, local_port: int, remote_host: str, remote_port: int
+    ) -> SubprocessResults:
         logger.info("Establishing port forward...")
         cmd_template = "ssh {login} -T -O forward -S {socket} -L localhost:{local_port}:{remote_host}:{remote_port}"
         cmd = cmd_template.format(
@@ -235,7 +244,13 @@ class SSHClient(RemoteClient):
         return proc
 
     @override
-    def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
+    def _port_forward_stop(
+        self,
+        local_port: int,
+        remote_host: str,
+        remote_port: int,
+        connection: Any,
+    ) -> None:
         logger.info("Cancelling port forward...")
         cmd_template = "ssh {login} -T -O cancel -S {socket} -L localhost:{local_port}:{remote_host}:{remote_port}"
         cmd = cmd_template.format(
@@ -253,8 +268,8 @@ class SSHClient(RemoteClient):
         )
 
     @override
-    def _is_port_bound(self, host, port):
-        return (
+    def _is_port_bound(self, host: str, port: int) -> bool:
+        return (  # type: ignore[no-any-return]
             self.execute(
                 f"which nc; if [ $? -eq 0 ]; then nc -z -w2 {host} {port}; fi"
             ).returncode
@@ -265,29 +280,29 @@ class SSHClient(RemoteClient):
 
     # Path properties and helpers
     @override
-    def _path_home(self):
-        return self.execute("echo ~", skip_cwd=True).stdout.decode("utf-8").strip()
+    def _path_home(self) -> str:
+        return self.execute("echo ~", skip_cwd=True).stdout.decode("utf-8").strip()  # type: ignore[no-any-return]
 
     @override
-    def _path_separator(self):
+    def _path_separator(self) -> str:
         return "/"
 
     # File node properties
     @override
-    def _exists(self, path):
-        return self.execute(f"if [ ! -e {path} ]; then exit 1; fi").returncode == 0
+    def _exists(self, path: str) -> bool:
+        return self.execute(f"if [ ! -e {path} ]; then exit 1; fi").returncode == 0  # type: ignore[no-any-return]
 
     @override
-    def _isdir(self, path):
-        return self.execute(f"if [ ! -d {path} ]; then exit 1; fi").returncode == 0
+    def _isdir(self, path: str) -> bool:
+        return self.execute(f"if [ ! -d {path} ]; then exit 1; fi").returncode == 0  # type: ignore[no-any-return]
 
     @override
-    def _isfile(self, path):
-        return self.execute(f"if [ ! -f {path} ]; then exit 1; fi").returncode == 0
+    def _isfile(self, path: str) -> bool:
+        return self.execute(f"if [ ! -f {path} ]; then exit 1; fi").returncode == 0  # type: ignore[no-any-return]
 
     # Directory handling and enumeration
     @override
-    def _dir(self, path):
+    def _dir(self, path: str) -> Generator[FileSystemFileDesc, None, None]:
         # TODO: Currently we strip link annotations below with ...[:9]. Should we capture them?
         contents = pd.DataFrame(
             sorted(
@@ -312,7 +327,7 @@ class SSHClient(RemoteClient):
             ],
         )
 
-        def convert_to_datetime(x):
+        def convert_to_datetime(x: Any) -> datetime.datetime:
             months = [
                 "Jan",
                 "Feb",
@@ -368,7 +383,7 @@ class SSHClient(RemoteClient):
             )
 
     @override
-    def _mkdir(self, path, recursive, exist_ok):
+    def _mkdir(self, path: str, recursive: bool, exist_ok: bool) -> None:
         if exist_ok and self.isdir(path):
             return
         if (
@@ -380,7 +395,7 @@ class SSHClient(RemoteClient):
             raise RuntimeError(f"Failed to create directory at: `{path}`")
 
     @override
-    def _remove(self, path, recursive):
+    def _remove(self, path: str, recursive: bool) -> None:
         if (
             self.execute(
                 "rm -f " + ("-r " if recursive else "") + f'"{path}"'
@@ -391,18 +406,20 @@ class SSHClient(RemoteClient):
 
     # File handling
     @override
-    def _file_read_(self, path, size=-1, offset=0, binary=False):
+    def _file_read_(
+        self, path: str, size: int = -1, offset: int = 0, binary: bool = False
+    ) -> str | bytes:
         read = self.execute(f"cat {path}").stdout
         if not binary:
             read = read.decode("utf-8")
-        return read
+        return read  # type: ignore[no-any-return]
 
     @override
-    def _file_append_(self, path, s, binary):
+    def _file_append_(self, path: str, s: str | bytes, binary: bool) -> None:
         raise NotImplementedError
 
     @override
-    def _file_write_(self, path, s, binary):
+    def _file_write_(self, path: str, s: str | bytes, binary: bool) -> Any:
         if binary:
             fd, tmp_path = tempfile.mkstemp()
         else:
@@ -421,7 +438,13 @@ class SSHClient(RemoteClient):
     # File transfer
     @override
     @require_connection
-    def download(self, source, dest=None, overwrite=False, fs=None):
+    def download(
+        self,
+        source: str,
+        dest: str | None = None,
+        overwrite: bool = False,
+        fs: Any = None,
+    ) -> None:
         """
         Download files to another filesystem.
 
@@ -430,20 +453,20 @@ class SSHClient(RemoteClient):
         existing file if `overwrite` is `True`.
 
         Args:
-            source (str): The path on this filesystem of the file to download to
+            source: The path on this filesystem of the file to download to
                 the nominated filesystem (`fs`). If `source` ends
                 with '/' then contents of the the `source` directory will be
                 copied into destination folder, and will throw an error if path
                 does not resolve to a directory.
-            dest (str): The destination path on filesystem (`fs`). If not
+            dest: The destination path on filesystem (`fs`). If not
                 specified, the file/folder is uploaded into the default path,
                 usually one's home folder. If `dest` ends with '/',
                 and corresponds to a directory, the contents of source will be
                 copied instead of copying the entire folder. If `dest` is
                 otherwise a directory, an exception will be raised.
-            overwrite (bool): `True` if the contents of any existing file by the
+            overwrite: `True` if the contents of any existing file by the
                 same name should be overwritten, `False` otherwise.
-            fs (FileSystemClient): The FileSystemClient into which the nominated
+            fs: The FileSystemClient into which the nominated
                 file/folder `source` should be downloaded. If not specified,
                 defaults to the local filesystem.
 
@@ -470,7 +493,13 @@ class SSHClient(RemoteClient):
 
     @override
     @require_connection
-    def upload(self, source, dest=None, overwrite=False, fs=None):
+    def upload(
+        self,
+        source: str,
+        dest: str | None = None,
+        overwrite: bool = False,
+        fs: Any = None,
+    ) -> None:
         """
         Upload files from another filesystem.
 
@@ -480,18 +509,18 @@ class SSHClient(RemoteClient):
         `fs.download(..., fs=self)`.
 
         Args:
-            source (str): The path on the specified filesystem (`fs`) of the
+            source: The path on the specified filesystem (`fs`) of the
                 file to upload to this filesystem. If `source` ends with '/',
                 and corresponds to a directory, the contents of source will be
                 copied instead of copying the entire folder.
-            dest (str): The destination path on this filesystem. If not
+            dest: The destination path on this filesystem. If not
                 specified, the file/folder is uploaded into the default path,
                 usually one's home folder, on this filesystem. If `dest` ends
                 with '/' then file will be copied into destination folder, and
                 will throw an error if path does not resolve to a directory.
-            overwrite (bool): `True` if the contents of any existing file by the
+            overwrite: `True` if the contents of any existing file by the
                 same name should be overwritten, `False` otherwise.
-            fs (FileSystemClient): The FileSystemClient from which to load the
+            fs: The FileSystemClient from which to load the
                 file/folder at `source`. If not specified, defaults to the local
                 filesystem.
 
@@ -519,21 +548,21 @@ class SSHClient(RemoteClient):
     # Helper methods
 
     @property
-    def _login_info(self):
-        return "@".join([self.username, self.host])
+    def _login_info(self) -> str:
+        return "@".join([str(self.username), str(self.host)])
 
     @property
-    def _socket_path(self):
+    def _socket_path(self) -> str:
         # On Linux the maximum socket path length is 108 characters, and on Mac OS X it is 104 characters, including
         # the final sentinel character (or so it seems). SSH appends a '.' character, followed by random sequence of 16
         # characters. We therefore need the rest of the path to be less than 86 characters.
         return os.path.expanduser(f"~/.ssh/omniduct/{self._login_info}")[:86]
 
     @property
-    def _subprocess_config(self):
+    def _subprocess_config(self) -> dict[str, Any]:
         return {}
 
-    def update_host_keys(self):
+    def update_host_keys(self) -> None:
         """
         Update host keys associated with this remote.
 

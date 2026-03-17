@@ -1,12 +1,20 @@
+from __future__ import annotations
+
 import urllib.parse
+from typing import TYPE_CHECKING, Any, Literal
 
 from interface_meta import override
 
 from omniduct.utils.debug import logger
 
 from . import _pandas
+from ._namespaces import ParsedNamespaces
 from ._schemas import SchemasMixin
 from .base import DatabaseClient
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import sqlalchemy as sa
 
 
 class SQLAlchemyClient(DatabaseClient, SchemasMixin):
@@ -27,17 +35,30 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         "sybase",
         "snowflake",
     ]
-    NAMESPACE_NAMES = ["database", "table"]
-    NAMESPACE_QUOTECHAR = '"'  # TODO: Apply overrides depending on protocol?
-    NAMESPACE_SEPARATOR = "."
+    NAMESPACE_NAMES: list[str] = ["database", "table"]
+    NAMESPACE_QUOTECHAR: str = '"'  # TODO: Apply overrides depending on protocol?
+    NAMESPACE_SEPARATOR: str = "."
+
+    dialect: str | None
+    driver: str | None
+    database: str
+    engine_opts: dict[str, Any]
+    engine: sa.Engine | None
+    connection: sa.Connection | None
 
     @property
     @override
-    def NAMESPACE_DEFAULT(self):
+    def NAMESPACE_DEFAULT(self) -> dict[str, str]:  # type: ignore[override]
         return {"database": self.database}
 
     @override
-    def _init(self, dialect=None, driver=None, database="", engine_opts=None):
+    def _init(
+        self,
+        dialect: str | None = None,
+        driver: str | None = None,
+        database: str = "",
+        engine_opts: dict[str, Any] | None = None,
+    ) -> None:
         if self._port is None:
             raise ValueError(
                 "Omniduct requires SQLAlchemy databases to manually specify a port, as "
@@ -60,28 +81,34 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         self.connection = None
 
     @property
-    def db_uri(self):
+    def db_uri(self) -> str:
+        if self.dialect is None:
+            raise RuntimeError("dialect must be set before accessing db_uri")
+        username = self.username
+        password = self.password
+        host = self.host
         return "{dialect}://{login}@{host_port}/{database}".format(
             dialect=self.dialect + (f"+{self.driver}" if self.driver else ""),
-            login=self.username
-            + (f":{urllib.parse.quote_plus(self.password)}" if self.password else ""),
-            host_port=self.host + (f":{self.port}" if self.port else ""),
+            login=(username or "")
+            + (f":{urllib.parse.quote_plus(password)}" if password else ""),
+            host_port=(host or "") + (f":{self.port}" if self.port else ""),
             database=self.database,
         )
 
     @property
-    def _sqlalchemy_engine(self):
+    @override
+    def _sqlalchemy_engine(self) -> sa.Engine | None:
         """
         The SQLAlchemy engine object for the SchemasMixin.
         """
         return self.engine
 
     @_sqlalchemy_engine.setter
-    def _sqlalchemy_engine(self, engine):
+    def _sqlalchemy_engine(self, engine: sa.Engine | None) -> None:
         self.engine = engine
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         import sqlalchemy
 
         if self.protocol not in ["mysql"]:
@@ -97,11 +124,11 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         self.connection = self.engine.connect()
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         return self.connection is not None
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         if self.connection is not None:
             self.connection.close()
         self.connection = None
@@ -110,8 +137,14 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
 
     @override
     def _execute(
-        self, statement, cursor, wait, session_properties, query=True, **kwargs
-    ):
+        self,
+        statement: str,
+        cursor: Any,
+        wait: bool,
+        session_properties: dict[str, Any],
+        query: bool = True,
+        **kwargs: Any,
+    ) -> Any:
         import sqlalchemy
 
         if not wait:
@@ -124,11 +157,17 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         if cursor:
             cursor.execute(statement)
         else:
-            cursor = self.connection.execute(sqlalchemy.text(statement)).cursor  # type: ignore[attr-defined]
+            cursor = self.connection.execute(sqlalchemy.text(statement)).cursor
         return cursor
 
     @override
-    def _query_to_table(self, statement, table, if_exists, **kwargs):
+    def _query_to_table(
+        self,
+        statement: str,
+        table: ParsedNamespaces,
+        if_exists: str,
+        **kwargs: Any,
+    ) -> Any:
         statements = []
 
         if if_exists == "fail" and self.table_exists(table):
@@ -144,10 +183,16 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return self.execute(statement, **kwargs)
 
     @override
-    def _dataframe_to_table(self, df, table, if_exists="fail", **kwargs):
+    def _dataframe_to_table(
+        self,
+        df: pd.DataFrame,
+        table: ParsedNamespaces,
+        if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
+        **kwargs: Any,
+    ) -> None:
         return _pandas.to_sql(
             df=df,
-            name=table.table,
+            name=table.table,  # type: ignore
             schema=table.database,
             con=self.engine,
             index=False,
@@ -156,11 +201,11 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         )
 
     @override
-    def _table_list(self, namespace, **kwargs):
+    def _table_list(self, namespace: ParsedNamespaces, **kwargs: Any) -> Any:
         return self.query(f"SHOW TABLES IN {namespace}", **kwargs)
 
     @override
-    def _table_exists(self, table, **kwargs):
+    def _table_exists(self, table: ParsedNamespaces, **kwargs: Any) -> bool:
         logger.disabled = True
         try:
             self.table_desc(table, **kwargs)
@@ -171,19 +216,19 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
             logger.disabled = False
 
     @override
-    def _table_drop(self, table, **kwargs):
+    def _table_drop(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         return self.execute(f"DROP TABLE {table}")
 
     @override
-    def _table_desc(self, table, **kwargs):
+    def _table_desc(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         return self.query(f"DESCRIBE {table}", **kwargs)
 
     @override
-    def _table_head(self, table, n=10, **kwargs):
+    def _table_head(self, table: ParsedNamespaces, n: int = 10, **kwargs: Any) -> Any:
         # Use parameterized query to avoid SQL injection
         query = f"SELECT * FROM {table} LIMIT %s"
         return self.query(query, n, **kwargs)
 
     @override
-    def _table_props(self, table, **kwargs):
+    def _table_props(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise NotImplementedError

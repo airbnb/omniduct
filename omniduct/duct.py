@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import atexit
 import functools
 import getpass
@@ -7,13 +9,20 @@ import pwd
 import re
 from abc import abstractmethod
 from enum import Enum
+from typing import TYPE_CHECKING, Any, cast
 
 from interface_meta import InterfaceMeta, inherit_docs
+from typing_extensions import Self
 
 from omniduct.errors import DuctProtocolUnknown, DuctServerUnreachable
 from omniduct.utils.debug import logger, logging_scope
 from omniduct.utils.dependencies import check_dependencies
 from omniduct.utils.ports import is_port_bound, naive_load_balancer
+
+if TYPE_CHECKING:
+    from omniduct.caches.base import Cache
+    from omniduct.registry import DuctRegistry
+    from omniduct.remotes.base import RemoteClient
 
 
 class Duct(metaclass=InterfaceMeta):
@@ -73,9 +82,9 @@ class Duct(metaclass=InterfaceMeta):
                 associated with this class. Should be overridden by subclasses as
                 appropriate.
     """
-    __doc_cls_attrs__ = None
+    __doc_cls_attrs__: str | None = None
 
-    INTERFACE_SKIPPED_NAMES = {"__init__", "_init"}
+    INTERFACE_SKIPPED_NAMES: set[str] | None = {"__init__", "_init"}
 
     class Type(Enum):
         """
@@ -90,70 +99,88 @@ class Duct(metaclass=InterfaceMeta):
         DATABASE = "databases"
         OTHER = "other"
 
-    AUTO_LOGGING_SCOPE = True
-    DUCT_TYPE = None
-    PROTOCOLS = None
+    AUTO_LOGGING_SCOPE: bool = True
+    DUCT_TYPE: Type | None = None
+    PROTOCOLS: list[str] | None = None
+
+    # Prepared fields
+    _host: str | None
+    _port: int | None
+    _username: str | bool | None
+    _password: str | bool | None
 
     def __init__(
         self,
-        protocol=None,
-        name=None,
-        registry=None,
-        remote=None,
-        host=None,
-        port=None,
-        username=None,
-        password=None,
-        cache=None,
-        cache_namespace=None,
-    ):
+        protocol: str | None = None,
+        name: str | None = None,
+        registry: DuctRegistry | None = None,
+        remote: RemoteClient | str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        username: str | bool | None = None,
+        password: str | bool | None = None,
+        cache: Cache | str | None = None,
+        cache_namespace: str | None = None,
+    ) -> None:
         """
-        protocol (str, None): Name of protocol (used by Duct registries to inform
+        protocol: Name of protocol (used by Duct registries to inform
             Duct instances of how they were instantiated).
-        name (str, None): The name to used by the `Duct` instance (defaults to
+        name: The name to used by the `Duct` instance (defaults to
             class name if not specified).
-        registry (DuctRegistry, None): The registry to use to lookup remote
+        registry: The registry to use to lookup remote
             and/or cache instance specified by name.
-        remote (str, RemoteClient): The remote by which the ducted service
+        remote: The remote by which the ducted service
             should be contacted.
-        host (str): The hostname of the service to be used by this client.
-        port (int): The port of the service to be used by this client.
-        username (str, bool, None): The username to authenticate with if necessary.
+        host: The hostname of the service to be used by this client.
+        port: The port of the service to be used by this client.
+        username: The username to authenticate with if necessary.
             If True, then users will be prompted at runtime for credentials.
-        password (str, bool, None): The password to authenticate with if necessary.
+        password: The password to authenticate with if necessary.
             If True, then users will be prompted at runtime for credentials.
-        cache(Cache, None): The cache client to be attached to this instance.
+        cache: The cache client to be attached to this instance.
             Cache will only used by specific methods as configured by the client.
-        cache_namespace(str, None): The namespace to use by default when writing
+        cache_namespace: The namespace to use by default when writing
             to the cache.
         """
 
-        check_dependencies([protocol])
+        if protocol is not None:
+            check_dependencies([protocol])
 
-        self.protocol = protocol
-        self.name = name or self.__class__.__name__
-        self.registry = registry
-        self.remote = remote
-        self.host = host
-        self.port = port
-        self.username = username
-        self.password = password
-        self.cache = cache
-        self.cache_namespace = cache_namespace
+        self.protocol: str | None = protocol
+        self.name: str = name or self.__class__.__name__
+        self.registry: DuctRegistry | None = registry
+        self.remote: RemoteClient | str | None = remote
+        self.host: str | None = host
+        self.port: int | None = port
+        self.username: str | bool | None = username
+        self.password: str | bool | None = password
+        self.cache: Cache | str | None = cache
+        self.cache_namespace: str | None = cache_namespace
 
-        self.connection_fields = ("host", "port", "remote", "username", "password")
-        self.prepared_fields = ("_host", "_port", "_username", "_password")
+        self.connection_fields: tuple[str, ...] = (
+            "host",
+            "port",
+            "remote",
+            "username",
+            "password",
+        )
+        self.prepared_fields: tuple[str, ...] = (
+            "_host",
+            "_port",
+            "_username",
+            "_password",
+        )
 
         atexit.register(self.disconnect)
-        self.__prepared = False
-        self.__getting = False
-        self.__connected = False
-        self.__disconnecting = False
-        self.__cached_auth = {}
-        self.__prepreparation_values = {}
+        self.__prepared: bool = False
+        self.__getting: bool = False
+        self.__connected: bool = False
+        self.__disconnecting: bool = False
+        self.__cached_auth: dict[str, str] = {}
+        self.__prepreparation_values: dict[str, Any] = {}
 
     @classmethod
-    def __register_implementation__(cls):
+    def __register_implementation__(cls) -> None:
         if not hasattr(cls, "_protocols"):
             cls._protocols = {}
 
@@ -175,17 +202,17 @@ class Duct(metaclass=InterfaceMeta):
                     cls._protocols[key] = cls
 
     @classmethod
-    def for_protocol(cls, protocol):
+    def for_protocol(cls, protocol: str) -> functools.partial[Duct]:
         """
         Retrieve a `Duct` subclass for a given protocol.
 
         Args:
-            protocol (str): The protocol of interest.
+            protocol: The protocol of interest.
 
         Returns:
-            functools.partial object: The appropriate class for the provided,
-                partially constructed with the `protocol` keyword argument
-                set appropriately.
+            The appropriate class for the provided protocol, partially
+                constructed with the `protocol` keyword argument set
+                appropriately.
 
         Raises:
             DuctProtocolUnknown: If no class has been defined that offers the
@@ -198,11 +225,15 @@ class Duct(metaclass=InterfaceMeta):
         return functools.partial(cls._protocols[protocol], protocol=protocol)
 
     @property
-    def __prepare_triggers(self):
-        return ("cache",) + object.__getattribute__(self, "connection_fields")
+    def __prepare_triggers(self) -> tuple[str, ...]:
+        return ("cache",) + cast(
+            tuple[str, ...], object.__getattribute__(self, "connection_fields")
+        )
 
     @classmethod
-    def __init_with_kwargs__(cls, self, kwargs, **fallbacks):
+    def __init_with_kwargs__(
+        cls, self: Duct, kwargs: dict[str, Any], **fallbacks: Any
+    ) -> None:
         if not hasattr(self, "_Duct__inited_using_kwargs"):
             self._Duct__inited_using_kwargs = {}
         for cls_parent in reversed(
@@ -225,7 +256,7 @@ class Duct(metaclass=InterfaceMeta):
                     params[key] = fallbacks[key]
             cls_parent.__init__(self, **params)
 
-    def __getattribute__(self, key):
+    def __getattribute__(self, key: str) -> Any:
         try:
             if (
                 not object.__getattribute__(self, "_Duct__prepared")
@@ -243,7 +274,7 @@ class Duct(metaclass=InterfaceMeta):
             raise
         return object.__getattribute__(self, key)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         try:
             if (
                 object.__getattribute__(self, "_Duct__prepared")
@@ -261,7 +292,7 @@ class Duct(metaclass=InterfaceMeta):
         object.__setattr__(self, key, value)
 
     @inherit_docs("_prepare")
-    def prepare(self):
+    def prepare(self) -> None:
         """
         Prepare a Duct subclass for use (if not already prepared).
 
@@ -278,7 +309,7 @@ class Duct(metaclass=InterfaceMeta):
             self._prepare()
             self.__prepared = True
 
-    def _prepare(self):
+    def _prepare(self) -> None:
         """
         This method may be overridden by subclasses, but provides the following
         default behaviour:
@@ -310,10 +341,15 @@ class Duct(metaclass=InterfaceMeta):
         if self.registry is not None:
             if self.remote and isinstance(self.remote, str):
                 self.__prepreparation_values["remote"] = self.remote
-                self.remote = self.registry.lookup(self.remote, kind=Duct.Type.REMOTE)
+                self.remote = cast(
+                    "RemoteClient",
+                    self.registry.lookup(self.remote, kind=Duct.Type.REMOTE),
+                )
             if self.cache and isinstance(self.cache, str):
                 self.__prepreparation_values["cache"] = self.cache
-                self.cache = self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
+                self.cache = cast(
+                    "Cache", self.registry.lookup(self.cache, kind=Duct.Type.CACHE)
+                )
 
         # Check if remote and cache objects are of correct type (if present)
         if self.remote is not None and not isinstance(self.remote, RemoteClient):
@@ -333,19 +369,24 @@ class Duct(metaclass=InterfaceMeta):
                 self.__prepreparation_values[field] = value
                 setattr(self, field, value(self))
 
-        if isinstance(self._host, (list, tuple)):
+        _host_raw = getattr(self, "_host")
+        if isinstance(_host_raw, (list, tuple)):
             if "_host" not in self.__prepreparation_values:
-                self.__prepreparation_values["_host"] = self._host
-            self._host = naive_load_balancer(self._host, port=self._port)
+                self.__prepreparation_values["_host"] = _host_raw
+            self._host = naive_load_balancer(
+                cast(list[str], _host_raw), port=cast(int, self._port)
+            )
 
         # If host has a port included in it, override the value of self._port
         if self._host is not None and re.match(r"[^\:]+:[0-9]{1,5}", self._host):
-            self._host, self._port = self._host.split(":")
+            _host_part, _port_part = self._host.split(":")
+            self._host = _host_part
+            self._port = int(_port_part)
 
         # Ensure port is an integer value
         self.port = int(self._port) if self._port else None
 
-    def reset(self):
+    def reset(self) -> Self:
         """
         Reset this `Duct` instance to its pre-preparation state.
 
@@ -354,7 +395,7 @@ class Duct(metaclass=InterfaceMeta):
         `prepared_fields` to their values as of when `Duct.prepare` was called.
 
         Returns:
-            `Duct` instance: A reference to this object.
+            A reference to this object.
         """
         self.disconnect()
         self.__cached_auth = {}
@@ -367,9 +408,9 @@ class Duct(metaclass=InterfaceMeta):
         return self
 
     @property
-    def host(self):
+    def host(self) -> str | None:
         """
-        str: The host name providing the service, or '127.0.0.1' if `self.remote` is
+        The host name providing the service, or '127.0.0.1' if `self.remote` is
         not `None`, whereupon the service will be port-forwarded locally. You can
         view the remote hostname using `duct._host`, and change the remote host
         at runtime using: `duct.host = '<host>'`.
@@ -379,29 +420,31 @@ class Duct(metaclass=InterfaceMeta):
         return self._host
 
     @host.setter
-    def host(self, host):
+    def host(self, host: str | None) -> None:
         self._host = host
 
     @property
-    def port(self):
+    def port(self) -> int | None:
         """
-        int: The local port for the service. If `self.remote` is not `None`, the
+        The local port for the service. If `self.remote` is not `None`, the
         port will be port-forwarded from the remote host. To see the port used on
         the remote host refer to `duct._port`. You can change the remote port
         at runtime using: `duct.port = <port>`.
         """
         if self.remote:
-            return self.remote.port_forward(f"{self._host}:{self._port}")
+            return cast("RemoteClient", self.remote).port_forward(  # type: ignore[no-any-return]
+                f"{self._host}:{self._port}"
+            )
         return self._port
 
     @port.setter
-    def port(self, port):
+    def port(self, port: int | None) -> None:
         self._port = port
 
     @property
-    def username(self):
+    def username(self) -> str | None:
         """
-        str: Some services require authentication in order to connect to the
+        Some services require authentication in order to connect to the
         service, in which case the appropriate username can be specified. If not
         specified at instantiation, your local login name will be used. If `True`
         was provided, you will be prompted to type your username at runtime as
@@ -425,13 +468,13 @@ class Duct(metaclass=InterfaceMeta):
         return self._username
 
     @username.setter
-    def username(self, username):
+    def username(self, username: str | bool | None) -> None:
         self._username = username
 
     @property
-    def password(self):
+    def password(self) -> str | None:
         """
-        str: Some services require authentication in order to connect to the
+        Some services require authentication in order to connect to the
         service, in which case the appropriate password can be specified. If
         `True` was provided at instantiation, you will be prompted to type your
         password at runtime when necessary. If `False` was provided, then
@@ -449,10 +492,10 @@ class Duct(metaclass=InterfaceMeta):
         return self._password
 
     @password.setter
-    def password(self, password):
+    def password(self, password: str | bool | None) -> None:
         self._password = password
 
-    def __assert_server_reachable(self):
+    def __assert_server_reachable(self) -> None:
         if self.host is not None or self.port is not None:
             if self.host is None:
                 raise ValueError("Port specified but no host provided.")
@@ -461,25 +504,29 @@ class Duct(metaclass=InterfaceMeta):
         else:
             return
 
-        if not is_port_bound(self.host, self.port):
-            if self.remote and not self.remote.is_port_bound(self._host, self._port):
+        host: str = self.host  # narrowed: None case already raised above
+        port: int = self.port  # narrowed: None case already raised above
+        if not is_port_bound(host, port):
+            if self.remote:
+                remote = cast("RemoteClient", self.remote)
+                if not remote.is_port_bound(self._host, self._port):
+                    self.disconnect()
+                    raise DuctServerUnreachable(
+                        f"Remote '{remote.name}' cannot connect to "
+                        f"'{self._host}:{self._port}'. Please check your settings "
+                        "before trying again."
+                    )
+            else:
                 self.disconnect()
                 raise DuctServerUnreachable(
-                    f"Remote '{self.remote.name}' cannot connect to "
-                    f"'{self._host}:{self._port}'. Please check your settings "
-                    "before trying again."
-                )
-            if not self.remote:
-                self.disconnect()
-                raise DuctServerUnreachable(
-                    f"Cannot connect to '{self.host}:{self.port}' on your current "
+                    f"Cannot connect to '{host}:{port}' on your current "
                     "connection. Please check your connection before trying again."
                 )
 
     # Connection
     @logging_scope("Connecting")
     @inherit_docs("_connect")
-    def connect(self):
+    def connect(self) -> Self:
         """
         Connect to the service backing this client.
 
@@ -487,13 +534,12 @@ class Duct(metaclass=InterfaceMeta):
         since when a connection is required, it is automatically created.
 
         Returns:
-            `Duct` instance: A reference to the current object.
+            A reference to the current object.
         """
         if self.host:
-            logger.info(
-                f"Connecting to {self._host}:{self._port}"
-                f"{f'on {self.remote.host}' if self.remote else ''}."
-            )
+            _remote = cast("RemoteClient", self.remote) if self.remote else None
+            _via = f" on {_remote.host}" if _remote else ""
+            logger.info(f"Connecting to {self._host}:{self._port}{_via}.")
         self.__assert_server_reachable()
         if not self.is_connected():
             try:
@@ -503,18 +549,17 @@ class Duct(metaclass=InterfaceMeta):
                 raise
         self.__connected = True
         if self.host:
-            logger.info(
-                f"Connected to {self._host}:{self._port}"
-                f"{f'on {self.remote.host}' if self.remote else ''}."
-            )
+            _remote = cast("RemoteClient", self.remote) if self.remote else None
+            _via = f" on {_remote.host}" if _remote else ""
+            logger.info(f"Connected to {self._host}:{self._port}{_via}.")
         return self
 
     @abstractmethod
-    def _connect(self):
+    def _connect(self) -> None:
         raise NotImplementedError
 
     @inherit_docs("_is_connected")
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """
         Check whether this `Duct` instances is currently connected.
 
@@ -524,26 +569,27 @@ class Duct(metaclass=InterfaceMeta):
         should be implemented by subclasses.
 
         Returns:
-            bool: Whether this `Duct` instance is currently connected.
+            Whether this `Duct` instance is currently connected.
         """
         if not self.__connected:
             return False
 
         if self.remote:
-            if not self.remote.has_port_forward(self._host, self._port):
+            remote = cast("RemoteClient", self.remote)
+            if not remote.has_port_forward(self._host, self._port):
                 return False
-            if not is_port_bound(self.host, self.port):
+            if not is_port_bound(self.host, self.port):  # type: ignore[arg-type]
                 self.disconnect()
                 return False
 
         return self._is_connected()
 
     @abstractmethod
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         raise NotImplementedError
 
     @inherit_docs("_disconnect")
-    def disconnect(self):
+    def disconnect(self) -> Self | None:
         """
         Disconnect this client from backing service.
 
@@ -554,7 +600,7 @@ class Duct(metaclass=InterfaceMeta):
         service.
 
         Returns:
-            `Duct` instance: A reference to this object.
+            A reference to this object, or None if the instance was never prepared.
         """
         if not self.__prepared:
             return None
@@ -564,25 +610,28 @@ class Duct(metaclass=InterfaceMeta):
         try:
             self._disconnect()
 
-            if self.remote and self.remote.has_port_forward(self._host, self._port):
-                logger.info(f"Freeing up local port {self.port}...")
-                self.remote.port_forward_stop(local_port=self.port)
+            if self.remote:
+                remote = cast("RemoteClient", self.remote)
+                if remote.has_port_forward(self._host, self._port):
+                    logger.info(f"Freeing up local port {self.port}...")
+                    remote.port_forward_stop(local_port=self.port)
         finally:
             self.__disconnecting = False
 
         return self
 
     @abstractmethod
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         raise NotImplementedError
 
-    def reconnect(self):
+    def reconnect(self) -> Self:
         """
         Disconnects, and then reconnects, this client.
 
         Note: This is equivalent to `duct.disconnect().connect()`.
 
         Returns:
-            `Duct` instance: A reference to this object.
+            A reference to this object.
         """
-        return self.disconnect().connect()
+        self.disconnect()
+        return self.connect()  # type: ignore[no-any-return]

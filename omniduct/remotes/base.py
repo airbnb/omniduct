@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import getpass
 import re
 from abc import abstractmethod
+from typing import TYPE_CHECKING, Any
 
 from interface_meta import inherit_docs, override
 
@@ -10,10 +13,10 @@ from omniduct.filesystems.base import FileSystemClient
 from omniduct.utils.decorators import require_connection
 from omniduct.utils.ports import get_free_local_port, is_local_port_free
 
-try:  # Python 3
-    from urllib.parse import urlparse, urlunparse
-except ImportError:  # Python 2
-    from urlparse import urlparse, urlunparse
+if TYPE_CHECKING:
+    from omniduct.utils.processes import SubprocessResults
+
+from urllib.parse import urlparse, urlunparse
 
 
 class PortForwardingRegister:
@@ -21,33 +24,33 @@ class PortForwardingRegister:
     A register of all port forwards initiated by a particular Duct.
     """
 
-    def __init__(self):
-        self._register = {}
+    def __init__(self) -> None:
+        self._register: dict[str, tuple[int, Any]] = {}
 
-    def lookup(self, remote_host, remote_port):
+    def lookup(self, remote_host: str, remote_port: int) -> tuple[int, Any] | None:
         """
         Look up a previously forwarded remote port.
 
         Args:
-            remote_host (str): The remote host.
-            remote_port (int): The remote port.
+            remote_host: The remote host.
+            remote_port: The remote port.
 
         Returns:
-            tuple, None: A tuple of local port and implementation-specific
+            A tuple of local port and implementation-specific
                 connection artifact, if it exists, and `None` otherwise.
         """
         return self._register.get(f"{remote_host}:{remote_port}")
 
-    def lookup_port(self, remote_host, remote_port):
+    def lookup_port(self, remote_host: str, remote_port: int) -> int | None:
         """
         Look up the local port bound to a remote port.
 
         Args:
-            remote_host (str): The remote host.
-            remote_port (int): The remote port.
+            remote_host: The remote host.
+            remote_port: The remote port.
 
         Returns:
-            int, None: The local port use in the port forward, or `None` if
+            The local port use in the port forward, or `None` if
                 port forward does not exist.
         """
         entry = self.lookup(remote_host, remote_port)
@@ -55,31 +58,38 @@ class PortForwardingRegister:
             return entry[0]
         return None
 
-    def reverse_lookup(self, local_port):
+    def reverse_lookup(self, local_port: int) -> tuple[str, int, Any] | None:
         """
         Look up a remote host / port associated with a local port.
 
         Args:
-            local_port (int): The local port.
+            local_port: The local port.
 
         Returns:
-            list: A list of remote hostname, remote port, and
+            A tuple of remote hostname, remote port, and
                 implementation-specific connection artifact.
         """
         for key, (port, connection) in self._register.items():
             if port == local_port:
-                return key.split(":") + [connection]
+                host, port_str = key.rsplit(":", 1)
+                return (host, int(port_str), connection)
         return None
 
-    def register(self, remote_host, remote_port, local_port, connection):
+    def register(
+        self,
+        remote_host: str,
+        remote_port: int,
+        local_port: int,
+        connection: Any,
+    ) -> None:
         """
         Register a port-forward connection.
 
         Args:
-            remote_host (str): The remote host.
-            remote_port (int): The remote port.
-            local_port (int): The local port.
-            connection (object): Implementation-specific connection artifact.
+            remote_host: The remote host.
+            remote_port: The remote port.
+            local_port: The local port.
+            connection: Implementation-specific connection artifact.
         """
         key = f"{remote_host}:{remote_port}"
         if key in self._register:
@@ -88,16 +98,16 @@ class PortForwardingRegister:
             )
         self._register[key] = (local_port, connection)
 
-    def deregister(self, remote_host, remote_port):
+    def deregister(self, remote_host: str, remote_port: int) -> tuple[int, Any]:
         """
         Deregister a port-forward connection.
 
         Args:
-            remote_host (str): The remote host.
-            remote_port (int): The remote port.
+            remote_host: The remote host.
+            remote_port: The remote port.
 
         Returns:
-            tuple: A tuple of local port and implementation-specific
+            A tuple of local port and implementation-specific
                 connection artifact, if it exists, and `None` otherwise.
         """
         return self._register.pop(f"{remote_host}:{remote_port}")
@@ -118,10 +128,12 @@ class RemoteClient(FileSystemClient):
     """
 
     DUCT_TYPE = Duct.Type.REMOTE
-    DEFAULT_PORT = None
+    DEFAULT_PORT: int | None = None
+
+    smartcards: dict[str, str] | None
 
     @inherit_docs("_init", mro=True)
-    def __init__(self, smartcards=None, **kwargs):
+    def __init__(self, smartcards: dict[str, str] | None = None, **kwargs: Any) -> None:
         """
         Args:
             smartcards (dict): Mapping of smartcard names to system libraries
@@ -137,12 +149,12 @@ class RemoteClient(FileSystemClient):
 
     @override
     @abstractmethod
-    def _init(self):
+    def _init(self) -> None:
         raise NotImplementedError
 
     # SSH commands
     @override
-    def connect(self):
+    def connect(self) -> RemoteClient:
         """
         Connect to the remote server.
 
@@ -155,7 +167,7 @@ class RemoteClient(FileSystemClient):
         smartcards before trying once more.
 
         Returns:
-            `Duct` instance: A reference to the current object.
+            A reference to the current object.
         """
         try:
             Duct.connect(self)
@@ -165,7 +177,7 @@ class RemoteClient(FileSystemClient):
             raise
         return self
 
-    def prepare_smartcards(self):
+    def prepare_smartcards(self) -> bool:
         """
         Prepare smartcards for use in authentication.
 
@@ -174,18 +186,18 @@ class RemoteClient(FileSystemClient):
         interactive requests for pin confirmation, depending on the card.
 
         Returns:
-            bool: Returns `True` if at least one smartcard was activated, and
+            Returns `True` if at least one smartcard was activated, and
                 `False` otherwise.
         """
 
         smartcard_added = False
 
-        for name, filename in self.smartcards.items():
+        for name, filename in (self.smartcards or {}).items():
             smartcard_added |= self._prepare_smartcard(name, filename)
 
         return smartcard_added
 
-    def _prepare_smartcard(self, name, filename):
+    def _prepare_smartcard(self, name: str, filename: str) -> bool:
         import pexpect
 
         remover = pexpect.spawn(f'ssh-add -e "{filename}"')
@@ -217,28 +229,33 @@ class RemoteClient(FileSystemClient):
 
     @inherit_docs("_execute")
     @require_connection
-    def execute(self, cmd, **kwargs):
+    def execute(self, cmd: str, **kwargs: Any) -> SubprocessResults:
         """
         Execute a command on the remote server.
 
         Args:
-            cmd (str): The command to run on the remote associated with this
+            cmd: The command to run on the remote associated with this
                 instance.
-            **kwargs (dict): Additional keyword arguments to be passed on to
+            **kwargs: Additional keyword arguments to be passed on to
                 `._execute`.
 
         Returns:
-            SubprocessResults: The result of the execution.
+            The result of the execution.
         """
         return self._execute(cmd, **kwargs)
 
     @abstractmethod
-    def _execute(self, cmd, **kwargs):
+    def _execute(self, cmd: str, **kwargs: Any) -> SubprocessResults:
         raise NotImplementedError
 
     # Port forwarding code
 
-    def _extract_host_and_ports(self, remote_host, remote_port, local_port):
+    def _extract_host_and_ports(
+        self,
+        remote_host: str | None,
+        remote_port: int | None,
+        local_port: int | None,
+    ) -> tuple[str | None, int | None, int | None]:
         if remote_host is not None and not isinstance(remote_host, str):
             raise TypeError(
                 "Remote host, if specified, must be a string of form 'hostname(:port)'."
@@ -248,7 +265,8 @@ class RemoteClient(FileSystemClient):
         if local_port is not None and not isinstance(local_port, int):
             raise TypeError("Local port, if specified, must be an integer.")
 
-        host = port = None
+        host: str | None = None
+        port: int | None = None
         if remote_host is not None:
             m = re.match(
                 r"(?P<host>[a-zA-Z0-9\-.]+)(?::(?P<port>[0-9]+))?", remote_host
@@ -259,12 +277,18 @@ class RemoteClient(FileSystemClient):
                 )
 
             host = m.group("host")
-            port = m.group("port") or remote_port
+            port_str = m.group("port")
+            port = int(port_str) if port_str is not None else remote_port
         return host, port, local_port
 
     @inherit_docs("_port_forward_start")
     @require_connection
-    def port_forward(self, remote_host, remote_port=None, local_port=None):
+    def port_forward(
+        self,
+        remote_host: str,
+        remote_port: int | None = None,
+        local_port: int | None = None,
+    ) -> int:
         """
         Initiate a port forward connection.
 
@@ -274,18 +298,18 @@ class RemoteClient(FileSystemClient):
         connection is not established.
 
         Args:
-            remote_host (str): The hostname of the remote host in form:
+            remote_host: The hostname of the remote host in form:
                 'hostname(:port)'.
-            remote_port (int, None): The remote port of the service.
-            local_port (int, None): The port to use locally (automatically
+            remote_port: The remote port of the service.
+            local_port: The port to use locally (automatically
                 determined if not specified).
 
         Returns:
-            int: The local port which is port forwarded to the remote service.
+            The local port which is port forwarded to the remote service.
         """
 
         # Hostname and port extraction
-        remote_host, remote_port, local_port = self._extract_host_and_ports(
+        remote_host, remote_port, local_port = self._extract_host_and_ports(  # type: ignore[assignment]
             remote_host, remote_port, local_port
         )
         if remote_host is None:
@@ -319,18 +343,23 @@ class RemoteClient(FileSystemClient):
 
         return local_port
 
-    def has_port_forward(self, remote_host=None, remote_port=None, local_port=None):
+    def has_port_forward(
+        self,
+        remote_host: str | None = None,
+        remote_port: int | None = None,
+        local_port: int | None = None,
+    ) -> bool:
         """
         Check whether a port forward connection exists.
 
         Args:
-            remote_host (str): The hostname of the remote host in form:
+            remote_host: The hostname of the remote host in form:
                 'hostname(:port)'.
-            remote_port (int, None): The remote port of the service.
-            local_port (int, None): The port used locally.
+            remote_port: The remote port of the service.
+            local_port: The port used locally.
 
         Returns:
-            bool: Whether a port-forward for this remote service exists, or if
+            Whether a port-forward for this remote service exists, or if
                 local port is specified, whether that port is locally used for
                 port forwarding.
         """
@@ -353,10 +382,15 @@ class RemoteClient(FileSystemClient):
                 self.__port_forwarding_register.lookup(remote_host, remote_port)
                 is not None
             )
-        return self.__port_forwarding_register.reverse_lookup(local_port) is not None
+        return self.__port_forwarding_register.reverse_lookup(local_port) is not None  # type: ignore[arg-type]
 
     @inherit_docs("_port_forward_stop")
-    def port_forward_stop(self, local_port=None, remote_host=None, remote_port=None):
+    def port_forward_stop(
+        self,
+        local_port: int | None = None,
+        remote_host: str | None = None,
+        remote_port: int | None = None,
+    ) -> None:
         """
         Disconnect an existing port forward connection.
 
@@ -365,10 +399,10 @@ class RemoteClient(FileSystemClient):
         forwarding associated with the nominated remote service is stopped.
 
         Args:
-            remote_host (str): The hostname of the remote host in form:
+            remote_host: The hostname of the remote host in form:
                 'hostname(:port)'.
-            remote_port (int, None): The remote port of the service.
-            local_port (int, None): The port used locally.
+            remote_port: The remote port of the service.
+            local_port: The port used locally.
         """
         # Hostname and port extraction
         remote_host, remote_port, local_port = self._extract_host_and_ports(
@@ -385,27 +419,35 @@ class RemoteClient(FileSystemClient):
             )
 
         if remote_host is not None and remote_port is not None:
-            local_port, connection = self.__port_forwarding_register.lookup(
-                remote_host, remote_port
-            )
+            entry = self.__port_forwarding_register.lookup(remote_host, remote_port)
+            if entry is None:
+                raise RuntimeError(
+                    f"No port forwarding registered for {remote_host}:{remote_port}."
+                )
+            local_port, connection = entry
         else:
-            (
-                remote_host,
-                remote_port,
-                connection,
-            ) = self.__port_forwarding_register.reverse_lookup(local_port)
+            if local_port is None:
+                raise RuntimeError("Local port must be specified.")
+            rev = self.__port_forwarding_register.reverse_lookup(local_port)
+            if rev is None:
+                raise RuntimeError(
+                    f"No port forwarding registered for local port {local_port}."
+                )
+            remote_host, remote_port, connection = rev
 
+        if remote_host is None or remote_port is None:
+            raise RuntimeError("remote_host and remote_port could not be determined.")
         self._port_forward_stop(local_port, remote_host, remote_port, connection)
         self.__port_forwarding_register.deregister(remote_host, remote_port)
 
-    def port_forward_stopall(self):
+    def port_forward_stopall(self) -> None:
         """
         Disconnect all existing port forwarding connections.
         """
         for remote_host in self.__port_forwarding_register._register.copy():
             self.port_forward_stop(remote_host=remote_host)
 
-    def get_local_uri(self, uri):
+    def get_local_uri(self, uri: str) -> str:
         """
         Convert a remote uri to a local one.
 
@@ -414,10 +456,10 @@ class RemoteClient(FileSystemClient):
         any necessary port forwarding in the process.
 
         Args:
-            uri (str): The remote uri to be made local.
+            uri: The remote uri to be made local.
 
         Returns:
-            str: A local uri that tunnels all traffic to the remote host.
+            A local uri that tunnels all traffic to the remote host.
         """
         parsed_uri = urlparse(uri)
         return urlunparse(
@@ -426,7 +468,7 @@ class RemoteClient(FileSystemClient):
             )
         )
 
-    def show_port_forwards(self):
+    def show_port_forwards(self) -> None:
         """
         Print to stdout the active port forwards associated with this client.
         """
@@ -444,16 +486,24 @@ class RemoteClient(FileSystemClient):
             )
 
     @abstractmethod
-    def _port_forward_start(self, local_port, remote_host, remote_port):
+    def _port_forward_start(
+        self, local_port: int, remote_host: str, remote_port: int
+    ) -> Any:
         raise NotImplementedError
 
     @abstractmethod
-    def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
+    def _port_forward_stop(
+        self,
+        local_port: int,
+        remote_host: str,
+        remote_port: int,
+        connection: Any,
+    ) -> None:
         raise NotImplementedError
 
     @inherit_docs("_is_port_bound")
     @require_connection
-    def is_port_bound(self, host, port):
+    def is_port_bound(self, host: str, port: int) -> bool:
         """
         Check whether a port on a remote host is accessible.
 
@@ -461,14 +511,14 @@ class RemoteClient(FileSystemClient):
         given host by attempting to establish a connection with it.
 
         Args:
-            host (str): The hostname of the target service.
-            port (int): The port of the target service.
+            host: The hostname of the target service.
+            port: The port of the target service.
 
         Returns:
-            bool: Whether the port is active and accepting connections.
+            Whether the port is active and accepting connections.
         """
         return self._is_port_bound(host, port)
 
     @abstractmethod
-    def _is_port_bound(self, host, port):
+    def _is_port_bound(self, host: str, port: int) -> bool:
         pass

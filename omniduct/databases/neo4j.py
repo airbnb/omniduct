@@ -1,7 +1,12 @@
+from __future__ import annotations
+
+from typing import Any
+
 from interface_meta import override
 
 from omniduct.utils.debug import logger
 
+from ._namespaces import ParsedNamespaces
 from .base import DatabaseClient
 
 
@@ -17,16 +22,16 @@ class Neo4jClient(DatabaseClient):
 
     @override
     @classmethod
-    def statement_cleanup(cls, statement):
+    def statement_cleanup(cls, statement: str) -> str:
         return statement  # base statement cleanup assumes SQL
 
     @override
-    def _init(self):
-        self.__driver = None
+    def _init(self) -> None:
+        self.__driver: Any = None
 
     # Connection
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         from neo4j.v1 import GraphDatabase
 
         logger.info("Connecting to Neo4J graph database ...")
@@ -36,11 +41,11 @@ class Neo4jClient(DatabaseClient):
         )  # TODO: Add kerberos support
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         return hasattr(self, "__driver") and self.__driver is not None
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         logger.info("Disconnecting from Neo4J graph database ...")
         try:
             self.__driver.close()
@@ -50,7 +55,13 @@ class Neo4jClient(DatabaseClient):
 
     # Querying
     @override
-    def _execute(self, statement, cursor, wait, session_properties):
+    def _execute(
+        self,
+        statement: str,
+        cursor: Any,
+        wait: bool,
+        session_properties: dict[str, Any],
+    ) -> Any:
         with self.__driver.session() as session:
             result = session.run(statement)
 
@@ -60,25 +71,25 @@ class Neo4jClient(DatabaseClient):
         return result
 
     @override
-    def _table_exists(self, table, **kwargs):
+    def _table_exists(self, table: ParsedNamespaces, **kwargs: Any) -> bool:
         raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
-    def _table_drop(self, table, **kwargs):
+    def _table_drop(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
-    def _table_desc(self, table, **kwargs):
+    def _table_desc(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
-    def _table_head(self, table, n=10, **kwargs):
+    def _table_head(self, table: ParsedNamespaces, n: int = 10, **kwargs: Any) -> Any:
         raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
-    def _table_list(self, namespace, **kwargs):
+    def _table_list(self, namespace: ParsedNamespaces, **kwargs: Any) -> Any:
         raise RuntimeError("tables do not apply to the Neo4J graph database")
 
     @override
-    def _table_props(self, table, **kwargs):
+    def _table_props(self, table: ParsedNamespaces, **kwargs: Any) -> Any:
         raise RuntimeError("tables do not apply to the Neo4J graph database")

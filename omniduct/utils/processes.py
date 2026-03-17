@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import os
 import signal
 import subprocess
 from subprocess import TimeoutExpired
+from types import FrameType
+from typing import Any
 
 from omniduct.utils.config import config as omniduct_config
 from omniduct.utils.debug import logger
 
 __all__ = ["run_in_subprocess", "TimeoutExpired", "Timeout"]
 
-DEFAULT_SUBPROCESS_CONFIG = {
+DEFAULT_SUBPROCESS_CONFIG: dict[str, Any] = {
     "shell": True,
     "close_fds": False,
     "stdin": None,
@@ -19,12 +23,18 @@ DEFAULT_SUBPROCESS_CONFIG = {
 
 
 class SubprocessResults:
-    def __init__(self, **kwargs):
+    returncode: int
+    stdout: bytes
+    stderr: bytes
+
+    def __init__(self, **kwargs: Any) -> None:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
 
-def run_in_subprocess(cmd, check_output=False, **kwargs):
+def run_in_subprocess(
+    cmd: str, check_output: bool = False, **kwargs: Any
+) -> SubprocessResults:
     """
     Execute command using default subprocess configuration.
 
@@ -72,16 +82,25 @@ def run_in_subprocess(cmd, check_output=False, **kwargs):
 
 
 class Timeout:
-    def __init__(self, seconds=1, error_message="Timeout"):
+    seconds: int
+    error_message: str
+
+    def __init__(self, seconds: int = 1, error_message: str = "Timeout") -> None:
         self.seconds = seconds
         self.error_message = error_message
 
-    def handle_timeout(self, signum, frame):
+    def handle_timeout(self, signum: int, frame: FrameType | None) -> None:
         raise TimeoutError(self.error_message)
 
-    def __enter__(self):
+    def __enter__(self) -> Timeout:
         signal.signal(signal.SIGALRM, self.handle_timeout)
         signal.alarm(self.seconds)
+        return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: Any,
+    ) -> None:
         signal.alarm(0)

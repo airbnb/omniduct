@@ -1,7 +1,21 @@
-from pandas.io.sql import SQLDatabase, SQLTable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
-def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
+def to_sql(
+    df: pd.DataFrame,
+    name: str,
+    schema: str | None,
+    con: Any,
+    index: bool,
+    if_exists: Literal["fail", "replace", "append", "delete_rows"],
+    mode: str = "default",
+    **kwargs: Any,
+) -> None:
     """
     Override the default `pandas.to_sql` method to allow for insertion of
     multiple rows of data at once. This is derived from the upstream patch at
@@ -11,7 +25,7 @@ def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
     if mode not in ("default", "multi"):
         raise ValueError(f"unexpected `to_sql` mode {mode}")
     if mode == "default":
-        return df.to_sql(
+        df.to_sql(
             name=name,
             schema=schema,
             con=con,
@@ -19,6 +33,7 @@ def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
             if_exists=if_exists,
             **kwargs,
         )
+        return
 
     nrows = len(df)
     if nrows == 0:
@@ -28,6 +43,13 @@ def to_sql(df, name, schema, con, index, if_exists, mode="default", **kwargs):
     if chunksize == 0:
         raise ValueError("chunksize argument should be non-zero")
     chunks = int(nrows / chunksize) + 1
+
+    try:
+        from pandas.io.sql import SQLDatabase, SQLTable  # type: ignore[attr-defined]
+    except ImportError:
+        raise RuntimeError(
+            "The 'multi' mode requires pandas.io.sql.SQLDatabase which is not available in this version of pandas."
+        )
 
     pd_sql = SQLDatabase(con)
     pd_table = SQLTable(

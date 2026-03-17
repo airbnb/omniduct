@@ -1,4 +1,8 @@
-import pandas as pd
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any, cast
+
 import sqlalchemy
 from sqlalchemy import Table
 from sqlalchemy import types as sql_types
@@ -6,12 +10,22 @@ from sqlalchemy import types as sql_types
 from omniduct.utils.debug import logger
 from omniduct.utils.decorators import require_connection
 
+if TYPE_CHECKING:
+    import pandas as pd
+    import sqlalchemy as sa
+
 try:
     from pyhive.sqlalchemy_presto import PrestoDialect
 
-    def get_columns(self, connection, table_name, schema=None, **kw):
+    def get_columns(
+        self: Any,
+        connection: Any,
+        table_name: str,
+        schema: str | None = None,
+        **kw: Any,
+    ) -> list[dict[str, Any]]:
         # Extend types supported by PrestoDialect as defined in PyHive
-        type_map = {
+        type_map: dict[str, Any] = {
             "bigint": sql_types.BigInteger,
             "integer": sql_types.Integer,
             "boolean": sql_types.Boolean,
@@ -63,25 +77,30 @@ class SchemasMixin:
     SQLAlchemy ORM, we could instead use an SQL agnostic version.
     """
 
+    _schemas: Schemas | None
+    _sqlalchemy_engine: sa.Engine | None
+
     @property
     @require_connection
-    def schemas(self):
+    def schemas(self) -> Schemas:
         """
-        object: An object with attributes corresponding to the names of the schemas
-            in this database.
+        An object with attributes corresponding to the names of the schemas
+        in this database.
         """
         from lazy_object_proxy import Proxy
 
-        def get_schemas():
+        def get_schemas() -> Schemas:
             if not getattr(self, "_schemas", None):
                 if getattr(self, "_sqlalchemy_engine", None) is None:
                     raise RuntimeError(
                         f"`{self.__class__.__name__}` instances do not provide the required sqlalchemy engine for schema exploration."
                     )
                 self._schemas = Schemas(self._sqlalchemy_engine)
+            if self._schemas is None:
+                raise RuntimeError("Schemas could not be initialized.")
             return self._schemas
 
-        return Proxy(get_schemas)
+        return cast(Schemas, Proxy(get_schemas))
 
 
 # Extend Table to support returning pandas description of table
@@ -90,42 +109,57 @@ class TableDesc(Table):
     Extends the SQL Alchemy `Table` class with some short-hand introspection methods.
     """
 
-    def desc(self):
+    _bound_engine: sa.Engine
+
+    @classmethod
+    def reflect(
+        cls, name: str, metadata: sqlalchemy.MetaData, engine: sa.Engine, schema: str
+    ) -> TableDesc:
+        """Reflect a table from the database, binding an engine for introspection."""
+        t = cls(name, metadata, autoload_with=engine, schema=schema)
+        t._bound_engine = engine
+        return t
+
+    def desc(self) -> pd.DataFrame:
         """pandas.DataFrame: The description of this SQL table."""
+        import pandas as pd
+
+        engine = self._bound_engine
         return pd.DataFrame(
             [
-                [col.name, col.type.compile(self.bind.dialect)]
+                [col.name, col.type.compile(engine.dialect)]
                 for col in self.columns.values()
             ],
             columns=["name", "type"],
         )
 
-    def head(self, n=10):
+    def head(self, n: int | None = 10) -> pd.DataFrame:
         """
         Retrieve the first `n` rows from this table.
 
         Args:
-            n (int): The number of rows to retrieve from this table.
+            n: The number of rows to retrieve from this table.
 
         Returns:
-            pandas.DataFrame: A dataframe representation of the first `n` rows
-                of this table.
+            A dataframe representation of the first `n` rows of this table.
         """
+        import pandas as pd
+
         statement = self.select()
         if n is not None:
             statement = statement.limit(n)
-        return pd.read_sql(statement, self.bind)
+        return pd.read_sql(statement, self._bound_engine)
 
-    def dump(self):
+    def dump(self) -> pd.DataFrame:
         """
         Retrieve the entire database table as a pandas DataFrame.
 
         Returns:
-            pandas.DataFrame: A dataframe representation of the entire table.
+            A dataframe representation of the entire table.
         """
         return self.head(n=None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.desc().__repr__()
 
 
@@ -135,39 +169,43 @@ class Schemas:
     An object which has as its attributes all of the schemas in a nominated database.
 
     Args:
-        engine (sqlalchemy.Engine): A SQL Alchemy `Engine` instance
-            configured for the nominated database.
+        engine: A SQL Alchemy `Engine` instance configured for the nominated
+            database.
     """
 
-    def __init__(self, engine):
+    _engine: sa.Engine
+    _schema_names: list[str] | None
+    _schema_cache: dict[str, Schema]
+
+    def __init__(self, engine: sa.Engine) -> None:
         self._engine = engine
         self._schema_names = None
         self._schema_cache = {}
 
     @property
-    def all(self):
-        "list<str>: The list of schema names."
+    def all(self) -> list[str]:
+        "list[str]: The list of schema names."
         if self._schema_names is None:
             self._schema_names = sqlalchemy.inspect(self._engine).get_schema_names()
         return self._schema_names
 
-    def __dir__(self):
+    def __dir__(self) -> list[str]:
         return self.all
 
-    def __getattr__(self, value):
+    def __getattr__(self, value: str) -> Schema:
         if value in self.all:
             if value not in self._schema_cache:
                 self._schema_cache[value] = Schema(engine=self._engine, schema=value)
             return self._schema_cache[value]
         raise AttributeError(f"No such schema {value}")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Schemas: {len(self.all)} schemas>"
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         yield from self.all
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.all)
 
 
@@ -176,46 +214,50 @@ class Schema:
     An object which has as its attributes all of the tables in a nominated database schema.
 
     Args:
-        engine (sqlalchemy.Engine): A SQL Alchemy `Engine` instance
-            configured for the nominated database.
-        schema (str): The schema within which to expose tables.
+        engine: A SQL Alchemy `Engine` instance configured for the nominated
+            database.
+        schema: The schema within which to expose tables.
     """
 
-    def __init__(self, engine, schema):
+    _engine: sa.Engine
+    _schema: str
+    _table_cache: dict[str, TableDesc]
+    _table_names: list[str] | None
+    _metadata: sqlalchemy.MetaData
+
+    def __init__(self, engine: sa.Engine, schema: str) -> None:
         self._engine = engine
         self._schema = schema
         self._table_cache = {}
         self._table_names = None
+        self._metadata = sqlalchemy.MetaData()
 
     @property
-    def all(self):
-        """list<str>: The table names in this database schema."""
+    def all(self) -> list[str]:
+        """list[str]: The table names in this database schema."""
         if self._table_names is None:
             self._table_names = sqlalchemy.inspect(self._engine).get_table_names(
                 self._schema
             )
         return self._table_names
 
-    def __dir__(self):
+    def __dir__(self) -> list[str]:
         return self.all
 
-    def __getattr__(self, table):
+    def __getattr__(self, table: str) -> TableDesc:
         if table in self.all:
             if table not in self._table_cache:
-                self._table_cache[table] = TableDesc(
-                    f"{table}",
-                    self._metadata,
-                    autoload=True,
-                    schema=self._schema,
+                self._table_cache[table] = TableDesc.reflect(
+                    table, self._metadata, self._engine, self._schema
                 )
             return self._table_cache[table]
         raise AttributeError(f"No such table {table}")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Schema `{self._schema}`: {len(self.all)} tables>"
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         yield from self.all
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.all)

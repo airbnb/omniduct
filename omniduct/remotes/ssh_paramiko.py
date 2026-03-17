@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import posixpath
 import select
 import socketserver
 import stat
 import threading
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 from interface_meta import override
 
@@ -11,6 +15,9 @@ from omniduct.filesystems.base import FileSystemFileDesc
 from omniduct.remotes.base import RemoteClient
 from omniduct.utils.debug import logger
 from omniduct.utils.processes import SubprocessResults
+
+if TYPE_CHECKING:
+    import paramiko
 
 __all__ = ["ParamikoSSHClient"]
 
@@ -27,14 +34,14 @@ class ParamikoSSHClient(RemoteClient):
     DEFAULT_PORT = 22
 
     @override
-    def _init(self):
+    def _init(self) -> None:
         logger.warning(
             "The Paramiko SSH client is still under development, \
                         and is not ready for use as a daily driver."
         )
 
     @override
-    def _connect(self):
+    def _connect(self) -> None:
         import paramiko
 
         self.__client = paramiko.SSHClient()
@@ -52,14 +59,14 @@ class ParamikoSSHClient(RemoteClient):
             raise e
 
     @override
-    def _is_connected(self):
+    def _is_connected(self) -> bool:
         try:
-            return self.__client.get_transport().is_active()
+            return self.__client.get_transport().is_active()  # type: ignore[no-any-return]
         except:
             return False
 
     @override
-    def _disconnect(self):
+    def _disconnect(self) -> None:
         try:
             self.__client_sftp.close()
             self.__client.close()
@@ -67,7 +74,7 @@ class ParamikoSSHClient(RemoteClient):
             pass
 
     @override
-    def _execute(self, cmd, **kwargs):
+    def _execute(self, cmd: str, **kwargs: Any) -> SubprocessResults:
         _, stdout, stderr = self.__client.exec_command(cmd)
         returncode = stdout.channel.recv_exit_status()
         return SubprocessResults(
@@ -75,7 +82,9 @@ class ParamikoSSHClient(RemoteClient):
         )
 
     @override
-    def _port_forward_start(self, local_port, remote_host, remote_port):
+    def _port_forward_start(
+        self, local_port: int, remote_host: str, remote_port: int
+    ) -> ForwardServer:
         logger.debug(
             f"Now forwarding port {local_port} to {remote_host}:{remote_port} ..."
         )
@@ -89,25 +98,31 @@ class ParamikoSSHClient(RemoteClient):
         return server
 
     @override
-    def _port_forward_stop(self, local_port, remote_host, remote_port, connection):
+    def _port_forward_stop(
+        self,
+        local_port: int,
+        remote_host: str,
+        remote_port: int,
+        connection: ForwardServer,
+    ) -> None:
         connection.shutdown()
 
     @override
-    def _is_port_bound(self, host, port):
+    def _is_port_bound(self, host: str, port: int) -> bool:
         return True
 
     # Path properties and helpers
     @override
-    def _path_home(self):
-        return self.execute("echo ~", skip_cwd=True).stdout.decode("utf-8").strip()
+    def _path_home(self) -> str:
+        return self.execute("echo ~", skip_cwd=True).stdout.decode("utf-8").strip()  # type: ignore[no-any-return]
 
     @override
-    def _path_separator(self):
+    def _path_separator(self) -> str:
         return "/"
 
     # File node properties
     @override
-    def _exists(self, path):
+    def _exists(self, path: str) -> bool:
         try:
             self.__client_sftp.stat(path)
             return True
@@ -115,14 +130,14 @@ class ParamikoSSHClient(RemoteClient):
             return False
 
     @override
-    def _isdir(self, path):
+    def _isdir(self, path: str) -> bool:
         try:
             return stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
         except FileNotFoundError:
             return False
 
     @override
-    def _isfile(self, path):
+    def _isfile(self, path: str) -> bool:
         try:
             return not stat.S_ISDIR(self.__client_sftp.stat(path).st_mode)
         except FileNotFoundError:
@@ -130,7 +145,7 @@ class ParamikoSSHClient(RemoteClient):
 
     # Directory handling and enumeration
     @override
-    def _dir(self, path):
+    def _dir(self, path: str) -> Generator[FileSystemFileDesc, None, None]:
         for attrs in self.__client_sftp.listdir_attr(path):
             yield FileSystemFileDesc(
                 fs=self,
@@ -146,7 +161,7 @@ class ParamikoSSHClient(RemoteClient):
             )
 
     @override
-    def _mkdir(self, path, recursive, exist_ok):
+    def _mkdir(self, path: str, recursive: bool, exist_ok: bool) -> None:
         if exist_ok and self.isdir(path):
             return
         if (
@@ -158,7 +173,7 @@ class ParamikoSSHClient(RemoteClient):
             raise RuntimeError(f"Failed to create directory at: `{path}`")
 
     @override
-    def _remove(self, path, recursive):
+    def _remove(self, path: str, recursive: bool) -> None:
         if (
             self.execute(
                 "rm -f " + ("-r " if recursive else "") + f'"{path}"'
@@ -169,7 +184,7 @@ class ParamikoSSHClient(RemoteClient):
 
     # File handling
     @override
-    def _open(self, path, mode):
+    def _open(self, path: str, mode: str) -> Any:
         """
         Paramiko offers a complete file-like abstraction for files opened over
         sftp, so we use that abstraction rather than a `FileSystemFile`. Results
@@ -188,7 +203,11 @@ class ForwardServer(socketserver.ThreadingTCPServer):
 
 
 class Handler(socketserver.BaseRequestHandler):
-    def handle(self):
+    ssh_transport: Any
+    chain_host: str
+    chain_port: int
+
+    def handle(self) -> None:
         try:
             chan = self.ssh_transport.open_channel(
                 "direct-tcpip",
@@ -233,7 +252,12 @@ class Handler(socketserver.BaseRequestHandler):
         logger.info(f"Tunnel closed from {peername!r}")
 
 
-def forward_tunnel(local_port, remote_host, remote_port, transport):
+def forward_tunnel(
+    local_port: int,
+    remote_host: str,
+    remote_port: int,
+    transport: paramiko.Transport,
+) -> ForwardServer:
     # this is a little convoluted, but lets me configure things for the Handler
     # object.  (socketserver doesn't give Handlers any way to access the outer
     # server normally.)

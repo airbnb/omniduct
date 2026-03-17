@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import datetime
 import functools
 from abc import abstractmethod
+from collections.abc import Callable
+from typing import IO, Any, cast
 
 import dateutil
 import pandas
@@ -13,7 +17,7 @@ from omniduct.utils.config import config
 from omniduct.utils.debug import logger
 from omniduct.utils.decorators import function_args_as_kwargs, require_connection
 
-from ._serializers import PickleSerializer
+from ._serializers import PickleSerializer, Serializer
 
 config.register(
     "cache_fail_hard",
@@ -23,16 +27,26 @@ config.register(
 
 
 def cached_method(
-    key,
-    namespace=lambda self, kwargs: (
+    key: Callable[[Any, dict[str, Any]], str],
+    namespace: Callable[[Any, dict[str, Any]], str] = lambda self, kwargs: (
         self.cache_namespace or f"{self.__class__.__name__}.{self.name}"
     ),
-    cache=lambda self, kwargs: self.cache,
-    use_cache=lambda self, kwargs: kwargs.pop("use_cache", True),
-    renew=lambda self, kwargs: kwargs.pop("renew", False),
-    serializer=lambda self, kwargs: PickleSerializer(),
-    metadata=lambda self, kwargs: None,
-):
+    cache: Callable[[Any, dict[str, Any]], Cache | None] = lambda self, kwargs: (
+        self.cache
+    ),
+    use_cache: Callable[[Any, dict[str, Any]], bool] = lambda self, kwargs: kwargs.pop(
+        "use_cache", True
+    ),
+    renew: Callable[[Any, dict[str, Any]], bool] = lambda self, kwargs: kwargs.pop(
+        "renew", False
+    ),
+    serializer: Callable[[Any, dict[str, Any]], Serializer] = lambda self, kwargs: (
+        PickleSerializer()
+    ),
+    metadata: Callable[
+        [Any, dict[str, Any]], dict[str, Any] | None
+    ] = lambda self, kwargs: None,
+) -> Callable:
     """
     Wrap a method of a `Duct` class and add caching capabilities.
 
@@ -41,25 +55,24 @@ def cached_method(
     dictionary of arguments passed to the function (`kwargs`).
 
     Args:
-        key (function -> str): The key under which the value returned by the
-            wrapped function should be stored.
-        namespace (function -> str): The namespace under which the key should be
-            stored (default: `"<duct class name>.<duct instance name>"`).
-        cache (function -> Cache): The instance of cache via which to store the
-            output of the wrapped function (default: `self.cache`).
-        use_cache (function -> bool): Whether or not to use the caching
-            functionality (default: `True`).
-        renew (function -> bool): Whether to renew the stored cache, overriding
-            if a value has already been stored (default: `False`).
-        serializer (function -> Serializer): The `Serializer` subclass to use
-            when storing the return object (default: `PickleSerializer`).
-        metadata (function -> None, dict): A dictionary of additional metadata
-            to be stored alongside the wrapped function's output
-            (default: `None`).
+        key: The key under which the value returned by the wrapped function
+            should be stored.
+        namespace: The namespace under which the key should be stored
+            (default: `"<duct class name>.<duct instance name>"`).
+        cache: The instance of cache via which to store the output of the
+            wrapped function (default: `self.cache`).
+        use_cache: Whether or not to use the caching functionality
+            (default: `True`).
+        renew: Whether to renew the stored cache, overriding if a value has
+            already been stored (default: `False`).
+        serializer: The `Serializer` subclass to use when storing the return
+            object (default: `PickleSerializer`).
+        metadata: A dictionary of additional metadata to be stored alongside
+            the wrapped function's output (default: `None`).
 
     Returns:
-        object: The (potentially cached) object returned when calling the
-            wrapped function.
+        The (potentially cached) object returned when calling the wrapped
+        function.
 
     Raises:
         Exception: If cache fails to store the output of the wrapped function,
@@ -69,7 +82,9 @@ def cached_method(
     """
 
     @decorator
-    def wrapped(method, self, *args, **kwargs):
+    def wrapped(
+        method: Callable[..., Any], self: Any, *args: Any, **kwargs: Any
+    ) -> Any:
         kwargs = function_args_as_kwargs(method, self, *args, **kwargs)
         kwargs.pop("self")
 
@@ -122,7 +137,7 @@ def cached_method(
                 raise
             return value  # As a last resort, return value object (which could be mutated by serialization).
 
-    return wrapped
+    return cast(Callable[..., Any], wrapped)
 
 
 class Cache(Duct):
@@ -133,29 +148,36 @@ class Cache(Duct):
     DUCT_TYPE = Duct.Type.CACHE
 
     @inherit_docs("_init", mro=True)
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         Duct.__init_with_kwargs__(self, kwargs)
         self._init(**kwargs)
 
     @abstractmethod
-    def _init(self):
+    def _init(self) -> None:
         pass
 
     # Data insertion and retrieval
 
     @require_connection
-    def set(self, key, value, namespace=None, serializer=None, metadata=None):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        namespace: str | None = None,
+        serializer: Serializer | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         """
         Set the value of a key.
 
         Args:
-            key (str): The key for which `value` should be stored.
-            value (object): The value to be stored.
-            namespace (str, None): The namespace to be used.
-            serializer (Serializer): The `Serializer` subclass to use for the
-                serialisation of value into the cache. (default=PickleSerializer)
-            metadata (dict, None): Additional metadata to be stored with the value
-                in the cache. Values must be serializable via `yaml.safe_dump`.
+            key: The key for which `value` should be stored.
+            value: The value to be stored.
+            namespace: The namespace to be used.
+            serializer: The `Serializer` subclass to use for the serialisation
+                of value into the cache. (default=PickleSerializer)
+            metadata: Additional metadata to be stored with the value in the
+                cache. Values must be serializable via `yaml.safe_dump`.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
@@ -174,19 +196,24 @@ class Cache(Duct):
             raise
 
     @require_connection
-    def set_metadata(self, key, metadata, namespace=None, replace=False):
+    def set_metadata(
+        self,
+        key: str,
+        metadata: dict[str, Any] | None,
+        namespace: str | None = None,
+        replace: bool = False,
+    ) -> None:
         """
         Set the metadata associated with a stored key, creating the key if it
         is missing.
 
         Args:
-            key (str): The key for which `value` should be stored.
-            metadata (dict, None): Additional/override metadata to be stored
-                for `key` in the cache. Values must be serializable via
-                `yaml.safe_dump`.
-            namespace (str, None): The namespace to be used.
-            replace (bool): Whether the provided metadata should entirely
-                replace any existing metadata, or just update it. (default=False)
+            key: The key for which `value` should be stored.
+            metadata: Additional/override metadata to be stored for `key` in
+                the cache. Values must be serializable via `yaml.safe_dump`.
+            namespace: The namespace to be used.
+            replace: Whether the provided metadata should entirely replace any
+                existing metadata, or just update it. (default=False)
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if replace:
@@ -202,18 +229,23 @@ class Cache(Duct):
             yaml.safe_dump(orig_metadata, fh, default_flow_style=False)
 
     @require_connection
-    def get(self, key, namespace=None, serializer=None):
+    def get(
+        self,
+        key: str,
+        namespace: str | None = None,
+        serializer: Serializer | None = None,
+    ) -> Any:
         """
         Retrieve the value associated with the nominated key from the cache.
 
         Args:
-            key (str): The key for which `value` should be retrieved.
-            namespace (str, None): The namespace to be used.
-            serializer (Serializer): The `Serializer` subclass to use for the
-                deserialisation of value from the cache. (default=PickleSerializer)
+            key: The key for which `value` should be retrieved.
+            namespace: The namespace to be used.
+            serializer: The `Serializer` subclass to use for the deserialisation
+                of value from the cache. (default=PickleSerializer)
 
         Returns:
-            object: The (appropriately deserialized) object stored in the cache.
+            The (appropriately deserialized) object stored in the cache.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         serializer = serializer or PickleSerializer()
@@ -236,7 +268,7 @@ class Cache(Duct):
             )
 
     @require_connection
-    def get_bytecount(self, key, namespace=None):
+    def get_bytecount(self, key: str, namespace: str | None = None) -> int:
         """
         Retrieve the number of bytes used by a stored key.
 
@@ -244,12 +276,12 @@ class Cache(Duct):
         the backend.
 
         Args:
-            key (str): The key for which to extract the bytecount.
-            namespace (str, None): The namespace to be used.
+            key: The key for which to extract the bytecount.
+            namespace: The namespace to be used.
 
         Returns:
-            int: The number of bytes used by the stored value associated with
-                the nominated key and namespace.
+            The number of bytes used by the stored value associated with the
+            nominated key and namespace.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
@@ -257,16 +289,16 @@ class Cache(Duct):
         return self._get_bytecount_for_key(namespace, key)
 
     @require_connection
-    def get_metadata(self, key, namespace=None):
+    def get_metadata(self, key: str, namespace: str | None = None) -> dict[str, Any]:
         """
         Retrieve metadata associated with the nominated key from the cache.
 
         Args:
-            key (str): The key for which to extract metadata.
-            namespace (str, None): The namespace to be used.
+            key: The key for which to extract metadata.
+            namespace: The namespace to be used.
 
         Returns:
-            dict: The metadata associated with this namespace and key.
+            The metadata associated with this namespace and key.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
@@ -275,18 +307,18 @@ class Cache(Duct):
             with self._get_stream_for_key(
                 namespace, key, "metadata", mode="r", create=False
             ) as fh:
-                return yaml.safe_load(fh)
+                return cast(dict[str, Any], yaml.safe_load(fh))
         except:
             return {}
 
     @require_connection
-    def unset(self, key, namespace=None):
+    def unset(self, key: str, namespace: str | None = None) -> None:
         """
         Remove the nominated key from the cache.
 
         Args:
-            key (str): The key which should be unset.
-            namespace (str, None): The namespace to be used.
+            key: The key which should be unset.
+            namespace: The namespace to be used.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         if not self._has_key(namespace, key):
@@ -294,12 +326,12 @@ class Cache(Duct):
         self._remove_key(namespace, key)
 
     @require_connection
-    def unset_namespace(self, namespace=None):
+    def unset_namespace(self, namespace: str | None = None) -> None:
         """
         Remove an entire namespace from the cache.
 
         Args:
-            namespace (str, None): The namespace to be removed.
+            namespace: The namespace to be removed.
         """
         namespace = self._namespace(namespace)
         if not self._has_namespace(namespace):
@@ -310,57 +342,54 @@ class Cache(Duct):
 
     @property
     @require_connection
-    def namespaces(self):
-        "list <str,None>: A list of the namespaces stored in the cache."
+    def namespaces(self) -> list[str]:
+        "A list of the namespaces stored in the cache."
         return self._get_namespaces()
 
     @require_connection
-    def has_namespace(self, namespace=None):
+    def has_namespace(self, namespace: str | None = None) -> bool:
         """
         Check whether the cache has the nominated namespace.
 
         Args:
-            namespace (str,None): The namespace for which to check for existence.
+            namespace: The namespace for which to check for existence.
 
         Returns:
-            bool: Whether the cache has the nominated namespaces.
+            Whether the cache has the nominated namespaces.
         """
         namespace = self._namespace(namespace)
         return self._has_namespace(namespace)
 
     @require_connection
-    def keys(self, namespace=None):
+    def keys(self, namespace: str | None = None) -> list[str]:
         """
         Collect a list of all the keys present in the nominated namespaces.
 
         Args:
-            namespace (str,None): The namespace from which to extract all of the
-                keys.
+            namespace: The namespace from which to extract all of the keys.
 
         Returns:
-            list<str>: The keys stored in the cache for the nominated namespace.
+            The keys stored in the cache for the nominated namespace.
         """
         namespace = self._namespace(namespace)
         return self._get_keys(namespace)
 
     @require_connection
-    def has_key(self, key, namespace=None):
+    def has_key(self, key: str, namespace: str | None = None) -> bool:
         """
         Check whether the cache as a nominated key.
 
         Args:
-            key (str): The key for which to check existence.
-            namespace (str,None): The namespace from which to extract all of the
-                keys.
+            key: The key for which to check existence.
+            namespace: The namespace from which to extract all of the keys.
 
         Returns:
-            bool: Whether the cache has a value for the nominated namespace and
-                key.
+            Whether the cache has a value for the nominated namespace and key.
         """
         namespace, key = self._namespace(namespace), self._key(key)
         return self._has_key(namespace, key)
 
-    def get_total_bytecount(self, namespaces=None):
+    def get_total_bytecount(self, namespaces: list[str] | None = None) -> int:
         """
         Retrieve the total number of bytes used by the cache.
 
@@ -368,11 +397,11 @@ class Cache(Duct):
         therein, summing the result of `.get_bytecount(...)` on each.
 
         Args:
-            namespaces (list<str,None>): The namespaces to which the bytecount
-                should be restricted.
+            namespaces: The namespaces to which the bytecount should be
+                restricted.
 
         Returns:
-            int: The total number of bytes used by the nominated namespaces.
+            The total number of bytes used by the nominated namespaces.
         """
         total_bytes = 0
 
@@ -385,19 +414,19 @@ class Cache(Duct):
 
         return total_bytes
 
-    def describe(self, namespaces=None):
+    def describe(self, namespaces: list[str] | None = None) -> pandas.DataFrame:
         """
         Return a pandas DataFrame showing all keys and their metadata.
 
         Args:
-            namespaces (list<str,None>): The namespaces to which the summary
-                should be restricted.
+            namespaces: The namespaces to which the summary should be
+                restricted.
 
         Returns:
-            pandas.DataFrame: A representation of keys in the cache. Will include
-                at least the following columns: ['bytes', 'namespace', 'key',
-                'created', 'last_accessed']. Any additional metadata for keys
-                will be appended to these columns.
+            A representation of keys in the cache. Will include at least the
+            following columns: ['bytes', 'namespace', 'key', 'created',
+            'last_accessed']. Any additional metadata for keys will be appended
+            to these columns.
         """
         out = []
 
@@ -422,7 +451,7 @@ class Cache(Duct):
             order = required_columns + sorted(
                 set(df.columns).difference(required_columns)
             )
-            return df.sort_values("last_accessed", ascending=False).reset_index(
+            return df.sort_values("last_accessed", ascending=False).reset_index(  # type: ignore[no-any-return]
                 drop=True
             )[order]
 
@@ -432,31 +461,35 @@ class Cache(Duct):
 
     def prune(
         self,
-        namespaces=None,
-        max_age=None,
-        max_bytes=None,
-        total_bytes=None,
-        total_count=None,
-    ):
+        namespaces: list[str] | None = None,
+        max_age: int
+        | datetime.timedelta
+        | dateutil.relativedelta.relativedelta
+        | datetime.date
+        | datetime.datetime
+        | None = None,
+        max_bytes: int | None = None,
+        total_bytes: int | None = None,
+        total_count: int | None = None,
+    ) -> None:
         """
         Remove keys from the cache in order to satisfy nominated constraints.
 
         Args:
-            namespaces (list<str, None>): The namespaces to consider for pruning.
-            max_age (None, int, timedelta, relativedelta, date, datetime): The
-                number of days, a timedelta, or a relativedelta, indicating the
-                maximum age of items in the cache (based on last accessed date).
-                Deltas are expected to be positive.
-            max_bytes (None, int): The maximum number of bytes for *each* key,
-                allowing the pruning of larger keys.
-            total_bytes (None, int): The total number of bytes for the entire
-                cache. Keys will be removed from least recently accessed to most
-                recently accessed until the constraint is satisfied. This
-                constraint will be applied after max_age and max_bytes.
-            total_count (None, int): The maximum number of items to keep in the
-                cache. Keys will be removed from least recently accessed to most
-                recently accessed until the constraint is satisfied. This
-                constraint will be applied after max_age and max_bytes.
+            namespaces: The namespaces to consider for pruning.
+            max_age: The number of days, a timedelta, or a relativedelta,
+                indicating the maximum age of items in the cache (based on last
+                accessed date). Deltas are expected to be positive.
+            max_bytes: The maximum number of bytes for *each* key, allowing the
+                pruning of larger keys.
+            total_bytes: The total number of bytes for the entire cache. Keys
+                will be removed from least recently accessed to most recently
+                accessed until the constraint is satisfied. This constraint will
+                be applied after max_age and max_bytes.
+            total_count: The maximum number of items to keep in the cache. Keys
+                will be removed from least recently accessed to most recently
+                accessed until the constraint is satisfied. This constraint will
+                be applied after max_age and max_bytes.
         """
         usage = self.describe(namespaces=namespaces)
         if (
@@ -488,7 +521,7 @@ class Cache(Duct):
             constraints.append(usage.bytes > max_bytes)
 
         if constraints:
-            to_unset = usage[functools.reduce(lambda x, y: x | y, constraints, False)]
+            to_unset = usage[functools.reduce(lambda x, y: x | y, constraints)]
             for _, row in to_unset.iterrows():
                 logger.info(
                     f"Unsetting key '{row.key}' (namespace: '{row.namespace}')..."
@@ -512,7 +545,8 @@ class Cache(Duct):
             unset_index = total_count if total_count is not None else len(usage)
             if total_bytes is not None:
                 unset_index = min(
-                    unset_index, usage.cum_bytes.searchsorted(total_bytes, side="right")
+                    unset_index,
+                    int(usage.cum_bytes.searchsorted(total_bytes, side="right")),
                 )
             for _, row in usage.loc[unset_index:].iterrows():
                 logger.info(
@@ -522,38 +556,45 @@ class Cache(Duct):
 
     # Methods for subclasses to implement
 
-    def _namespace(self, namespace):
+    def _namespace(self, namespace: str | None) -> str | None:
         return namespace
 
-    def _key(self, key):
+    def _key(self, key: str) -> str:
         return key
 
     @abstractmethod
-    def _get_namespaces(self):
+    def _get_namespaces(self) -> list[str]:
         raise NotImplementedError
 
-    def _has_namespace(self, namespace):
+    def _has_namespace(self, namespace: str | None) -> bool:
         return namespace in self._get_namespaces()
 
     @abstractmethod
-    def _remove_namespace(self, namespace):
+    def _remove_namespace(self, namespace: str | None) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def _get_keys(self, namespace):
+    def _get_keys(self, namespace: str | None) -> list[str]:
         raise NotImplementedError
 
-    def _has_key(self, namespace, key):
+    def _has_key(self, namespace: str | None, key: str) -> bool:
         return key in self._get_keys(namespace=namespace)
 
     @abstractmethod
-    def _remove_key(self, namespace, key):
+    def _remove_key(self, namespace: str | None, key: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def _get_bytecount_for_key(self, namespace, key):
+    def _get_bytecount_for_key(self, namespace: str | None, key: str) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def _get_stream_for_key(self, namespace, key, stream_name, mode, create):
+    def _get_stream_for_key(
+        self,
+        namespace: str | None,
+        key: str,
+        stream_name: str,
+        mode: str,
+        create: bool,
+    ) -> IO[Any]:
         pass
