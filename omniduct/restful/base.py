@@ -63,7 +63,9 @@ class RestClientBase(Duct):
             **kwargs: Additional keyword arguments passed on to
                 subclasses.
         """
-        Duct.__init_with_kwargs__(self, kwargs, port=80)
+        Duct.__init_with_kwargs__(
+            self, kwargs, port=443 if server_protocol.lower() == "https" else 80
+        )
 
         self.server_protocol = server_protocol
         self.assume_json = assume_json
@@ -83,8 +85,9 @@ class RestClientBase(Duct):
     @property
     def base_url(self) -> str:
         """str: The base url of the REST API."""
+        default_port = 443 if self.server_protocol.lower() == "https" else 80
         url = urljoin(
-            f"{self.server_protocol}://{self.host}:{self.port or 80}",
+            f"{self.server_protocol}://{self.host}:{self.port or default_port}",
             self.endpoint_prefix,
         )
         if not url.endswith("/"):
