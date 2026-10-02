@@ -104,7 +104,7 @@ class CursorFormatter:
             else:
                 row = self.cursor.fetchone()
                 while row is not None:
-                    yield self._format_row(row)
+                    yield self._format_row(self._prepare_row(row))
                     row = self.cursor.fetchone()
         finally:
             self.cursor.close()
@@ -259,9 +259,9 @@ class HiveCursorFormatter(CsvCursorFormatter):
     FORMAT_PARAMS: dict[str, Any] = {
         "delimiter": "\t",
         "doublequote": False,
-        "escapechar": "",
+        "escapechar": None,
         "lineterminator": "\n",
-        "quotechar": "",
+        "quotechar": None,
         "quoting": csv.QUOTE_NONE,
     }
 
