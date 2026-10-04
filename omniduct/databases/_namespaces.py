@@ -72,7 +72,7 @@ class ParsedNamespaces:
 
         elif isinstance(name, str):
             namespace_matcher = re.compile(
-                r"([^{sep}{qc}]+)|{qc}([^`]*?){qc}".format(
+                r"([^{sep}{qc}]+)|{qc}([^{qc}]*?){qc}".format(
                     qc=re.escape(quote_char), sep=re.escape(separator)
                 )
             )

@@ -29,6 +29,29 @@ class TestParseNamespaces:
             "table": "my . table",
         }
 
+    @pytest.mark.parametrize(
+        "quote_char, separator, table",
+        [
+            ('"', ".", "my`table"),
+            ('"', ".", "my`table.with.dots"),
+            ('"', "|", "my`table|with|separators"),
+            ("`", ".", 'my"table.with.dots'),
+        ],
+    )
+    def test_quoted_names_with_other_quote_characters(
+        self, quote_char, separator, table
+    ):
+        name = f"{quote_char}database{quote_char}{separator}{quote_char}{table}{quote_char}"
+        namespace = ParsedNamespaces.from_name(
+            name,
+            namespaces=["database", "table"],
+            quote_char=quote_char,
+            separator=separator,
+        )
+
+        assert namespace.as_dict() == {"database": "database", "table": table}
+        assert namespace.render() == name
+
     def test_separator(self):
         namespace = ParsedNamespaces.from_name(
             name="cat|my_db|my_table",
