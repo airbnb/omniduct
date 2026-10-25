@@ -193,7 +193,7 @@ class SQLAlchemyClient(DatabaseClient, SchemasMixin):
         return _pandas.to_sql(
             df=df,
             name=table.table,  # type: ignore
-            schema=table.database,
+            schema=table.database or None,
             con=self.engine,
             index=False,
             if_exists=if_exists,
