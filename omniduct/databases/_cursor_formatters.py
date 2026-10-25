@@ -82,7 +82,9 @@ class CursorFormatter:
             self.cursor.close()
         return out
 
-    def stream(self, batch: int | None = None) -> Generator[Any, None, None]:
+    def stream(
+        self, batch: int | None = None, include_header: bool = False
+    ) -> Generator[Any, None, None]:
         """
         Format and output data in the cursor incrementally.
 
@@ -90,17 +92,23 @@ class CursorFormatter:
             batch: The number of rows to transform in one go. If `None`, each
                 row in the cursor is output separately. If an integer, including
                 `1`, output is a list of formatted rows of length `batch`.
+            include_header: Whether to output a header before the rows, if
+                supported and enabled by the formatter.
 
         Returns:
-            The formatted rows of the cursor.
+            The formatted rows of the cursor, optionally preceded by a header.
         """
         try:
+            if include_header:
+                header = self._format_header()
+                if header is not None:
+                    yield header
             if batch is not None:
                 while True:
                     b = [self._prepare_row(row) for row in self.cursor.fetchmany(batch)]
                     if len(b) == 0:
                         return
-                    yield self._format_dump(b)
+                    yield self._format_batch(b)
             else:
                 row = self.cursor.fetchone()
                 while row is not None:
@@ -111,6 +119,12 @@ class CursorFormatter:
 
     def _prepare_row(self, row: Any) -> Any:
         return row
+
+    def _format_header(self) -> Any:
+        return None
+
+    def _format_batch(self, data: list[Any]) -> Any:
+        return self._format_dump(data)
 
     def _format_dump(self, data: list[Any]) -> Any:
         raise NotImplementedError(
@@ -229,9 +243,15 @@ class CsvCursorFormatter(CursorFormatter):
         self.include_header = include_header
         self.writer = csv.writer(self.output, **self.FORMAT_PARAMS)
 
-    def _format_dump(self, data: list[Any]) -> str:
+    def _format_header(self) -> str | None:
         if self.include_header:
-            self.writer.writerow(self.column_names)
+            return self._format_row(self.column_names)
+        return None
+
+    def _format_dump(self, data: list[Any]) -> str:
+        return (self._format_header() or "") + self._format_batch(data)
+
+    def _format_batch(self, data: list[Any]) -> str:
         try:
             self.writer.writerows(data)
             return self.output.getvalue()

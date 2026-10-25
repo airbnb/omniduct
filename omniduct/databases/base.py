@@ -418,6 +418,7 @@ class DatabaseClient(Duct, MagicsProvider):
         This method returns a generator over objects representing rows in the
         result set. If `batch` is not `None`, then the iterator
         will be over lists of length `batch` containing formatted rows.
+        CSV streams contain only row data, without a column header.
 
         Args:
             statement: The statement to be executed against the database.
@@ -470,27 +471,32 @@ class DatabaseClient(Duct, MagicsProvider):
         file: str | Any,
         format: str = "csv",
         fs: FileSystemClient | None = None,
+        format_opts: dict[str, Any] | None = None,
+        batch: int | None = None,
         **kwargs: Any,
     ) -> None:
         """
         Execute a statement against this database and stream results to a file.
 
-        This method is a wrapper around `DatabaseClient.stream` that enables the
-        iterative writing of cursor results to a file. This is especially useful
-        when there are a very large number of results, and loading them all into
-        memory would require considerable resources. Note that 'csv' is the
-        default format for this method (rather than `pandas`).
+        This method writes cursor results to a file incrementally. This is
+        especially useful when there are a very large number of results, and
+        loading them all into memory would require considerable resources.
+        Note that 'csv' is the default format for this method (rather than
+        `pandas`). CSV files include a single column header, even for empty
+        result sets. Pass `format_opts={'include_header': False}` to omit it.
 
         Args:
             statement: The statement to be executed against the database.
             file: The filename where the data should be written, or an open
                 file-like resource.
-            format: The format to be used ('csv' by default). Format options
-                can be passed via `**kwargs`.
+            format: The format to be used ('csv' by default).
             fs: The filesystem within which the nominated file should be found.
                 If `None`, the local filesystem will be used.
+            format_opts: A dictionary of format-specific options.
+            batch: If not `None`, the number of rows from the resulting cursor
+                to be returned at once.
             **kwargs: Additional keyword arguments to pass onto
-                `DatabaseClient.stream`.
+                `DatabaseClient.execute`.
         """
         close_later = False
         if isinstance(file, str):
@@ -498,7 +504,9 @@ class DatabaseClient(Duct, MagicsProvider):
             close_later = True
 
         try:
-            file.writelines(self.stream(statement, format=format, **kwargs))
+            cursor = self.execute(statement, wait=True, **kwargs)
+            formatter = self._get_formatter(format, cursor, **(format_opts or {}))
+            file.writelines(formatter.stream(batch=batch, include_header=True))
         finally:
             if close_later:
                 file.close()
